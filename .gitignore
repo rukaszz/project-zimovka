@@ -1,0 +1,13 @@
+*.o
+*.make
+/CMakeFiles/*
+/build/*
+/bin/*
+/_deps/*
+/lib/*
+CMakeCache.txt
+*.log
+Makefile
+*.zip
+/assets/*
+/release_sampleCode/*
