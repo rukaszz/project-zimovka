@@ -15,7 +15,8 @@ endif()
 # 実行ファイルの出力先(binに出力)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
-# pkg-config を利用してSDL2系ライブラリを検索
+# pkg-config を利用してSDL2系ライブラリを検索(Linux)
+# TODO: Windows用の対応も必要
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(SDL2       REQUIRED sdl2)
 pkg_check_modules(SDL2IMAGE  REQUIRED SDL2_image)

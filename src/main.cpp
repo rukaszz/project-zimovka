@@ -1,4 +1,4 @@
-#include "app/Application.hpp"
+#include "zimovka/app/Application.hpp"
 
 int main(int argc, char* argv[]){
     Application app;

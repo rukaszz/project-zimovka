@@ -1,5 +1,5 @@
-#ifndef ZIMOKA_APP_APPLICATION_H_
-#define ZIMOKA_APP_APPLICATION_H_
+#ifndef APP_APPLICATION_H_
+#define APP_APPLICATION_H_
 
 class Application{
 public:
@@ -18,4 +18,4 @@ private:
     void render();
 };
 
-#endif  // ZIMOKA_APP_APPLICATION_H_
+#endif  // APP_APPLICATION_H_
