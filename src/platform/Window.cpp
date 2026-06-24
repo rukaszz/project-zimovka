@@ -18,8 +18,7 @@
  * @param height: windowの高さ
  */
 
-Window::Window(const std::string& title, int width, int height){
-
+zimovka::Window::Window(const std::string& title, int width, int height){
     // windowオブジェクト生成
     window_ = SDL_CreateWindow(
         title.c_str(), 
@@ -39,10 +38,20 @@ Window::Window(const std::string& title, int width, int height){
  * @brief Destroy the Window:: Window object
  * 
  */
-Window::~Window(){
+zimovka::Window::~Window(){
     // Windowオブジェクト破棄
+    reset();
+}
+
+/**
+ * @brief windowメンバ変数破棄処理
+ * 
+ */
+void zimovka::Window::reset() noexcept{
+    // window_がnullでないなら破棄する
     if(window_){
         SDL_DestroyWindow(window_);
+        window_ = nullptr;
     }
 }
 
@@ -51,7 +60,7 @@ Window::~Window(){
  * 
  * @return SDL_Point 
  */
-SDL_Point Window::getWindowSize() const{
+SDL_Point zimovka::Window::getWindowSize() const{
     SDL_Point p{0, 0};
     // windowオブジェクトの存在チェック
     if(window_){

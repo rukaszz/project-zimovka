@@ -1,5 +1,7 @@
-#ifndef APP_APPLICATION_H_
-#define APP_APPLICATION_H_
+#ifndef APP_APPLICATION_HPP_
+#define APP_APPLICATION_HPP_
+
+namespace zimovka{
 
 class Application{
 public:
@@ -18,4 +20,6 @@ private:
     void render();
 };
 
-#endif  // APP_APPLICATION_H_
+}   // namespace zimovka
+
+#endif  // APP_APPLICATION_HPP_

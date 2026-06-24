@@ -1,9 +1,11 @@
-#ifndef PLATFORM_WINDOW_H_
-#define PLATFORM_WINDOW_H_
+#ifndef PLATFORM_WINDOW_HPP_
+#define PLATFORM_WINDOW_HPP_
 
 #include <string>
 
 #include <SDL2/SDL.h>
+
+namespace zimovka{
 
 /**
  * @brief SDLのウィンドウシステムのRAII管理用ラッパクラス
@@ -11,7 +13,6 @@
  */
 class Window{
 private:
-    // SDL_Window変数
     SDL_Window* window_ = nullptr;
 
 public:
@@ -29,13 +30,17 @@ public:
     }
     // ムーブ代入演算子
     Window& operator=(Window&& other) noexcept{
+        // 異なるwindow_への=演算子によるムーブ
         if(this != &other){
+            reset();                    // 既存window_の破棄
             window_ = other.window_;    // 右辺をムーブ
             other.window_ = nullptr;    // 右辺値は無効化
         }
         return *this;   // ムーブされたメンバを返す
     }
 
+    // window片付け処理
+    void reset() noexcept;
     // windowサイズ返却
     SDL_Point getWindowSize() const;
 
@@ -45,4 +50,6 @@ public:
     }
 };
 
-#endif // PLATFORM_WINDOW_H_
+}   // namespace zimovka
+
+#endif // PLATFORM_WINDOW_HPP_
