@@ -11,5 +11,5 @@
 int main(int argc, char* argv[]){
     // ゲーム起動
     zimovka::Application app;
-    return app.run(argc, argv);
+    return app.Run(argc, argv);
 }

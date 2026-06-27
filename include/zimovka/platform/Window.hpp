@@ -1,5 +1,5 @@
-#ifndef PLATFORM_WINDOW_HPP_
-#define PLATFORM_WINDOW_HPP_
+#ifndef ZIMOVKA_PLATFORM_WINDOW_HPP_
+#define ZIMOVKA_PLATFORM_WINDOW_HPP_
 
 #include <string>
 
@@ -32,7 +32,7 @@ public:
     Window& operator=(Window&& other) noexcept{
         // 異なるwindow_への=演算子によるムーブ
         if(this != &other){
-            reset();                    // 既存window_の破棄
+            Reset();                    // 既存window_の破棄
             window_ = other.window_;    // 右辺をムーブ
             other.window_ = nullptr;    // 右辺値は無効化
         }
@@ -40,16 +40,16 @@ public:
     }
 
     // window片付け処理
-    void reset() noexcept;
+    void Reset() noexcept;
     // windowサイズ返却
-    SDL_Point getWindowSize() const;
+    SDL_Point GetWindowSize() const;
 
     // windowオブジェクト取得用
-    SDL_Window* get() const{
+    SDL_Window* Get() const{
         return window_;
     }
 };
 
 }   // namespace zimovka
 
-#endif // PLATFORM_WINDOW_HPP_
+#endif // ZIMOVKA_PLATFORM_WINDOW_HPP_

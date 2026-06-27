@@ -40,14 +40,14 @@ zimovka::Window::Window(const std::string& title, int width, int height){
  */
 zimovka::Window::~Window(){
     // Windowオブジェクト破棄
-    reset();
+    Reset();
 }
 
 /**
  * @brief windowメンバ変数破棄処理
  * 
  */
-void zimovka::Window::reset() noexcept{
+void zimovka::Window::Reset() noexcept{
     // window_がnullでないなら破棄する
     if(window_){
         SDL_DestroyWindow(window_);
@@ -60,7 +60,7 @@ void zimovka::Window::reset() noexcept{
  * 
  * @return SDL_Point 
  */
-SDL_Point zimovka::Window::getWindowSize() const{
+SDL_Point zimovka::Window::GetWindowSize() const{
     SDL_Point p{0, 0};
     // windowオブジェクトの存在チェック
     if(window_){

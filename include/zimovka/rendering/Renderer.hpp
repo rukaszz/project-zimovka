@@ -1,10 +1,14 @@
-#ifndef RENDERING_RENDERER_HPP_
-#define RENDERING_RENDERER_HPP_
+#ifndef ZIMOVKA_RENDERING_RENDERER_HPP_
+#define ZIMOVKA_RENDERING_RENDERER_HPP_
 
 #include <SDL2/SDL.h>
 
 namespace zimovka{
 
+/**
+ * @brief Windowと結びつく描画用抽象レイヤーRendererを管理するRAIIラッパクラス
+ * 
+ */
 class Renderer{
 private:
     // SDL_Renderer*オブジェクト
@@ -25,7 +29,7 @@ public:
     Renderer& operator=(Renderer&& other) noexcept{
         // 異なるrenderer_への=演算子によるムーブ
         if(this != &other){
-            reset();                        // 既存window_の破棄
+            Reset();                        // 既存window_の破棄
             renderer_ = other.renderer_;    // 右辺をムーブ
             other.renderer_ = nullptr;      // 右辺値は無効化
         }   
@@ -33,18 +37,16 @@ public:
     }
 
     // 描画処理関数
-    void clear();
-    void reset() noexcept;
-    void present();
+    void Clear();
+    void Reset() noexcept;
+    void Present();
 
-    // 簡易的な動作確認用関数
-    void setDrawColoer();
     // getter
-    SDL_Renderer* get() const{
+    SDL_Renderer* Get() const{
         return renderer_;
     }
 };
 
 }   // namespace zimovka
 
-#endif  // RENDERING_RENDERER_HPP_
+#endif  // ZIMOVKA_RENDERING_RENDERER_HPP_

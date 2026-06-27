@@ -1,5 +1,5 @@
-#ifndef PLATFORM_SDLCONTEXT_HPP_
-#define PLATFORM_SDLCONTEXT_HPP_
+#ifndef ZIMOVKA_PLATFORM_SDLCONTEXT_HPP_
+#define ZIMOVKA_PLATFORM_SDLCONTEXT_HPP_
 
 namespace zimovka{
 
@@ -56,4 +56,4 @@ public:
 
 }   // namespace zimovka
 
-#endif  // PLATFORM_SDLCONTEXT_HPP_
+#endif  // ZIMOVKA_PLATFORM_SDLCONTEXT_HPP_
