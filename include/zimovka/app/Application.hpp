@@ -3,7 +3,13 @@
 
 #include <chrono>
 
+#include "zimovka/input/InputSystem.hpp"
+#include "zimovka/system/player/PlayerSystem.hpp"
+
 namespace zimovka{
+
+// 前方宣言
+class PrimitiveRenderer;
 
 /**
  * @brief ゲームのメインループを管理するクラス
@@ -22,13 +28,17 @@ public:
 private:
     // メインゲームループ制御
     bool running_ = true;
+    // 入力
+    InputSystem input_system_;
+    // プレイヤーシステム
+    PlayerSystem player_system_;
 
     // イベントの処理
     void ProcessEvents();
     // ゲームの更新
-    void Update(float dt);
+    void Update(float dt, const InputState& state);
     // 描画処理
-    void Render();
+    void Render(PrimitiveRenderer& prim);
     // fpsキャップ
     void CapFrameRate(std::chrono::steady_clock::time_point frame_start_ms);
 };

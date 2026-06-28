@@ -8,85 +8,66 @@
 namespace zimovka{
 
 /**
- * @brief 1フレーム文の入力状態スナップショット
- * →配列で{0, 1, 1, 0, 0}みたく管理する
- * ※リプレイ機能のためにビット管理する
+ * @brief 1フレーム分の入力状態スナップショット
+ * Bit Maskを用いて0, 1の並びで管理する
+ * ※リプレイ時は1フレーム分の入力値を整数値として記録していく
  * 
  * held     : 押され続けている
  * pressed  : このフレームで押された
- * released : このフレームで離れた
+ * released : このフレームで入力解除された
  * 
  */
 class InputState{
 private:
-    std::uint32_t heldBits_ = 0;
-    std::uint32_t pressedBits_ = 0;
-    std::uint32_t releasedBits_ = 0;
+    std::uint32_t held_bits_ = 0;
+    std::uint32_t pressed_bits_ = 0;
+    std::uint32_t released_bits_ = 0;
 
 public:
     // 状態の確認
     // 0/1 and 0/1 のビット演算を実施して0ではない = 1(押されている)としてtrueになる
-    bool IsHeld(zimovka::Action act) const noexcept{
-        return (heldBits_ & ActionBit(act)) != 0;
-    }
-    bool IsPressed(zimovka::Action act) const noexcept{
-        return (pressedBits_ & ActionBit(act)) != 0;
-    }
-    bool IsReleased(zimovka::Action act) const noexcept{
-        return (releasedBits_ & ActionBit(act)) != 0;
-    }
+    bool IsHeld(zimovka::Action act) const noexcept;
+    bool IsPressed(zimovka::Action act) const noexcept;
+    bool IsReleased(zimovka::Action act) const noexcept;
     // 状態の参照
     // 現在の各Actionの押されている状態を取得
-    std::uint32_t GetHeldBits() const noexcept{
-        return heldBits_;
-    }
-    std::uint32_t GetPressedBits() const noexcept{
-        return pressedBits_;
-    }
-    std::uint32_t GetReleasedBits() const noexcept{
-        return releasedBits_;
-    }
+    std::uint32_t GetHeldBits() const noexcept;
+    std::uint32_t GetPressedBits() const noexcept;
+    std::uint32_t GetReleasedBits() const noexcept;
     // 押した/離れたの一時的な状態を初期化
-    void ClearTransient() noexcept{
-        pressedBits_ = 0;
-        releasedBits_ = 0;
-    }
+    void ClearTransient() noexcept;
     /**
      * 注意
      * このsetter群は外部から呼べてしまう
-     * friendクラスにする代わりに運用で外部から呼ばないように防止する
+     * InputSystemが入力状態を構築するための更新API．
+     * ゲームロジック側には const InputState& のみを渡す．
      */
     // 押され続けているか判定
-    void SetHeld(Action act, bool val) noexcept{
-        // Actionのビット変換
-        const std::uint32_t bit = ActionBit(act);
-        // valで押されている/押されていないを切り替える
-        if(val){
-            // OR演算でどちらかが立っているなら1になる
-            heldBits_ |= bit;
-        } else {
-            // ~bitでそのビットが0になるので，AND演算でactのビットのみ0になる
-            heldBits_ &= ~bit;
-        }
-    }
+    void SetHeld(zimovka::Action act, bool val) noexcept;
     // 押されたか判定
-    void SetPressed(Action act) noexcept{
-        pressedBits_ |= ActionBit(act);
-    }
+    void SetPressed(zimovka::Action act) noexcept;
     // 離されたか判定
-    void SetReleased(Action act) noexcept{
-        releasedBits_ |= zimovka::ActionBit(act);
-    }
+    void SetReleased(zimovka::Action act) noexcept;
+    /**
+     * @brief Bit MaskからInputState型オブジェクトを作成する
+     * コンストラクタを介さず外部からBit Maskを渡してInputStateを作れる
+     * いわゆる代替コンストラクタ
+     * 
+     * @param held_bits 
+     * @param pressed_bits 
+     * @param released_bits 
+     * @return InputState 
+     */
     static InputState FromBits(
-        std::uint32_t heldBits, 
-        std::uint32_t pressedBits, 
-        std::uint32_t releaseBits 
+        std::uint32_t held_bits, 
+        std::uint32_t pressed_bits, 
+        std::uint32_t released_bits 
     ) noexcept 
     {
         InputState state;
-        state.heldBits_ = heldBits;
-        state.pressedBits_ = pressedBits;
-        state.releasedBits_ = releaseBits;
+        state.held_bits_ = held_bits;
+        state.pressed_bits_ = pressed_bits;
+        state.released_bits_ = released_bits;
         return state;
     }
 };

@@ -31,6 +31,10 @@ add_executable(${PROJECT_NAME}
     src/platform/SdlContext.cpp
     src/platform/Window.cpp
     src/rendering/Renderer.cpp
+    src/rendering/PrimitiveRenderer.cpp
+    src/input/InputState.cpp
+    src/input/InputSystem.cpp
+    src/system/player/PlayerSystem.cpp
 )
 
 # インクルードパス

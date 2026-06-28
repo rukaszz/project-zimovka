@@ -7,6 +7,8 @@
 #include "zimovka/platform/SdlContext.hpp"
 #include "zimovka/platform/Window.hpp"
 #include "zimovka/rendering/Renderer.hpp"
+#include "zimovka/rendering/PrimitiveRenderer.hpp"
+#include "zimovka/input/Action.hpp"
 
 /**
  * @brief ゲーム実行関数
@@ -24,6 +26,10 @@ int zimovka::Application::Run(int argc, char* argv[]){
     SdlContext sdl;
     Window window("Zimovka", 960, 720);
     Renderer renderer(window.Get());
+    PrimitiveRenderer prim(renderer.Get());
+
+    // プレイヤーの初期化
+    player_system_.Initialize(960.0f, 720.0f);
 
     // 固定タイムステップ用クロック(steady_clockはis_steadyが保証される)
     using Clock = std::chrono::steady_clock;
@@ -64,13 +70,13 @@ int zimovka::Application::Run(int argc, char* argv[]){
         acc += elapsed;
         // 0.016s毎に更新をしていく
         while(acc >= fixed_ns){
-            Update(fixed_delta);
+            Update(fixed_delta, input_system_.GetState());
             acc -= fixed_ns;
         }
 
         // 描画: clear → render → present の順を守る
         renderer.Clear();
-        Render();
+        Render(prim);
         renderer.Present();
 
         // fpsキャップ
@@ -85,15 +91,21 @@ int zimovka::Application::Run(int argc, char* argv[]){
  *
  */
 void zimovka::Application::ProcessEvents(){
+    // inputstate初期化
+    input_system_.BeginFrame();
+    // SDL_Event取得
     SDL_Event event;
     while(SDL_PollEvent(&event)){
         if(event.type == SDL_QUIT){
             running_ = false;
+            continue;
         }
-        // ESCキー入力で終了
-        if(event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE){
-            running_ = false;
-        }
+        // キー入力取得
+        input_system_.HandleEvent(event);
+    }
+    // ESCキー入力で終了(イベント処理後に入力状態を確認し終了する)
+    if(input_system_.IsPressed(zimovka::Action::Quit)){
+        running_ = false;
     }
 }
 
@@ -102,16 +114,16 @@ void zimovka::Application::ProcessEvents(){
  *
  * @param dt 固定タイムステップ(秒)
  */
-void zimovka::Application::Update(float dt){
-    (void)dt;
+void zimovka::Application::Update(float dt, const InputState& state){
+    player_system_.Update(dt, state);
 }
 
 /**
  * @brief 描画処理
  *
  */
-void zimovka::Application::Render(){
-
+void zimovka::Application::Render(PrimitiveRenderer& prim){
+    player_system_.Render(prim);
 }
 
 /**
