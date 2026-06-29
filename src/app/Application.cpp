@@ -24,12 +24,12 @@ int zimovka::Application::Run(int argc, char* argv[]){
 
     // SDLの初期化
     SdlContext sdl;
-    Window window("Zimovka", 960, 720);
+    Window window("Zimovka", WINDOW_WIDTH, WINDOW_HEIGHT);
     Renderer renderer(window.Get());
     PrimitiveRenderer prim(renderer.Get());
 
     // プレイヤーの初期化
-    player_system_.Initialize(960.0f, 720.0f);
+    player_system_.Initialize(static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT));
 
     // 固定タイムステップ用クロック(steady_clockはis_steadyが保証される)
     using Clock = std::chrono::steady_clock;

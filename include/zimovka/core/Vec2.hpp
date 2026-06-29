@@ -2,8 +2,8 @@
 #define ZIMOVKA_CORE_VEC2_HPP_
 
 #include <cmath>
-#include <ios>
-#include <type_traits>
+#include <istream>
+#include <ostream>
 
 namespace zimovka{
 
@@ -69,7 +69,7 @@ struct Vec2{
     Vec2 Normalized() const{
         // ゼロ除算チェックは必要
         const float len = Length();
-        return (len > 0.0f) ? *this/Length() : Vec2{0.0f, 0.0f};
+        return (len > 0.0f) ? *this/len : Vec2{0.0f, 0.0f};
     }
     /**
      * @brief ゼロベクトルかを返す
@@ -179,20 +179,6 @@ struct Vec2{
         y /= k;
         return *this;
     }
-    // 左辺がスカラの二項演算
-    /**
-     * @brief 左オペランドが定数なのでメンバにできない
-     * 同ファイルに置くだけでADLが見つけられる(using不要)
-     * Vec2の振る舞いではなく，外部から見たVec2の振る舞いの定義
-     * なのでfriendを用いて外部から非メンバのVec2へアクセスできるようにしている
-     * 
-     * @param k 
-     * @param v 
-     * @return Vec2 
-     */
-    friend inline Vec2 operator*(float k, const Vec2& v){
-        return {k*v.x, k*v.y};
-    }
     // 入出力ストリームの"<<"と">>"をオーバロード
     // <<
     template <class Char, class Traits>
@@ -203,6 +189,21 @@ struct Vec2{
     friend std::basic_istream<Char, Traits>&
     operator>>(std::basic_istream<Char, Traits>& is, Vec2& v);
 };
+
+// 左辺がスカラの二項演算
+/**
+ * @brief 左オペランドが定数なのでメンバにできない
+ * 同ファイルに置くだけでADLが見つけられる(using不要)
+ * Vec2の振る舞いではなく，外部から見たVec2の振る舞いの定義
+ * なのでfriendを用いて外部から非メンバのVec2へアクセスできるようにしている
+ * 
+ * @param k 
+ * @param v 
+ * @return Vec2 
+ */
+inline Vec2 operator*(float k, const Vec2& v){
+    return {k*v.x, k*v.y};
+}
 
 // 出力演算子オーバーロード
 template <class Char, class Traits>

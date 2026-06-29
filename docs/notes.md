@@ -166,3 +166,9 @@ inline Vec2 operator*(float s, const Vec2& v){
 非常に参考になるQiitaの記事：
 
 [Vec2クラスを作る](https://qiita.com/Reputeless/items/96226cfe1282a014b147)
+
+※0除算の取り扱いの考慮が必要
+
+### 2026/06/30
+
+PlayerSystemやBulletに，SDL_Colorのためだけに`<SDL2/SDL.h>`をインクルードするのは重たいので，SDL_Colorと同様の定義を持つColor.hppを定義している．

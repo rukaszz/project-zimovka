@@ -34,7 +34,7 @@ add_executable(${PROJECT_NAME}
     src/rendering/PrimitiveRenderer.cpp
     src/input/InputState.cpp
     src/input/InputSystem.cpp
-    src/system/player/PlayerSystem.cpp
+    src/systems/player/PlayerSystem.cpp
 )
 
 # インクルードパス

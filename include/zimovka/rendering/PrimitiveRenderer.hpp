@@ -3,6 +3,8 @@
 
 #include <SDL2/SDL.h>
 
+#include "zimovka/rendering/Color.hpp"
+
 namespace zimovka{
 
 /**
@@ -18,15 +20,15 @@ public:
     explicit PrimitiveRenderer(SDL_Renderer* renderer);
 
     // 塗りつぶし矩形（プレイヤー・敵）
-    void DrawFilledRect(float x, float y, float w, float h, SDL_Color color);
+    void DrawFilledRect(float x, float y, float w, float h, Color color);
     // ワイヤーフレーム矩形（ヒットボックス確認用）
-    void DrawRect(float x, float y, float w, float h, SDL_Color color);
+    void DrawRect(float x, float y, float w, float h, Color color);
     // 塗りつぶし円（弾丸）
-    void DrawFilledCircle(float cx, float cy, int radius, SDL_Color color);
+    void DrawFilledCircle(float cx, float cy, int radius, Color color);
 
 private:
     SDL_Renderer* renderer_;
-    void SetColor(SDL_Color color);
+    void SetColor(Color color);
 };
 
 }   // namespace zimovka

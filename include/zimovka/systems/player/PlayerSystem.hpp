@@ -1,8 +1,8 @@
-#ifndef ZIMOVKA_SYSTEM_PLAYER_PLAYERSYSTEM_HPP_
-#define ZIMOVKA_SYSTEM_PLAYER_PLAYERSYSTEM_HPP_
+#ifndef ZIMOVKA_SYSTEMS_PLAYER_PLAYERSYSTEM_HPP_
+#define ZIMOVKA_SYSTEMS_PLAYER_PLAYERSYSTEM_HPP_
 
 #include "zimovka/input/InputState.hpp"
-#include "zimovka/system/player/Player.hpp"
+#include "zimovka/systems/player/Player.hpp"
 
 namespace zimovka{
 
@@ -34,4 +34,4 @@ public:
 
 }   // namespace zimovka
 
-#endif  // ZIMOVKA_SYSTEM_PLAYER_PLAYERSYSTEM_HPP_
+#endif  // ZIMOVKA_SYSTEMS_PLAYER_PLAYERSYSTEM_HPP_

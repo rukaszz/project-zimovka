@@ -1,5 +1,5 @@
-#ifndef ZIMOVKA_SYSTEM_PLAYER_PLAYER_HPP_
-#define ZIMOVKA_SYSTEM_PLAYER_PLAYER_HPP_
+#ifndef ZIMOVKA_SYSTEMS_PLAYER_PLAYER_HPP_
+#define ZIMOVKA_SYSTEMS_PLAYER_PLAYER_HPP_
 
 #include "zimovka/core/Vec2.hpp"
 
@@ -13,7 +13,7 @@ struct Player{
     // 座標
     Vec2 position{480.0f, 600.0f};
     // 通常移動速度
-    float speed = 320.0f;
+    float normal_speed = 320.0f;
     // 低速移動速度
     float slow_speed = 140.0f;
     // プレイヤーの幅/高さ
@@ -25,4 +25,4 @@ struct Player{
 
 }   // namespace zimovka
 
-#endif  // ZIMOVKA_SYSTEM_PLAYER_PLAYER_HPP_
+#endif  // ZIMOVKA_SYSTEMS_PLAYER_PLAYER_HPP_

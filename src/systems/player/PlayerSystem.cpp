@@ -1,9 +1,8 @@
-#include "zimovka/system/player/PlayerSystem.hpp"
+#include "zimovka/systems/player/PlayerSystem.hpp"
 
 #include <cmath>
 
-#include <SDL2/SDL.h>
-
+#include "zimovka/rendering/Color.hpp"
 #include "zimovka/input/Action.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 
@@ -33,37 +32,29 @@ void zimovka::PlayerSystem::Initialize(float screen_width, float screen_height){
  */
 void zimovka::PlayerSystem::Update(float dt, const InputState& input){
     // 移動方向ベクトル
-    float dx = 0.0f;
-    float dy = 0.0f;
-    Vec2 dv(0.0f, 0.0f);
+    Vec2 dir(0.0f, 0.0f);
     // 入力処理(移動)
     if(input.IsHeld(zimovka::Action::MoveLeft)){
-        dx -= 1.0f;
-        dv.x -= 1.0f;
+        dir.x -= 1.0f;
     }
     if(input.IsHeld(zimovka::Action::MoveRight)){
-        dx += 1.0f;
-        dv.x += 1.0f;
+        dir.x += 1.0f;
     }
     if(input.IsHeld(zimovka::Action::MoveUp)){
-        dy -= 1.0f;
-        dv.y -= 1.0f;
+        dir.y -= 1.0f;
     }
     if(input.IsHeld(zimovka::Action::MoveDown)){
-        dy += 1.0f;
-        dv.y += 1.0f;
+        dir.y += 1.0f;
     }
     // 斜め移動
-    if(!dv.IsZero()){
-        dv = dv.Normalized();
+    if(!dir.IsZero()){
+        dir = dir.Normalized();
     }
     // 移動速度決定
     const float speed = input.IsHeld(zimovka::Action::Slow)
-        ? player_.slow_speed : player_.speed;
-    const float move_speed = speed * dt;
+        ? player_.slow_speed : player_.normal_speed;
     // 座標計算
-    player_.position.x += dv.x * move_speed;
-    player_.position.y += dv.y * move_speed;
+    player_.position += dir * (speed * dt);
     // 画面外に出るなら補正
     ClampToScreen();
 }
@@ -76,8 +67,8 @@ void zimovka::PlayerSystem::Update(float dt, const InputState& input){
  */
 void zimovka::PlayerSystem::Render(PrimitiveRenderer& renderer) const{
     // 色の定義
-    const SDL_Color body_color{80, 180, 255, 255};
-    const SDL_Color hitbox_color{255, 255, 255, 255};
+    const Color body_color{80, 180, 255, 255};
+    const Color hitbox_color{255, 255, 255, 255};
     // 左辺と上辺を定義
     const float left = player_.position.x - player_.width * 0.5f;
     const float top = player_.position.y - player_.height * 0.5f;
@@ -97,22 +88,22 @@ void zimovka::PlayerSystem::Render(PrimitiveRenderer& renderer) const{
  * 
  */
 void zimovka::PlayerSystem::ClampToScreen(){
-    // プレイヤーの幅/高さの半分を取得
+    // プレイヤーの幅/高さから中心座標を取得
     const float half_w = player_.width * 0.5f;
     const float half_h = player_.height * 0.5f;
-    // プレイヤーの身体が半分以上画面左端からでるなら，半分だけめり込むように補正
+    // プレイヤーの身体が画面左端からでるなら補正
     if(player_.position.x < half_w){
         player_.position.x = half_w;
     }
-    // プレイヤーの身体が半分以上画面右端からでるなら，半分までめり込むように補正
+    // プレイヤーの身体が画面右端からでるなら補正
     if(player_.position.x > screen_width_ - half_w){
         player_.position.x = screen_width_ - half_w;
     }
-    // プレイヤーの身体が半分以上画面上端からでるなら，半分までめり込むように補正
+    // プレイヤーの身体が画面上端からでるなら補正
     if(player_.position.y < half_h){
         player_.position.y = half_h;
     }
-    // プレイヤーの身体が半分以上画面下端からでるなら，半分までめり込むように補正
+    // プレイヤーの身体が画面下端からでるなら補正
     if(player_.position.y > screen_height_ - half_h){
         player_.position.y = screen_height_ - half_h;
     }

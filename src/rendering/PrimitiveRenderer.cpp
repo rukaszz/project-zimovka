@@ -38,7 +38,7 @@ zimovka::PrimitiveRenderer::PrimitiveRenderer(SDL_Renderer* renderer)
  * 
  * @param c 
  */
-void zimovka::PrimitiveRenderer::SetColor(SDL_Color c){
+void zimovka::PrimitiveRenderer::SetColor(Color c){
     SDL_SetRenderDrawColor(renderer_, c.r, c.g, c.b, c.a);
 }
 
@@ -51,7 +51,7 @@ void zimovka::PrimitiveRenderer::SetColor(SDL_Color c){
  * @param h 高さ
  * @param color 描画色
  */
-void zimovka::PrimitiveRenderer::DrawFilledRect(float x, float y, float w, float h, SDL_Color color){
+void zimovka::PrimitiveRenderer::DrawFilledRect(float x, float y, float w, float h, Color color){
     // 色設定
     SetColor(color);
     // SDL_Rectはint型なのでキャスト
@@ -74,7 +74,7 @@ void zimovka::PrimitiveRenderer::DrawFilledRect(float x, float y, float w, float
  * @param h 高さ
  * @param color 描画色
  */
-void zimovka::PrimitiveRenderer::DrawRect(float x, float y, float w, float h, SDL_Color color){
+void zimovka::PrimitiveRenderer::DrawRect(float x, float y, float w, float h, Color color){
     // 色設定
     SetColor(color);
     // SDL_Rectはint型なのでキャスト
@@ -100,7 +100,7 @@ void zimovka::PrimitiveRenderer::DrawRect(float x, float y, float w, float h, SD
  * @param radius 半径(ピクセル)
  * @param color 描画色
  */
-void zimovka::PrimitiveRenderer::DrawFilledCircle(float cx, float cy, int radius, SDL_Color color){
+void zimovka::PrimitiveRenderer::DrawFilledCircle(float cx, float cy, int radius, Color color){
     if(radius <= 0){
         return;
     }

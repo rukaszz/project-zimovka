@@ -4,7 +4,7 @@
 #include <chrono>
 
 #include "zimovka/input/InputSystem.hpp"
-#include "zimovka/system/player/PlayerSystem.hpp"
+#include "zimovka/systems/player/PlayerSystem.hpp"
 
 namespace zimovka{
 
@@ -21,6 +21,9 @@ public:
     static constexpr int   TARGET_FPS     = 60;
     static constexpr float FRAME_DELAY_MS = 1000.0f / static_cast<float>(TARGET_FPS);
     static constexpr int   MAX_UPDATE_PER_FRAME = 5;
+    // 画面サイズ
+    static constexpr int WINDOW_WIDTH = 960;
+    static constexpr int WINDOW_HEIGHT = 720;
 
     // main.cppで呼び出す
     int Run(int argc, char* argv[]);
