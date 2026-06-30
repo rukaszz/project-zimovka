@@ -169,6 +169,25 @@ inline Vec2 operator*(float s, const Vec2& v){
 
 ※0除算の取り扱いの考慮が必要
 
-### 2026/06/30
+### 2026/06/29
 
 PlayerSystemやBulletに，SDL_Colorのためだけに`<SDL2/SDL.h>`をインクルードするのは重たいので，SDL_Colorと同様の定義を持つColor.hppを定義している．
+
+### 2026/06/30
+
+BulletSystemのコンストラクタについて．
+コンストラクタではreserve()ではなくresize()を使用している．
+これには理由があり，簡単に言うとreserve()ではbegin()とend()が同じ位置を指してしまう．
+
+詳しく言うと，reserve()とresize()は挙動が違う．reserve()で10の容量(capacity)を確保したとき，begin()とend()は同じ位置を指している．つまり，size()==0であり，10個分の容量が確保されているだけ，の状態．
+
+一方resize()は10の容量を確保すると，end()は10(末尾の要素の1つ先)を指す．つまり0〜9の添字が使える配列であり，空の箱を10個用意したような状態となる．そのため，size()==10である．
+
+重要な挙動として，reserve()したあとのpush_backは使用済み要素の次に要素が入る．つまりリスト末尾に追加されていく．resize()は末尾に追加される．すべてのactive==falseの弾を用意するという目的には，resize()が適している．
+
+余談だが，v.reserve(5)をして，v.push_back(10)をした際に，v[3]とかすると空の要素にアクセスしてUB(未定義動作)となる(size()==1である)．
+v.resize(5)をして，v[4]をしてもOK．なお，v.resize(n)を実行すると，n回コンストラクタが呼ばれる．
+
+非常に参考にサイト：
+
+[resize vs reserve](https://suzulang.com/c-stdvector-resize%E3%81%A8reserve%E3%81%AE%E9%81%95%E3%81%84-%E5%8A%A0%E7%AD%86%E4%B8%AD%EF%BC%9F/)

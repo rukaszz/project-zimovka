@@ -35,6 +35,7 @@ add_executable(${PROJECT_NAME}
     src/input/InputState.cpp
     src/input/InputSystem.cpp
     src/systems/player/PlayerSystem.cpp
+    src/systems/bullet/BulletSystem.cpp
 )
 
 # インクルードパス

@@ -115,6 +115,14 @@ void zimovka::Application::ProcessEvents(){
  * @param dt 固定タイムステップ(秒)
  */
 void zimovka::Application::Update(float dt, const InputState& state){
+    bullet_spawn_timer_ += dt;
+    if(bullet_spawn_timer_ >= 0.3f){
+        bullet_spawn_timer_ = 0.0f;
+        temp_spawn_.x += (dt*100);
+        temp_spawn_.y += (dt*10);
+        bullet_system_.Spawn(temp_spawn_, Vec2{0.0f, 15.0f}, 5.0f);   // colorはデフォルト
+    }
+    bullet_system_.Update(dt, WINDOW_WIDTH, WINDOW_HEIGHT);
     player_system_.Update(dt, state);
 }
 
@@ -123,6 +131,7 @@ void zimovka::Application::Update(float dt, const InputState& state){
  *
  */
 void zimovka::Application::Render(PrimitiveRenderer& prim){
+    bullet_system_.Render(prim);
     player_system_.Render(prim);
 }
 
