@@ -6,6 +6,7 @@
 #include "zimovka/input/InputSystem.hpp"
 #include "zimovka/systems/player/PlayerSystem.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
+#include "zimovka/systems/collision/CollisionSystem.hpp"
 
 namespace zimovka{
 
@@ -39,7 +40,9 @@ private:
     // バレットシステム
     BulletSystem bullet_system_;    // デフォルトプールは1200
     float bullet_spawn_timer_ = 0.0f;
-    Vec2 temp_spawn_{7.0f, 11.0f};
+    Vec2 temp_spawn_{7.0f, 11.0f};  // スポーン用の変数(一時的なもの)
+    // 衝突システム
+    CollisionSystem collision_system_;
 
     // イベントの処理
     void ProcessEvents();

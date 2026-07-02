@@ -14,7 +14,7 @@ namespace zimovka{
  * @param screen_width 
  * @param screen_height 
  */
-void zimovka::PlayerSystem::Initialize(float screen_width, float screen_height){
+void PlayerSystem::Initialize(float screen_width, float screen_height){
     // メンバ変数初期化
     screen_width_ = screen_width;
     screen_height_ = screen_height;
@@ -30,7 +30,7 @@ void zimovka::PlayerSystem::Initialize(float screen_width, float screen_height){
  * @param dt 
  * @param input 
  */
-void zimovka::PlayerSystem::Update(float dt, const InputState& input){
+void PlayerSystem::Update(float dt, const InputState& input){
     // 移動方向ベクトル
     Vec2 dir(0.0f, 0.0f);
     // 入力処理(移動)
@@ -65,7 +65,7 @@ void zimovka::PlayerSystem::Update(float dt, const InputState& input){
  * 
  * @param renderer 
  */
-void zimovka::PlayerSystem::Render(PrimitiveRenderer& renderer) const{
+void PlayerSystem::Render(PrimitiveRenderer& renderer) const{
     // 色の定義
     const Color body_color{80, 180, 255, 255};
     const Color hitbox_color{255, 255, 255, 255};
@@ -87,7 +87,7 @@ void zimovka::PlayerSystem::Render(PrimitiveRenderer& renderer) const{
  * @brief プレイヤー座標が画面外に出ないように補正する
  * 
  */
-void zimovka::PlayerSystem::ClampToScreen(){
+void PlayerSystem::ClampToScreen(){
     // プレイヤーの幅/高さから中心座標を取得
     const float half_w = player_.width * 0.5f;
     const float half_h = player_.height * 0.5f;
@@ -109,4 +109,4 @@ void zimovka::PlayerSystem::ClampToScreen(){
     }
 }
 
-}
+}   // namespace zimovka

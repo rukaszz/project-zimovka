@@ -3,6 +3,8 @@
 #include <cmath>
 #include <stdexcept>
 
+namespace zimovka{
+
 // このファイルのみで使用するユーティリティ関数
 namespace {
 /**
@@ -22,7 +24,7 @@ int ToScreenInt(float v){
  * 
  * @param renderer 生ポインタでrendererを参照する
  */
-zimovka::PrimitiveRenderer::PrimitiveRenderer(SDL_Renderer* renderer)
+PrimitiveRenderer::PrimitiveRenderer(SDL_Renderer* renderer)
     : renderer_(renderer)
 {
     if (!renderer_) {
@@ -38,7 +40,7 @@ zimovka::PrimitiveRenderer::PrimitiveRenderer(SDL_Renderer* renderer)
  * 
  * @param c 
  */
-void zimovka::PrimitiveRenderer::SetColor(Color c){
+void PrimitiveRenderer::SetColor(Color c){
     SDL_SetRenderDrawColor(renderer_, c.r, c.g, c.b, c.a);
 }
 
@@ -51,7 +53,7 @@ void zimovka::PrimitiveRenderer::SetColor(Color c){
  * @param h 高さ
  * @param color 描画色
  */
-void zimovka::PrimitiveRenderer::DrawFilledRect(float x, float y, float w, float h, Color color){
+void PrimitiveRenderer::DrawFilledRect(float x, float y, float w, float h, Color color){
     // 色設定
     SetColor(color);
     // SDL_Rectはint型なのでキャスト
@@ -74,7 +76,7 @@ void zimovka::PrimitiveRenderer::DrawFilledRect(float x, float y, float w, float
  * @param h 高さ
  * @param color 描画色
  */
-void zimovka::PrimitiveRenderer::DrawRect(float x, float y, float w, float h, Color color){
+void PrimitiveRenderer::DrawRect(float x, float y, float w, float h, Color color){
     // 色設定
     SetColor(color);
     // SDL_Rectはint型なのでキャスト
@@ -100,7 +102,7 @@ void zimovka::PrimitiveRenderer::DrawRect(float x, float y, float w, float h, Co
  * @param radius 半径(ピクセル)
  * @param color 描画色
  */
-void zimovka::PrimitiveRenderer::DrawFilledCircle(float cx, float cy, int radius, Color color){
+void PrimitiveRenderer::DrawFilledCircle(float cx, float cy, int radius, Color color){
     if(radius <= 0){
         return;
     }
@@ -118,3 +120,5 @@ void zimovka::PrimitiveRenderer::DrawFilledCircle(float cx, float cy, int radius
         SDL_RenderDrawLine(renderer_, icx - dx, icy + dy, icx + dx, icy + dy);
     }
 }
+
+}   // namespace zimovka

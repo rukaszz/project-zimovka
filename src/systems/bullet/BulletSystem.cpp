@@ -115,6 +115,20 @@ void BulletSystem::Render(PrimitiveRenderer& renderer) const{
 }
 
 /**
+ * @brief 弾を全部消去する関数
+ * 
+ * 配列を消すのではなくすべての弾を非活性にする
+ */
+void BulletSystem::Clear() noexcept{
+    // 全ての弾をなめる
+    for(auto& b : bullets_){
+        b.active = false;
+    }
+    // スポーンインデックスも初期化
+    next_spawn_idx_ = 0;
+}
+
+/**
  * @brief active な弾の数を返す(Debug用)
  * 弾数プールの上限に応じてactive_count_を検討
  *

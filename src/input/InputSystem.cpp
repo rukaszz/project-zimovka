@@ -1,16 +1,18 @@
 #include "zimovka/input/InputSystem.hpp"
 
+namespace zimovka{
+
 /**
  * @brief 入力状態(InputState)を初期化する
  * 
  * ゲームループ開始時に呼ばれる
  * 
  */
-void zimovka::InputSystem::BeginFrame(){
+void InputSystem::BeginFrame(){
     state_.ClearTransient();
 }
 
-void zimovka::InputSystem::HandleEvent(const SDL_Event& event){
+void InputSystem::HandleEvent(const SDL_Event& event){
     // キーが押された/離れたでそれぞれ関数を呼び出す
     if(event.type == SDL_KEYDOWN){
         HandleKeyDown(event.key.keysym.scancode, event.key.repeat != 0);
@@ -26,13 +28,13 @@ void zimovka::InputSystem::HandleEvent(const SDL_Event& event){
  * @return true 
  * @return false 
  */
-bool zimovka::InputSystem::IsHeld(zimovka::Action act) const noexcept{
+bool InputSystem::IsHeld(zimovka::Action act) const noexcept{
     return state_.IsHeld(act);
 }
-bool zimovka::InputSystem::IsPressed(zimovka::Action act) const noexcept{
+bool InputSystem::IsPressed(zimovka::Action act) const noexcept{
     return state_.IsPressed(act);
 }
-bool zimovka::InputSystem::IsReleased(zimovka::Action act) const noexcept{
+bool InputSystem::IsReleased(zimovka::Action act) const noexcept{
     return state_.IsReleased(act);
 }
 
@@ -42,7 +44,7 @@ bool zimovka::InputSystem::IsReleased(zimovka::Action act) const noexcept{
  * @param scancode 
  * @param repeat  event.key.repeat != 0 なので押され続けている→trueになる
  */
-void zimovka::InputSystem::HandleKeyDown(SDL_Scancode scancode, bool repeat){
+void InputSystem::HandleKeyDown(SDL_Scancode scancode, bool repeat){
     // キーリピートなら無視する※連続発火防止
     if(repeat){
         return;
@@ -66,7 +68,7 @@ void zimovka::InputSystem::HandleKeyDown(SDL_Scancode scancode, bool repeat){
  * 
  * @param scancode 
  */
-void zimovka::InputSystem::HandleKeyUp(SDL_Scancode scancode){
+void InputSystem::HandleKeyUp(SDL_Scancode scancode){
     // Actionにマッピング
     zimovka::Action act;
     if(!MapKeyToAction(scancode, act)){
@@ -86,7 +88,7 @@ void zimovka::InputSystem::HandleKeyUp(SDL_Scancode scancode){
  * @return true 
  * @return false マッピングできないケースはfalseになる 
  */
-bool zimovka::InputSystem::MapKeyToAction(SDL_Scancode scancode, zimovka::Action& out_act) const{
+bool InputSystem::MapKeyToAction(SDL_Scancode scancode, zimovka::Action& out_act) const{
     // scancode確認
     switch (scancode){
     // 矢印キーとWASDどちらがきてもActionに対応付ける
@@ -127,3 +129,5 @@ bool zimovka::InputSystem::MapKeyToAction(SDL_Scancode scancode, zimovka::Action
         return false;
     }
 }
+
+}   // namespace zimovka

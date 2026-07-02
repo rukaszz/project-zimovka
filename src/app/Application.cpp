@@ -10,6 +10,7 @@
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 #include "zimovka/input/Action.hpp"
 
+namespace zimovka{
 /**
  * @brief ゲーム実行関数
  * ループは固定デルタタイムで実現し，chronoを用いてナノ秒精度で回す
@@ -18,7 +19,7 @@
  * @param argv
  * @return int
  */
-int zimovka::Application::Run(int argc, char* argv[]){
+int Application::Run(int argc, char* argv[]){
     (void)argc;
     (void)argv;
 
@@ -90,7 +91,7 @@ int zimovka::Application::Run(int argc, char* argv[]){
  * @brief イベント処理用関数
  *
  */
-void zimovka::Application::ProcessEvents(){
+void Application::ProcessEvents(){
     // inputstate初期化
     input_system_.BeginFrame();
     // SDL_Event取得
@@ -114,7 +115,8 @@ void zimovka::Application::ProcessEvents(){
  *
  * @param dt 固定タイムステップ(秒)
  */
-void zimovka::Application::Update(float dt, const InputState& state){
+void Application::Update(float dt, const InputState& state){
+    // 最初に弾を更新
     bullet_spawn_timer_ += dt;
     if(bullet_spawn_timer_ >= 0.3f){
         bullet_spawn_timer_ = 0.0f;
@@ -123,14 +125,28 @@ void zimovka::Application::Update(float dt, const InputState& state){
         bullet_system_.Spawn(temp_spawn_, Vec2{0.0f, 15.0f}, 5.0f);   // colorはデフォルト
     }
     bullet_system_.Update(dt, WINDOW_WIDTH, WINDOW_HEIGHT);
+    // 次にプレイヤー
     player_system_.Update(dt, state);
+    // 最後に衝突判定
+    if(collision_system_.CheckPlayerHitByBullets(
+        player_system_.GetPlayer(), 
+        bullet_system_
+    ))
+    {
+        // 衝突した場合はプレイヤーの位置を初期化(仮)
+        player_system_.Initialize(
+            static_cast<float>(WINDOW_WIDTH), 
+            static_cast<float>(WINDOW_HEIGHT)
+        );
+        bullet_system_.Clear();
+    }
 }
 
 /**
  * @brief 描画処理
  *
  */
-void zimovka::Application::Render(PrimitiveRenderer& prim){
+void Application::Render(PrimitiveRenderer& prim){
     bullet_system_.Render(prim);
     player_system_.Render(prim);
 }
@@ -143,7 +159,7 @@ void zimovka::Application::Render(PrimitiveRenderer& prim){
  *
  * @param frame_start フレーム開始時刻(steady_clock::time_point)
  */
-void zimovka::Application::CapFrameRate(std::chrono::steady_clock::time_point frame_start){
+void Application::CapFrameRate(std::chrono::steady_clock::time_point frame_start){
     // chrono 系の変数準備
     using Clock = std::chrono::steady_clock;
     using ns    = std::chrono::nanoseconds;
@@ -168,3 +184,5 @@ void zimovka::Application::CapFrameRate(std::chrono::steady_clock::time_point fr
         while(Clock::now() - frame_start < TARGET_NS){ /* spin */ }
     }
 }
+
+}   // namespace zimovka

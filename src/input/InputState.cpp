@@ -1,5 +1,7 @@
 #include "zimovka/input/InputState.hpp"
 
+namespace zimovka{
+
 // 状態の確認
 /**
  * @brief 各InputState要素の状態を取得するアクセサ
@@ -10,13 +12,13 @@
  * @return true 
  * @return false 
  */
-bool zimovka::InputState::IsHeld(zimovka::Action act) const noexcept{
+bool InputState::IsHeld(zimovka::Action act) const noexcept{
     return (held_bits_ & ActionBit(act)) != 0;
 }
-bool zimovka::InputState::IsPressed(zimovka::Action act) const noexcept{
+bool InputState::IsPressed(zimovka::Action act) const noexcept{
     return (pressed_bits_ & ActionBit(act)) != 0;
 }
-bool zimovka::InputState::IsReleased(zimovka::Action act) const noexcept{
+bool InputState::IsReleased(zimovka::Action act) const noexcept{
     return (released_bits_ & ActionBit(act)) != 0;
 }
 // 状態の参照
@@ -27,13 +29,13 @@ bool zimovka::InputState::IsReleased(zimovka::Action act) const noexcept{
  * 
  * @return std::uint32_t 
  */
-std::uint32_t zimovka::InputState::GetHeldBits() const noexcept{
+std::uint32_t InputState::GetHeldBits() const noexcept{
     return held_bits_;
 }
-std::uint32_t zimovka::InputState::GetPressedBits() const noexcept{
+std::uint32_t InputState::GetPressedBits() const noexcept{
     return pressed_bits_;
 }
-std::uint32_t zimovka::InputState::GetReleasedBits() const noexcept{
+std::uint32_t InputState::GetReleasedBits() const noexcept{
     return released_bits_;
 }
 
@@ -43,7 +45,7 @@ std::uint32_t zimovka::InputState::GetReleasedBits() const noexcept{
  * フレーム開始時に呼ばれる
  * 
  */
-void zimovka::InputState::ClearTransient() noexcept{
+void InputState::ClearTransient() noexcept{
     pressed_bits_ = 0;
     released_bits_ = 0;
 }
@@ -59,7 +61,7 @@ void zimovka::InputState::ClearTransient() noexcept{
  * @param act 
  * @param val 
  */
-void zimovka::InputState::SetHeld(Action act, bool val) noexcept{
+void InputState::SetHeld(Action act, bool val) noexcept{
     // Actionのビット変換
     const std::uint32_t bit = ActionBit(act);
     // valで押されている/押されていないを切り替える
@@ -72,10 +74,12 @@ void zimovka::InputState::SetHeld(Action act, bool val) noexcept{
     }
 }
 // 押された
-void zimovka::InputState::SetPressed(Action act) noexcept{
+void InputState::SetPressed(Action act) noexcept{
     pressed_bits_ |= ActionBit(act);
 }
 // 離された
-void zimovka::InputState::SetReleased(Action act) noexcept{
+void InputState::SetReleased(Action act) noexcept{
     released_bits_ |= zimovka::ActionBit(act);
 }
+
+}   // namespace zimovka

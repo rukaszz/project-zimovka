@@ -5,6 +5,8 @@
 
 #include <SDL2/SDL.h>
 
+namespace zimovka{
+
 /*
  * Windowクラスは画面表示の基礎部分
  * あくまでもウィンドウの表示に関わる部分※描画はまた別
@@ -18,7 +20,7 @@
  * @param height: windowの高さ
  */
 
-zimovka::Window::Window(const std::string& title, int width, int height){
+Window::Window(const std::string& title, int width, int height){
     // windowオブジェクト生成
     window_ = SDL_CreateWindow(
         title.c_str(), 
@@ -38,7 +40,7 @@ zimovka::Window::Window(const std::string& title, int width, int height){
  * @brief Destroy the Window:: Window object
  * 
  */
-zimovka::Window::~Window(){
+Window::~Window(){
     // Windowオブジェクト破棄
     Reset();
 }
@@ -47,7 +49,7 @@ zimovka::Window::~Window(){
  * @brief windowメンバ変数破棄処理
  * 
  */
-void zimovka::Window::Reset() noexcept{
+void Window::Reset() noexcept{
     // window_がnullでないなら破棄する
     if(window_){
         SDL_DestroyWindow(window_);
@@ -60,7 +62,7 @@ void zimovka::Window::Reset() noexcept{
  * 
  * @return SDL_Point 
  */
-SDL_Point zimovka::Window::GetWindowSize() const{
+SDL_Point Window::GetWindowSize() const{
     SDL_Point p{0, 0};
     // windowオブジェクトの存在チェック
     if(window_){
@@ -68,3 +70,5 @@ SDL_Point zimovka::Window::GetWindowSize() const{
     }
     return p;
 }
+
+}   // namespace zimovka

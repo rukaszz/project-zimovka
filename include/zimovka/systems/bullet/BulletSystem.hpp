@@ -2,6 +2,7 @@
 #define ZIMOVKA_SYSTEMS_BULLET_BULLETSYSTEM_HPP_
 
 #include <cstddef>
+#include <span>
 #include <vector>
 
 #include "zimovka/core/Vec2.hpp"
@@ -20,6 +21,13 @@ class PrimitiveRenderer;
  *
  */
 class BulletSystem{
+private:
+    std::vector<Bullet> bullets_;
+    std::size_t next_spawn_idx_ = 0;
+
+    // 弾が画面外かどうか(弾の半径を考慮して完全に出たらtrueにする)
+    bool IsOutOfScreen(const Bullet& bullet, float screen_width, float screen_height) const;
+
 public:
     static constexpr std::size_t DEFAULT_MAX_BULLETS = 1200;
 
@@ -44,17 +52,18 @@ public:
     void Update(float dt, float screen_width, float screen_height);
     // 描画（active な弾のみ）
     void Render(PrimitiveRenderer& renderer) const;
+    // 弾の消去
+    void Clear() noexcept;
+
+    // bulletへのアクセサ(spanで所有権を渡さず読み取り専用にする)
+    std::span<const Bullet> GetBullets() const noexcept{
+        return bullets_;
+    }
 
     // Debug用
     std::size_t CountActive() const noexcept;
     std::size_t Capacity()    const noexcept{ return bullets_.size(); }
 
-private:
-    std::vector<Bullet> bullets_;
-    std::size_t next_spawn_idx_ = 0;
-
-    // 弾が画面外かどうか(弾の半径を考慮して完全に出たらtrueにする)
-    bool IsOutOfScreen(const Bullet& bullet, float screen_width, float screen_height) const;
 };
 
 }   // namespace zimovka

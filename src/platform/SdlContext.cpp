@@ -7,12 +7,14 @@
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_mixer.h>
 
+namespace zimovka{
+
 /**
  * @brief Construct a new zimovka::Sdl Context::Core::Core object
  * 
  * SDL本体の初期化
  */
-zimovka::SdlContext::Core::Core(){
+SdlContext::Core::Core(){
     if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0){
         throw std::runtime_error(SDL_GetError());
     }
@@ -23,7 +25,7 @@ zimovka::SdlContext::Core::Core(){
  * 
  * SDL本体の破棄
  */
-zimovka::SdlContext::Core::~Core(){
+SdlContext::Core::~Core(){
     SDL_Quit();
 }
 
@@ -32,7 +34,7 @@ zimovka::SdlContext::Core::~Core(){
  * 
  * SDL_imageの初期化
  */
-zimovka::SdlContext::Img::Img(){
+SdlContext::Img::Img(){
     if(!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)){
         throw std::runtime_error(IMG_GetError());
     }
@@ -43,7 +45,7 @@ zimovka::SdlContext::Img::Img(){
  * 
  * SDL_imageの破棄
  */
-zimovka::SdlContext::Img::~Img(){
+SdlContext::Img::~Img(){
     IMG_Quit();
 }
 
@@ -52,7 +54,7 @@ zimovka::SdlContext::Img::~Img(){
  * 
  * SDL_ttf初期化
  */
-zimovka::SdlContext::Ttf::Ttf(){
+SdlContext::Ttf::Ttf(){
     if(TTF_Init() != 0){
         throw std::runtime_error(TTF_GetError());
     }
@@ -63,7 +65,7 @@ zimovka::SdlContext::Ttf::Ttf(){
  * 
  * SDL_ttfの破棄
  */
-zimovka::SdlContext::Ttf::~Ttf(){
+SdlContext::Ttf::~Ttf(){
     TTF_Quit();
 }
 
@@ -72,7 +74,7 @@ zimovka::SdlContext::Ttf::~Ttf(){
  * 
  * MixerCore(SDL_mixer コーデック初期化)
  */
-zimovka::SdlContext::MixerCore::MixerCore(){
+SdlContext::MixerCore::MixerCore(){
     // mp3を使う場合はMIX_INIT_MP3が必要
     int mixFlags = MIX_INIT_OGG;
     if((Mix_Init(mixFlags) & mixFlags) != mixFlags){
@@ -85,7 +87,7 @@ zimovka::SdlContext::MixerCore::MixerCore(){
  * 
  * MixerCore(SDL_mixer コーデック破棄)
  */
-zimovka::SdlContext::MixerCore::~MixerCore(){
+SdlContext::MixerCore::~MixerCore(){
     Mix_Quit();
 }
 
@@ -94,7 +96,7 @@ zimovka::SdlContext::MixerCore::~MixerCore(){
  * 
  * MixerDevice(SDL_mixer デバイスオープン)
  */
-zimovka::SdlContext::MixerDevice::MixerDevice(){
+SdlContext::MixerDevice::MixerDevice(){
     // 44100Hz, ステレオ, バッファ2048サンプル
     if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0){
         throw std::runtime_error(Mix_GetError());
@@ -106,6 +108,8 @@ zimovka::SdlContext::MixerDevice::MixerDevice(){
  * 
  * MixerDevice (SDL_mixer デバイスクローズ)
  */
-zimovka::SdlContext::MixerDevice::~MixerDevice(){
+SdlContext::MixerDevice::~MixerDevice(){
     Mix_CloseAudio();
 }
+
+}   // namespace zimovka
