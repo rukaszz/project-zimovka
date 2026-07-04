@@ -6,7 +6,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 
-#include "zimovka/debug/DebugStatas.hpp"
+#include "zimovka/debug/DebugStats.hpp"
 
 namespace zimovka{
 
@@ -37,7 +37,7 @@ public:
     DebugOverlay& operator=(const DebugOverlay&) = delete;
 
     // 描画関数
-    void Render(const DebugStatus& status) const;
+    void Render(const DebugStats& stats) const;
     // TTF_Fontが有効なのか
     bool IsLoaded() const noexcept{
         return font_ != nullptr;

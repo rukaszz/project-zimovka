@@ -62,7 +62,9 @@ public:
 
     // Debug用
     std::size_t CountActive() const noexcept;
-    std::size_t Capacity()    const noexcept{ return bullets_.size(); }
+    std::size_t GetCapacity() const noexcept{
+        return bullets_.size();
+    }
 
 };
 

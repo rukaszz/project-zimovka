@@ -25,6 +25,9 @@ public:
     bool IsHeld(zimovka::Action act)     const noexcept;
     bool IsPressed(zimovka::Action act)  const noexcept;
     bool IsReleased(zimovka::Action act) const noexcept;
+
+    // 複数回のUpdate実行時に入力をスナップショットとして記録する関数
+    InputState ConsumeStateForTick() noexcept;
     
     /**
      * @brief Get the State object

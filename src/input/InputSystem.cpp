@@ -39,6 +39,22 @@ bool InputSystem::IsReleased(zimovka::Action act) const noexcept{
 }
 
 /**
+ * @brief 更新処理時の入力スナップショットを取得する処理
+ * 
+ * 処理遅延で複数回のUpdate()が走る際に入力が失われないようにする
+ * Update前に呼ばれることで，1更新と1入力が対応づく
+ * 
+ * @return InputState 
+ */
+InputState InputSystem::ConsumeStateForTick() noexcept{
+    // 現在のInputStateをコピー
+    InputState snapshot = state_;
+    // 入力削除
+    state_.ClearTransient();
+    return snapshot;
+}
+
+/**
  * @brief キー押下時のInputState制御関数
  * 
  * @param scancode 

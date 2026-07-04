@@ -93,7 +93,7 @@ void BulletSystem::Update(float dt, float screen_width, float screen_height){
 /**
  * @brief 描画処理
  *
- * activeな弾のみDrawFilledCircleで描く
+ * activeな弾のみ描く
  *
  * @param renderer PrimitiveRenderer への参照
  */

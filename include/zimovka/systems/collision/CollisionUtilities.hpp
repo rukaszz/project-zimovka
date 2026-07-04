@@ -27,9 +27,9 @@ bool Intersects(const Circle& a, const Circle& b) noexcept{
     // 円の半径の和
     const float r = a.radius + b.radius;
     /**
-     * @brief d < r1 + r2 
+     * @brief d <= r1 + r2 
      * 2つの円の中心座標の差d が 2つの円の半径の和より小さいなら円は交差している
-     * なお，d^2 < (r1 + r2)^2 にすると平方根が無視できる
+     * なお，d^2 <= (r1 + r2)^2 にすると平方根が無視できる
      */
     return d.LengthSquare() <= r * r;
 }

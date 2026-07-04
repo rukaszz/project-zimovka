@@ -37,6 +37,7 @@ add_executable(${PROJECT_NAME}
     src/systems/player/PlayerSystem.cpp
     src/systems/bullet/BulletSystem.cpp
     src/systems/collision/CollisionSystem.cpp
+    src/debug/DebugOverlay.cpp
 )
 
 # インクルードパス

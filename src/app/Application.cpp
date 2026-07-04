@@ -1,6 +1,8 @@
 #include "zimovka/app/Application.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <cstddef>
 
 #include <SDL2/SDL.h>
 
@@ -9,6 +11,7 @@
 #include "zimovka/rendering/Renderer.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 #include "zimovka/input/Action.hpp"
+#include "zimovka/debug/DebugOverlay.hpp"
 
 namespace zimovka{
 /**
@@ -28,9 +31,22 @@ int Application::Run(int argc, char* argv[]){
     Window window("Zimovka", WINDOW_WIDTH, WINDOW_HEIGHT);
     Renderer renderer(window.Get());
     PrimitiveRenderer prim(renderer.Get());
+    // デバッグ情報
+    // フォントのパスはとりあえずシステムフォントを使う
+    DebugOverlay debug_overlay(
+        renderer.Get(), 
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf", 
+        14
+    );
+    // デバッグ用にナノ秒をミリ秒へ変換するラムダ式
+    auto to_ms = [](std::chrono::nanoseconds d) -> float {
+        return static_cast<float>(d.count()) / 1'000'000.0f;
+    };
 
     // プレイヤーの初期化
     player_system_.Initialize(static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT));
+    // 弾1200発生成
+    InitializeBulletStressTest();
 
     // 固定タイムステップ用クロック(steady_clockはis_steadyが保証される)
     using Clock = std::chrono::steady_clock;
@@ -47,38 +63,98 @@ int Application::Run(int argc, char* argv[]){
     auto prev = Clock::now();
     // 1ループ中の更新を保証する累積値
     std::chrono::nanoseconds acc{0};
+    // デバッグ文字列更新用カウンタ
+    std::size_t debug_rendering_counter = 0;
 
     running_ = true;
 
     while(running_){
-        // フレーム開始時刻(steady_clock)
+        // ────────────────────────────────
+        // フレーム時間計測(前フレームの start → 今フレームの start)
+        // ────────────────────────────────
         auto frame_start = Clock::now();
+        const float raw_frame_ms = to_ms(frame_start - prev);
+        ++debug_rendering_counter;
 
-        // 入力受付は最初に
+        // ────────────────────────────────
+        // 入力受付
+        // ────────────────────────────────
         ProcessEvents();
 
-        // 経過時間をaccに積算
-        auto now = Clock::now();
-        // 前回ループからの経過時間を取得
-        auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(now - prev);
-        prev = now;
-
+        // ────────────────────────────────
+        // 更新(固定タイムステップ)
+        // ────────────────────────────────
+        auto update_start = Clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(update_start - prev);
+        prev = update_start;
         // 1/60 * 5以上の更新遅延が生じたらclamp
         if(elapsed > max_acc){
             elapsed = max_acc;
         }
-        // 約0.016s以上経過したら更新する(accにループの経過時間を累積させる)
         acc += elapsed;
-        // 0.016s毎に更新をしていく
+        // 0.016s単位で更新
+        std::size_t update_steps = 0;
         while(acc >= fixed_ns){
-            Update(fixed_delta, input_system_.GetState());
+            // 入力状態のスナップショットを取得して渡す
+            const InputState tick_input = input_system_.ConsumeStateForTick();
+            Update(fixed_delta, tick_input);
             acc -= fixed_ns;
+            ++update_steps;
         }
+        // 更新処理後に時刻計測
+        const float raw_update_ms = to_ms(Clock::now() - update_start);
 
-        // 描画: clear → render → present の順を守る
+        // ────────────────────────────────
+        // ゲーム描画(デバッグOverlayは含めないことでrender_msへの影響を防ぐ)
+        // ────────────────────────────────
+        auto render_start = Clock::now();
         renderer.Clear();
         Render(prim);
+        const float raw_render_ms = to_ms(Clock::now() - render_start);
+
+        // ────────────────────────────────
+        // デバッグOverlay(0.25s毎にflush + 描画)
+        // ────────────────────────────────
+        if(fixed_delta * static_cast<float>(debug_rendering_counter) > DEBUG_REFRESH_INTERVAL
+            && debug_acc_.count > 0)
+        {
+            const float n = static_cast<float>(debug_acc_.count);
+            debug_stats_.frame_ms           = debug_acc_.sum_frame_ms      / n;
+            debug_stats_.update_ms          = debug_acc_.sum_update_ms     / n;
+            debug_stats_.render_ms          = debug_acc_.sum_render_ms     / n;
+            debug_stats_.processing_ms      = debug_acc_.sum_processing_ms / n;
+            debug_stats_.max_frame_ms       = debug_acc_.max_frame_ms;
+            debug_stats_.max_update_ms      = debug_acc_.max_update_ms;
+            debug_stats_.max_render_ms      = debug_acc_.max_render_ms;
+            debug_stats_.max_processing_ms  = debug_acc_.max_processing_ms;
+            debug_stats_.active_bullets     = bullet_system_.CountActive();
+            debug_stats_.bullet_capacity    = bullet_system_.GetCapacity();
+            debug_stats_.collision_checks   = collision_system_.LastCheckCount();
+            debug_stats_.update_steps       = update_steps;
+            debug_acc_.Reset();
+            debug_rendering_counter = 0;
+            debug_overlay.Render(debug_stats_);
+        }
+
         renderer.Present();
+
+        // ────────────────────────────────
+        // present後の実処理時間(CapFrameRate待機を除く)
+        // ────────────────────────────────
+        const float raw_processing_ms = to_ms(Clock::now() - frame_start);
+
+        // ────────────────────────────────
+        // 累積(毎フレーム)
+        // ────────────────────────────────
+        debug_acc_.sum_frame_ms      += raw_frame_ms;
+        debug_acc_.sum_update_ms     += raw_update_ms;
+        debug_acc_.sum_render_ms     += raw_render_ms;
+        debug_acc_.sum_processing_ms += raw_processing_ms;
+        debug_acc_.max_frame_ms      = std::max(debug_acc_.max_frame_ms,      raw_frame_ms);
+        debug_acc_.max_update_ms     = std::max(debug_acc_.max_update_ms,     raw_update_ms);
+        debug_acc_.max_render_ms     = std::max(debug_acc_.max_render_ms,     raw_render_ms);
+        debug_acc_.max_processing_ms = std::max(debug_acc_.max_processing_ms, raw_processing_ms);
+        ++debug_acc_.count;
 
         // fpsキャップ
         CapFrameRate(frame_start);
@@ -116,13 +192,9 @@ void Application::ProcessEvents(){
  * @param dt 固定タイムステップ(秒)
  */
 void Application::Update(float dt, const InputState& state){
-    // 最初に弾を更新
-    bullet_spawn_timer_ += dt;
-    if(bullet_spawn_timer_ >= 0.3f){
-        bullet_spawn_timer_ = 0.0f;
-        temp_spawn_.x += (dt*100);
-        temp_spawn_.y += (dt*10);
-        bullet_system_.Spawn(temp_spawn_, Vec2{0.0f, 15.0f}, 5.0f);   // colorはデフォルト
+    // 活性状態の弾がなくなったらまた弾をMAXまで表示
+    if(bullet_system_.CountActive() == 0){
+        InitializeBulletStressTest();
     }
     bullet_system_.Update(dt, WINDOW_WIDTH, WINDOW_HEIGHT);
     // 次にプレイヤー
@@ -182,6 +254,27 @@ void Application::CapFrameRate(std::chrono::steady_clock::time_point frame_start
         }
         // 残り~1msをbusy waitで精密調整(高負荷なので1ms未満の調整のみで使う)
         while(Clock::now() - frame_start < TARGET_NS){ /* spin */ }
+    }
+}
+
+// テスト用関数
+/**
+ * @brief 弾を瞬間的に大量に生成して負荷を試験するテスト関数
+ * 
+ * 呼ばれると弾を1200発生成する(1200はBulletSystemのCapacityに依る)
+ */
+void Application::InitializeBulletStressTest(){
+    for(std::size_t i = 0; i < bullet_system_.GetCapacity(); ++i){
+        // x座標を設定(24pxずつx軸へずれる)
+        const float x = static_cast<float>(i % 40) * 24.0f + 12.0f;
+        // y座標を設定(16pxy軸へずれる)
+        const float y = static_cast<float>(i / 40) * 16.0f;
+        // 弾生成
+        bullet_system_.Spawn(
+            Vec2{x, y}, 
+            Vec2{0.0f, 60.0f}, 
+            3.0f
+        );
     }
 }
 

@@ -7,6 +7,7 @@
 #include "zimovka/systems/player/PlayerSystem.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/collision/CollisionSystem.hpp"
+#include "zimovka/debug/DebugStats.hpp"
 
 namespace zimovka{
 
@@ -26,6 +27,8 @@ public:
     // 画面サイズ
     static constexpr int WINDOW_WIDTH = 960;
     static constexpr int WINDOW_HEIGHT = 720;
+    // デバッグ情報の更新間隔
+    static constexpr float DEBUG_REFRESH_INTERVAL = 0.25f;
 
     // main.cppで呼び出す
     int Run(int argc, char* argv[]);
@@ -43,6 +46,24 @@ private:
     Vec2 temp_spawn_{7.0f, 11.0f};  // スポーン用の変数(一時的なもの)
     // 衝突システム
     CollisionSystem collision_system_;
+    // デバッグ情報
+    DebugStats debug_stats_;
+    // デバッグ統計の累積(0.25s毎にflushして平均・最大値を計算)
+    struct DebugAccumulator{
+        float       sum_frame_ms      = 0.0f;
+        float       sum_update_ms     = 0.0f;
+        float       sum_render_ms     = 0.0f;
+        float       sum_processing_ms = 0.0f;
+        float       max_frame_ms      = 0.0f;
+        float       max_update_ms     = 0.0f;
+        float       max_render_ms     = 0.0f;
+        float       max_processing_ms = 0.0f;
+        std::size_t count             = 0;
+        void Reset() noexcept {
+            *this = {};
+    }
+    };
+    DebugAccumulator debug_acc_;
 
     // イベントの処理
     void ProcessEvents();
@@ -52,6 +73,11 @@ private:
     void Render(PrimitiveRenderer& prim);
     // fpsキャップ
     void CapFrameRate(std::chrono::steady_clock::time_point frame_start_ms);
+
+    // 性能試験用関数
+    // 弾を瞬間的に
+    void InitializeBulletStressTest();
+
 };
 
 }   // namespace zimovka
