@@ -9,9 +9,14 @@ namespace zimovka{
  * 
  */
 void InputSystem::BeginFrame(){
-    state_.ClearTransient();
+    // state_.ClearTransient();
 }
 
+/**
+ * @brief キー押下イベント処理(ProcessEvens()で呼ばれる)
+ * 
+ * @param event 
+ */
 void InputSystem::HandleEvent(const SDL_Event& event){
     // キーが押された/離れたでそれぞれ関数を呼び出す
     if(event.type == SDL_KEYDOWN){
@@ -43,6 +48,7 @@ bool InputSystem::IsReleased(zimovka::Action act) const noexcept{
  * 
  * 処理遅延で複数回のUpdate()が走る際に入力が失われないようにする
  * Update前に呼ばれることで，1更新と1入力が対応づく
+ * 連続して更新処理ループで呼ばれたとしても初回はpressed/released，複数回呼ばれるとheldになる
  * 
  * @return InputState 
  */

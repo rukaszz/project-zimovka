@@ -32,6 +32,7 @@ add_executable(${PROJECT_NAME}
     src/platform/Window.cpp
     src/rendering/Renderer.cpp
     src/rendering/PrimitiveRenderer.cpp
+    src/rendering/TextTexture.cpp
     src/input/InputState.cpp
     src/input/InputSystem.cpp
     src/systems/player/PlayerSystem.cpp

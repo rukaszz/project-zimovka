@@ -2,12 +2,14 @@
 #define ZIMOVKA_APP_APPLICATION_HPP_
 
 #include <chrono>
+#include <cstddef>
 
 #include "zimovka/input/InputSystem.hpp"
 #include "zimovka/systems/player/PlayerSystem.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/collision/CollisionSystem.hpp"
 #include "zimovka/debug/DebugStats.hpp"
+#include "zimovka/debug/DebugAccumulator.hpp"
 
 namespace zimovka{
 
@@ -27,8 +29,8 @@ public:
     // 画面サイズ
     static constexpr int WINDOW_WIDTH = 960;
     static constexpr int WINDOW_HEIGHT = 720;
-    // デバッグ情報の更新間隔
-    static constexpr float DEBUG_REFRESH_INTERVAL = 0.25f;
+    // デバッグ情報の更新間隔(0.25sで描画更新)
+    static constexpr auto DEBUG_REFRESH_INTERVAL = std::chrono::milliseconds{250};
 
     // main.cppで呼び出す
     int Run(int argc, char* argv[]);
@@ -49,20 +51,6 @@ private:
     // デバッグ情報
     DebugStats debug_stats_;
     // デバッグ統計の累積(0.25s毎にflushして平均・最大値を計算)
-    struct DebugAccumulator{
-        float       sum_frame_ms      = 0.0f;
-        float       sum_update_ms     = 0.0f;
-        float       sum_render_ms     = 0.0f;
-        float       sum_processing_ms = 0.0f;
-        float       max_frame_ms      = 0.0f;
-        float       max_update_ms     = 0.0f;
-        float       max_render_ms     = 0.0f;
-        float       max_processing_ms = 0.0f;
-        std::size_t count             = 0;
-        void Reset() noexcept {
-            *this = {};
-    }
-    };
     DebugAccumulator debug_acc_;
 
     // イベントの処理
@@ -77,6 +65,15 @@ private:
     // 性能試験用関数
     // 弾を瞬間的に
     void InitializeBulletStressTest();
+    // デバッグ情報の累積
+    void AccumulateDebugStats(
+        const float raw_frame_ms, 
+        const float raw_update_ms, 
+        const float raw_render_ms, 
+        const float raw_processing_ms 
+    );
+    // デバッグ情報描画用のdebug_stats_へ渡す
+    void FlushDebugStats(const std::size_t update_steps);
 
 };
 

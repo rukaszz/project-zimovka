@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <cstddef>
 
 #include <SDL2/SDL.h>
 
@@ -32,13 +31,13 @@ int Application::Run(int argc, char* argv[]){
     Renderer renderer(window.Get());
     PrimitiveRenderer prim(renderer.Get());
     // デバッグ情報
-    // フォントのパスはとりあえずシステムフォントを使う
+    // フォントのパスはとりあえずシステムフォントを使う(※環境依存なので最終的には修正する)
     DebugOverlay debug_overlay(
         renderer.Get(), 
         "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf", 
         14
     );
-    // デバッグ用にナノ秒をミリ秒へ変換するラムダ式
+    // デバッグ用にナノ秒をミリ秒へ変換するラムダ式to_msの定義
     auto to_ms = [](std::chrono::nanoseconds d) -> float {
         return static_cast<float>(d.count()) / 1'000'000.0f;
     };
@@ -60,11 +59,15 @@ int Application::Run(int argc, char* argv[]){
     const auto max_acc = fixed_ns * MAX_UPDATE_PER_FRAME;
 
     // ループ処理開始前の時刻取得
-    auto prev = Clock::now();
+    // 1フレーム前のupdate開始時刻
+    auto previous_update_start = Clock::now();
+    // 1フレーム前のフレーム開始時刻
+    auto previous_frame_start  = Clock::now();
+
     // 1ループ中の更新を保証する累積値
-    std::chrono::nanoseconds acc{0};
+    std::chrono::nanoseconds update_time_acc{0};
     // デバッグ文字列更新用カウンタ
-    std::size_t debug_rendering_counter = 0;
+    auto debug_refresh_acc = Clock::duration::zero();
 
     running_ = true;
 
@@ -72,9 +75,18 @@ int Application::Run(int argc, char* argv[]){
         // ────────────────────────────────
         // フレーム時間計測(前フレームの start → 今フレームの start)
         // ────────────────────────────────
+        // 現フレーム開始時刻
         auto frame_start = Clock::now();
-        const float raw_frame_ms = to_ms(frame_start - prev);
-        ++debug_rendering_counter;
+        // 前フレーム開始時刻との差
+        auto frame_elapsed = frame_start - previous_frame_start;
+        previous_frame_start = frame_start;
+
+        // 厳格にフレーム経過時刻を取得
+        const float raw_frame_ms = to_ms(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                frame_elapsed
+            )
+        );
 
         // ────────────────────────────────
         // 入力受付
@@ -84,21 +96,26 @@ int Application::Run(int argc, char* argv[]){
         // ────────────────────────────────
         // 更新(固定タイムステップ)
         // ────────────────────────────────
+        // update処理の開始時刻
         auto update_start = Clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(update_start - prev);
-        prev = update_start;
+        // update_startと前フレームとの差
+        auto update_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(update_start - previous_update_start);
+        previous_update_start = update_start;
         // 1/60 * 5以上の更新遅延が生じたらclamp
-        if(elapsed > max_acc){
-            elapsed = max_acc;
+        if(update_elapsed > max_acc){
+            update_elapsed = max_acc;
         }
-        acc += elapsed;
-        // 0.016s単位で更新
+        update_time_acc += update_elapsed;
+        
+        // 更新回数計測用変数
         std::size_t update_steps = 0;
-        while(acc >= fixed_ns){
+        
+        // 0.016s単位で更新
+        while(update_time_acc >= fixed_ns){
             // 入力状態のスナップショットを取得して渡す
             const InputState tick_input = input_system_.ConsumeStateForTick();
             Update(fixed_delta, tick_input);
-            acc -= fixed_ns;
+            update_time_acc -= fixed_ns;
             ++update_steps;
         }
         // 更新処理後に時刻計測
@@ -115,27 +132,14 @@ int Application::Run(int argc, char* argv[]){
         // ────────────────────────────────
         // デバッグOverlay(0.25s毎にflush + 描画)
         // ────────────────────────────────
-        if(fixed_delta * static_cast<float>(debug_rendering_counter) > DEBUG_REFRESH_INTERVAL
-            && debug_acc_.count > 0)
-        {
-            const float n = static_cast<float>(debug_acc_.count);
-            debug_stats_.frame_ms           = debug_acc_.sum_frame_ms      / n;
-            debug_stats_.update_ms          = debug_acc_.sum_update_ms     / n;
-            debug_stats_.render_ms          = debug_acc_.sum_render_ms     / n;
-            debug_stats_.processing_ms      = debug_acc_.sum_processing_ms / n;
-            debug_stats_.max_frame_ms       = debug_acc_.max_frame_ms;
-            debug_stats_.max_update_ms      = debug_acc_.max_update_ms;
-            debug_stats_.max_render_ms      = debug_acc_.max_render_ms;
-            debug_stats_.max_processing_ms  = debug_acc_.max_processing_ms;
-            debug_stats_.active_bullets     = bullet_system_.CountActive();
-            debug_stats_.bullet_capacity    = bullet_system_.GetCapacity();
-            debug_stats_.collision_checks   = collision_system_.LastCheckCount();
-            debug_stats_.update_steps       = update_steps;
-            debug_acc_.Reset();
-            debug_rendering_counter = 0;
-            debug_overlay.Render(debug_stats_);
+        debug_refresh_acc += frame_elapsed;
+        if(debug_refresh_acc > DEBUG_REFRESH_INTERVAL){
+            FlushDebugStats(update_steps);
+            debug_overlay.Update(debug_stats_);
+            debug_refresh_acc -= DEBUG_REFRESH_INTERVAL;
         }
-
+        debug_overlay.Render();
+        // windowへ描画
         renderer.Present();
 
         // ────────────────────────────────
@@ -146,15 +150,7 @@ int Application::Run(int argc, char* argv[]){
         // ────────────────────────────────
         // 累積(毎フレーム)
         // ────────────────────────────────
-        debug_acc_.sum_frame_ms      += raw_frame_ms;
-        debug_acc_.sum_update_ms     += raw_update_ms;
-        debug_acc_.sum_render_ms     += raw_render_ms;
-        debug_acc_.sum_processing_ms += raw_processing_ms;
-        debug_acc_.max_frame_ms      = std::max(debug_acc_.max_frame_ms,      raw_frame_ms);
-        debug_acc_.max_update_ms     = std::max(debug_acc_.max_update_ms,     raw_update_ms);
-        debug_acc_.max_render_ms     = std::max(debug_acc_.max_render_ms,     raw_render_ms);
-        debug_acc_.max_processing_ms = std::max(debug_acc_.max_processing_ms, raw_processing_ms);
-        ++debug_acc_.count;
+        AccumulateDebugStats(raw_frame_ms, raw_update_ms, raw_render_ms, raw_processing_ms);
 
         // fpsキャップ
         CapFrameRate(frame_start);
@@ -168,8 +164,6 @@ int Application::Run(int argc, char* argv[]){
  *
  */
 void Application::ProcessEvents(){
-    // inputstate初期化
-    input_system_.BeginFrame();
     // SDL_Event取得
     SDL_Event event;
     while(SDL_PollEvent(&event)){
@@ -276,6 +270,58 @@ void Application::InitializeBulletStressTest(){
             3.0f
         );
     }
+}
+
+/**
+ * @brief フレーム単位のデバッグ情報の収集関数
+ * 
+ * @param update_steps 
+ */
+void Application::FlushDebugStats(const std::size_t update_steps){
+    // 累積数n
+    const float n = static_cast<float>(debug_acc_.count);
+    // DebugStatsの各要素へ代入
+    debug_stats_.frame_ms           = debug_acc_.sum_frame_ms      / n;
+    debug_stats_.update_ms          = debug_acc_.sum_update_ms     / n;
+    debug_stats_.render_ms          = debug_acc_.sum_render_ms     / n;
+    debug_stats_.processing_ms      = debug_acc_.sum_processing_ms / n;
+    debug_stats_.max_frame_ms       = debug_acc_.max_frame_ms;
+    debug_stats_.max_update_ms      = debug_acc_.max_update_ms;
+    debug_stats_.max_render_ms      = debug_acc_.max_render_ms;
+    debug_stats_.max_processing_ms  = debug_acc_.max_processing_ms;
+    debug_stats_.active_bullets     = bullet_system_.CountActive();
+    debug_stats_.bullet_capacity    = bullet_system_.GetCapacity();
+    debug_stats_.collision_checks   = collision_system_.LastCheckCount();
+    debug_stats_.update_steps       = update_steps;
+    // 最後に累積値リセット
+    debug_acc_.Reset();
+}
+
+/**
+ * @brief ゲームループ末尾でデバッグ情報の累積を実施する関数
+ * 
+ * @param raw_frame_ms 
+ * @param raw_update_ms 
+ * @param raw_render_ms 
+ * @param raw_processing_ms 
+ */
+void Application::AccumulateDebugStats(
+    const float raw_frame_ms, 
+    const float raw_update_ms, 
+    const float raw_render_ms, 
+    const float raw_processing_ms
+)
+{
+    // debug_accへデータを累積させる
+    debug_acc_.sum_frame_ms      += raw_frame_ms;
+    debug_acc_.sum_update_ms     += raw_update_ms;
+    debug_acc_.sum_render_ms     += raw_render_ms;
+    debug_acc_.sum_processing_ms += raw_processing_ms;
+    debug_acc_.max_frame_ms      = std::max(debug_acc_.max_frame_ms,      raw_frame_ms);
+    debug_acc_.max_update_ms     = std::max(debug_acc_.max_update_ms,     raw_update_ms);
+    debug_acc_.max_render_ms     = std::max(debug_acc_.max_render_ms,     raw_render_ms);
+    debug_acc_.max_processing_ms = std::max(debug_acc_.max_processing_ms, raw_processing_ms);
+    ++debug_acc_.count;
 }
 
 }   // namespace zimovka
