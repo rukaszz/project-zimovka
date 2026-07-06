@@ -60,7 +60,7 @@ int Application::Run(int argc, char* argv[]){
 
     // ループ処理開始前の時刻取得
     // 1フレーム前のupdate開始時刻
-    auto previous_update_start = Clock::now();
+    //auto previous_update_start = Clock::now();
     // 1フレーム前のフレーム開始時刻
     auto previous_frame_start  = Clock::now();
 
@@ -99,13 +99,15 @@ int Application::Run(int argc, char* argv[]){
         // update処理の開始時刻
         auto update_start = Clock::now();
         // update_startと前フレームとの差
-        auto update_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(update_start - previous_update_start);
-        previous_update_start = update_start;
+        auto simulation_elapsed = 
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                frame_elapsed
+            );
         // 1/60 * 5以上の更新遅延が生じたらclamp
-        if(update_elapsed > max_acc){
-            update_elapsed = max_acc;
+        if(simulation_elapsed > max_acc){
+            simulation_elapsed = max_acc;
         }
-        update_time_acc += update_elapsed;
+        update_time_acc += simulation_elapsed;
         
         // 更新回数計測用変数
         std::size_t update_steps = 0;
@@ -135,7 +137,7 @@ int Application::Run(int argc, char* argv[]){
         debug_refresh_acc += frame_elapsed;
         if(debug_refresh_acc > DEBUG_REFRESH_INTERVAL){
             FlushDebugStats(update_steps);
-            debug_overlay.Update(debug_stats_);
+            (void)debug_overlay.Update(debug_stats_);   // 戻り値は無視(ログに出す場合は使用する)
             debug_refresh_acc -= DEBUG_REFRESH_INTERVAL;
         }
         debug_overlay.Render();

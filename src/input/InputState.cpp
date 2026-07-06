@@ -51,6 +51,18 @@ void InputState::ClearTransient() noexcept{
 }
 
 /**
+ * @brief 全入力状態を初期化する関数
+ *
+ * フォーカス喪失時などにSDL_KEYUPが届かないケースで呼ばれる
+ * held_bitsも含めて全クリアする
+ */
+void InputState::ClearAll() noexcept{
+    held_bits_     = 0;
+    pressed_bits_  = 0;
+    released_bits_ = 0;
+}
+
+/**
  * 注意
  * このsetter群は外部から呼べてしまう
  * friendクラスにする代わりに運用で外部から呼ばないようにすること

@@ -1,6 +1,5 @@
 #include "zimovka/rendering/TextTexture.hpp"
 
-#include <cassert>
 #include <stdexcept>
 #include <utility>
 
@@ -24,8 +23,7 @@ TextTexture::TextTexture(TextTexture&& other) noexcept
     : texture_(other.texture_)
     , width_(other.width_)
     , height_(other.height_)
-    , cached_text_(std::move(other.cached_text_)
-)
+    , cached_text_(std::move(other.cached_text_))
 {
     // 移動元の所有権を無効化(デストラクタでSDL_DestroyTextureが呼ばれないようにするため)
     other.texture_ = nullptr;
@@ -43,10 +41,10 @@ TextTexture& TextTexture::operator=(TextTexture&& other) noexcept{
     if(this != &other){
         // 既存テクスチャを解放してから移動
         Reset();
-        texture_      = other.texture_;
-        width_        = other.width_;
-        height_       = other.height_;
-        cached_text_  = std::move(other.cached_text_);  // string_viewではないのでOK
+        texture_       = other.texture_;
+        width_         = other.width_;
+        height_        = other.height_;
+        cached_text_   = std::move(other.cached_text_);  // string_viewではないのでOK
         // 移動元の所有権を無効化
         other.texture_ = nullptr;
         other.width_   = 0;
@@ -68,33 +66,42 @@ TextTexture& TextTexture::operator=(TextTexture&& other) noexcept{
  * @return false 
  */
 bool TextTexture::Update(
-    SDL_Renderer*    renderer,
-    TTF_Font*        font,
-    std::string_view text,
-    zimovka::Color   color
+    SDL_Renderer*       renderer,
+    TTF_Font*           font,
+    const std::string&  text,
+    zimovka::Color      color
 )
 {
     // チェック
     if (!renderer) {
         throw std::invalid_argument(
-            "DebugOverlay requires a valid SDL_Renderer."
+            "TextTexture requires a valid SDL_Renderer."
         );
     }
     // フォントエラーの際はゲーム事態は継続
     if (!font) {
-        SDL_Log("TTF_OpenFont failed: %s", TTF_GetError());
+        SDL_Log("TextTexture::Update received a null font.");
         return false;
     }
-    // 同一の文字列かつテクスチャが有効なら再生成しない
-    if(texture_ && text == cached_text_){
+    // 同色か判定
+    const bool same_color = has_cached_color_
+        && color.r == cached_color_.r
+        && color.g == cached_color_.g
+        && color.b == cached_color_.b
+        && color.a == cached_color_.a;
+    // テクスチャが有効 かつ 同一の文字列 かつ 同色 なら再生成しない
+    if(texture_ && text == cached_text_ && same_color){
         return true;
     }
+
+    // キャッシュの判定を超えたのでfalse
+    has_cached_color_ = false;
 
     // zimovka::Color → SDL_Color 変換
     const SDL_Color sdl_color{color.r, color.g, color.b, color.a};
 
     // Surface生成
-    SDL_Surface* surf = TTF_RenderUTF8_Blended(font, text.data(), sdl_color);
+    SDL_Surface* surf = TTF_RenderUTF8_Blended(font, text.c_str(), sdl_color);
     if(!surf){
         return false;
     }

@@ -267,3 +267,25 @@ updateが非常に重たい．全体として，60fpsの維持にはまだ余裕
 | steps | 1 | 1 | 1で安定 |
 | bullets | 徐々に減少する | 1200 | 値はほぼ一定 |
 | collision | 徐々に減少する | 1200 | 値はほぼ一定 |
+
+### 2026/07/06
+
+string_viewについて．
+string_viewはTextTextureで用いている．これはstringの参照を得る機能で，stringのコピーが発生せず早い．
+ただし文字列の終端が`\0`であるかは保証されておらず，SDLのAPIへ渡す場合は注意が必要である．
+
+```cpp
+// 更新関数 (テキストが変化した場合のみSurface/Textureを再生成)
+bool Update(
+    SDL_Renderer*    renderer,  // 所有しない
+    TTF_Font*        font,      // 所有しない
+    std::string_view text,      // 所有権を持たない文字列参照
+    zimovka::Color   color      // zimovka::Color (SDL_Colorへの変換は内部で実施)
+);
+```
+
+難しいのは，この段階では問題にならないことである．`std::format`は終端が`\0`であることが保証されており，
+string_viewによる処理の軽量化はむしろ正しいといえる．
+しかしTextTextureは今後，スコア表示などに活用することを見越した汎用的になクラスである．
+汎用性を重視するなら，string_viewを用いないほうがよく，またSDLのAPIへ渡すことを考えたらstringで渡したほうが安全である．
+よって，string_viewを使うことは避ける方針にする．

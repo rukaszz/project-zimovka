@@ -20,6 +20,8 @@ private:
     int height_ = 0;
     // 毎フレーム更新しないためキャッシュする
     std::string cached_text_;
+    bool has_cached_color_ = false;
+    Color cached_color_{};
 
 public:
     // コンストラクタ等の定義
@@ -33,10 +35,10 @@ public:
     TextTexture& operator=(TextTexture&& other) noexcept;
     // 更新関数 (テキストが変化した場合のみSurface/Textureを再生成)
     bool Update(
-        SDL_Renderer*    renderer,  // 所有しない
-        TTF_Font*        font,      // 所有しない
-        std::string_view text,      // 所有権を持たない文字列参照
-        zimovka::Color   color      // zimovka::Color (SDL_Colorへの変換は内部で実施)
+        SDL_Renderer*       renderer,   // 所有しない
+        TTF_Font*           font,       // 所有しない
+        const std::string&  text,       // 所有権を持たない文字列参照
+        zimovka::Color      color       // zimovka::Color (SDL_Colorへの変換は内部で実施)
     );
     // 描画関数
     void Render(SDL_Renderer* renderer, int x, int y) const;

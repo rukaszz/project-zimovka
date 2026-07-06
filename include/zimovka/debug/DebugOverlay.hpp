@@ -39,8 +39,8 @@ public:
     // TTF_Fontを所有するのでコピー禁止
     DebugOverlay(const DebugOverlay&) = delete;
     DebugOverlay& operator=(const DebugOverlay&) = delete;
-    // 更新関数
-    void Update(const DebugStats& stats);
+    // 更新関数(TextTexture.Update()がboolを返すので，このUpdateもboolを返す)
+    bool Update(const DebugStats& stats);
     // 描画関数
     void Render() const;
     // TTF_Fontが有効なのか

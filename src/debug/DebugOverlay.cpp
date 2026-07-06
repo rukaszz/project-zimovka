@@ -59,10 +59,10 @@ DebugOverlay::~DebugOverlay(){
  * 
  * @param stats 
  */
-void DebugOverlay::Update(const DebugStats& stats){
+bool DebugOverlay::Update(const DebugStats& stats){
     // フォントが読み込めていないなら何もしない
     if(!font_){
-        return;
+        return false;
     }
     constexpr zimovka::Color YELLOW{255, 255, 0, 255};
 
@@ -102,11 +102,16 @@ void DebugOverlay::Update(const DebugStats& stats){
             stats.collision_checks
         ), 
     };
+    
+    // Update処理の成否
+    bool success = true;
     // lines_へ格納
     for(std::size_t i = 0; i < lines_.size(); ++i){
         // TextTextureのUpdate()を呼び出して文字列のテクスチャを設定
-        lines_[i].Update(renderer_, font_, text[i], YELLOW);
+        // success = Update() && successにすることで，どこかで失敗したらfalseを取れる
+        success = lines_[i].Update(renderer_, font_, text[i], YELLOW) && success;
     }
+    return success;
 }
 
 /**

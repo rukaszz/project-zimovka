@@ -36,6 +36,8 @@ public:
     std::uint32_t GetReleasedBits() const noexcept;
     // 押した/離れたの一時的な状態を初期化
     void ClearTransient() noexcept;
+    // フォーカス喪失時などに全状態を初期化(held含む)
+    void ClearAll() noexcept;
     /**
      * 注意
      * このsetter群は外部から呼べてしまう
