@@ -21,7 +21,7 @@ namespace CollisionUtilities{
  * @return true 
  * @return false 
  */
-bool Intersects(const Circle& a, const Circle& b) noexcept{
+inline bool Intersects(const Circle& a, const Circle& b) noexcept{
     // 円の中心座標の差
     const Vec2 d = a.center - b.center;
     // 円の半径の和

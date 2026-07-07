@@ -270,7 +270,8 @@ updateが非常に重たい．全体として，60fpsの維持にはまだ余裕
 
 ### 2026/07/06
 
-string_viewについて．
+#### string_viewについて
+
 string_viewはTextTextureで用いている．これはstringの参照を得る機能で，stringのコピーが発生せず早い．
 ただし文字列の終端が`\0`であるかは保証されておらず，SDLのAPIへ渡す場合は注意が必要である．
 
@@ -289,3 +290,120 @@ string_viewによる処理の軽量化はむしろ正しいといえる．
 しかしTextTextureは今後，スコア表示などに活用することを見越した汎用的になクラスである．
 汎用性を重視するなら，string_viewを用いないほうがよく，またSDLのAPIへ渡すことを考えたらstringで渡したほうが安全である．
 よって，string_viewを使うことは避ける方針にする．
+
+#### InputSystemと複数キー割当
+
+InputSystemはキーが押された，離れたを1bitのON/OFFで管理している．しかしこの場合，2つのキー割当がなされている操作を実施すると，意図しない動作となる可能性がある．
+
+具体的には，Wキーと上矢印キーの同時押しがわかりやすい．Wキーを押下して，MoveUpが`1`となる．そこで上矢印キーを押すと，bitはそのまま`1`である．ここでWキーを離すと，キーが離れたので-1されbitは0になる．よって，上矢印キーを押しているにもかかわらず，Playerは前進を止めてしまう．
+
+これは0/1管理に対して複数キー割当を考慮していないために発生する．
+そこで，押された/離れたをカウントする配列を用意して対応する．
+
+```cpp
+/**
+ * @brief 同一Actionに複数キーが割り当てられている場合の参照カウント
+ *
+ * 例: LSHIFT/RSHIFTは両方Action::Slowにマッピングされる
+ * hold_count_[Slow] == 2 → どちらかが離れても解除しない
+ * hold_count_[Slow] == 0 になって初めてheld/releasedを更新する
+ */
+std::array<std::uint8_t, ACTION_COUNT> hold_count_{};
+```
+
+この配列は複数キーが押されたら+2として，逆に全て離れたら-2することで，押された/離れたを管理する．キー操作時に呼ばれる関数に対して，配列の増減を実施する処理を加える．
+
+```cpp
+/**
+ * @brief キー押下時のInputState制御関数
+ *
+ * 同一Actionに複数キーが割り当てられている場合は参照カウントで管理する
+ * 例: LSHIFT + RSHIFT → Action::Slow
+ *   LShiftを押す  : hold_count[Slow] == 0 → SetHeld(true), SetPressed
+ *   RShiftも押す  : hold_count[Slow] == 1 → カウントのみ増加
+ *   LShiftを離す  : hold_count[Slow] == 1 → カウント減，まだ1なので held は維持
+ *   RShiftを離す  : hold_count[Slow] == 0 → SetHeld(false), SetReleased
+ *
+ * @param scancode
+ * @param repeat  event.key.repeat != 0 なので押され続けている→trueになる
+ */
+void InputSystem::HandleKeyDown(SDL_Scancode scancode, bool repeat){
+    // キーリピートなら無視する※連続発火防止
+    if(repeat){
+        return;
+    }
+    // Actionにマッピングする
+    zimovka::Action act;
+    if(!MapKeyToAction(scancode, act)){
+        // マッピングできないキーなら即return
+        return;
+    }
+    // 押されたキーに対応するインデックス取得
+    const auto idx = static_cast<std::size_t>(act);
+    // 同じActionの最初の押下時(押下カウントが0)のみpressed + heldをセット
+    if(hold_counts_[idx] == 0){
+        // 前フレームで押されていなければ(heldでなければ)Pressed
+        if(!state_.IsHeld(act)){
+            state_.SetPressed(act);
+        }
+        state_.SetHeld(act, true);
+    }
+    // 押されたカウント+1
+    ++hold_counts_[idx];
+}
+
+/**
+ * @brief キーが離れたときのInputState制御関数
+ *
+ * hold_count_が0になって初めてreleased + heldクリアをセットする
+ *
+ * @param scancode
+ */
+void InputSystem::HandleKeyUp(SDL_Scancode scancode){
+    // Actionにマッピング
+    zimovka::Action act;
+    if(!MapKeyToAction(scancode, act)){
+        // マッピングできないキーなら即return
+        return;
+    }
+    // 押されたキーに対応するインデックス取得
+    const auto idx = static_cast<std::size_t>(act);
+    // 押されたカウントが1以上なら-1
+    if(hold_counts_[idx] > 0){
+        --hold_counts_[idx];
+    }
+    // 同じActionに対応する全キーが離れた時のみheld解除 + released
+    // ex) wキー+↑キーでwキーを離しても上方向へ移動させるため
+    if(hold_counts_[idx] == 0){
+        state_.SetHeld(act, false);
+        state_.SetReleased(act);
+    }
+}
+```
+
+これによって既存の1bitのマスクによる設計はそのままで，内部カウントを追加して対応できた．こうすると，リプレイを0/1のビットマスクで対応する当初の想定が崩れない．
+
+余談だが，ウィンドウのフォーカスが離れた際にキー押下状態のまま担ってしまうという状況が発生する可能性がある．
+そのため，SDLの`SDL_WINDOWEVENT_FOCUS_LOST`を用いて，ウィンドウが非活性になったらキーの状態をリセットする処理を加えている．
+
+```cpp
+/**
+ * @brief キー押下イベント処理(ProcessEvents()で呼ばれる)
+ *
+ * @param event
+ */
+void InputSystem::HandleEvent(const SDL_Event& event){
+    // キー押す/離すの操作に応じて関数を呼ぶ
+    if(event.type == SDL_KEYDOWN){
+        HandleKeyDown(event.key.keysym.scancode, event.key.repeat != 0);
+    } else if(event.type == SDL_KEYUP){
+        HandleKeyUp(event.key.keysym.scancode);
+    } else if(event.type == SDL_WINDOWEVENT &&
+              event.window.event == SDL_WINDOWEVENT_FOCUS_LOST){
+        // フォーカス喪失時はSDL_KEYUPが届かないため手動で全状態をリセット
+        // 参照カウントの整合性を保つためhold_counts_もリセット
+        state_.ClearAll();
+        hold_counts_.fill(0);
+    }
+}
+```

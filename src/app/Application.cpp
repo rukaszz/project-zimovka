@@ -136,8 +136,8 @@ int Application::Run(int argc, char* argv[]){
         // ────────────────────────────────
         debug_refresh_acc += frame_elapsed;
         if(debug_refresh_acc > DEBUG_REFRESH_INTERVAL){
-            FlushDebugStats(update_steps);
-            (void)debug_overlay.Update(debug_stats_);   // 戻り値は無視(ログに出す場合は使用する)
+            FlushDebugStats();
+            (void)debug_overlay.Update(debug_stats_);
             debug_refresh_acc -= DEBUG_REFRESH_INTERVAL;
         }
         debug_overlay.Render();
@@ -150,9 +150,9 @@ int Application::Run(int argc, char* argv[]){
         const float raw_processing_ms = to_ms(Clock::now() - frame_start);
 
         // ────────────────────────────────
-        // 累積(毎フレーム)
+        // 累積(毎フレーム) ─ update_steps統計も含めてAccumulateに委譲
         // ────────────────────────────────
-        AccumulateDebugStats(raw_frame_ms, raw_update_ms, raw_render_ms, raw_processing_ms);
+        debug_acc_.Accumulate(raw_frame_ms, raw_update_ms, raw_render_ms, raw_processing_ms, update_steps);
 
         // fpsキャップ
         CapFrameRate(frame_start);
@@ -275,55 +275,18 @@ void Application::InitializeBulletStressTest(){
 }
 
 /**
- * @brief フレーム単位のデバッグ情報の収集関数
- * 
- * @param update_steps 
+ * @brief デバッグ情報をdebug_acc_からdebug_stats_へ書き出す
+ *
+ * タイミング情報(avg/max)はDebugAccumulator::FlushTo()に委譲する
+ * ゲーム固有の値(bullets, collision)はApplicationが設定する
  */
-void Application::FlushDebugStats(const std::size_t update_steps){
-    // 累積数n
-    const float n = static_cast<float>(debug_acc_.count);
-    // DebugStatsの各要素へ代入
-    debug_stats_.frame_ms           = debug_acc_.sum_frame_ms      / n;
-    debug_stats_.update_ms          = debug_acc_.sum_update_ms     / n;
-    debug_stats_.render_ms          = debug_acc_.sum_render_ms     / n;
-    debug_stats_.processing_ms      = debug_acc_.sum_processing_ms / n;
-    debug_stats_.max_frame_ms       = debug_acc_.max_frame_ms;
-    debug_stats_.max_update_ms      = debug_acc_.max_update_ms;
-    debug_stats_.max_render_ms      = debug_acc_.max_render_ms;
-    debug_stats_.max_processing_ms  = debug_acc_.max_processing_ms;
-    debug_stats_.active_bullets     = bullet_system_.CountActive();
-    debug_stats_.bullet_capacity    = bullet_system_.GetCapacity();
-    debug_stats_.collision_checks   = collision_system_.LastCheckCount();
-    debug_stats_.update_steps       = update_steps;
-    // 最後に累積値リセット
-    debug_acc_.Reset();
-}
-
-/**
- * @brief ゲームループ末尾でデバッグ情報の累積を実施する関数
- * 
- * @param raw_frame_ms 
- * @param raw_update_ms 
- * @param raw_render_ms 
- * @param raw_processing_ms 
- */
-void Application::AccumulateDebugStats(
-    const float raw_frame_ms, 
-    const float raw_update_ms, 
-    const float raw_render_ms, 
-    const float raw_processing_ms
-)
-{
-    // debug_accへデータを累積させる
-    debug_acc_.sum_frame_ms      += raw_frame_ms;
-    debug_acc_.sum_update_ms     += raw_update_ms;
-    debug_acc_.sum_render_ms     += raw_render_ms;
-    debug_acc_.sum_processing_ms += raw_processing_ms;
-    debug_acc_.max_frame_ms      = std::max(debug_acc_.max_frame_ms,      raw_frame_ms);
-    debug_acc_.max_update_ms     = std::max(debug_acc_.max_update_ms,     raw_update_ms);
-    debug_acc_.max_render_ms     = std::max(debug_acc_.max_render_ms,     raw_render_ms);
-    debug_acc_.max_processing_ms = std::max(debug_acc_.max_processing_ms, raw_processing_ms);
-    ++debug_acc_.count;
+void Application::FlushDebugStats(){
+    // タイミング情報のavg/max計算 + debug_acc_のリセットをFlushToに委譲
+    debug_acc_.FlushTo(debug_stats_);
+    // ゲーム固有の値はApplicationが取得して設定する
+    debug_stats_.active_bullets   = bullet_system_.CountActive();
+    debug_stats_.bullet_capacity  = bullet_system_.GetCapacity();
+    debug_stats_.collision_checks = collision_system_.LastCheckCount();
 }
 
 }   // namespace zimovka

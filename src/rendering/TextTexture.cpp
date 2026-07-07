@@ -7,7 +7,7 @@ namespace zimovka{
 
 /**
  * @brief Destroy the Text Texture:: Text Texture object
- * 
+ *
  * Reset()がリソース解放を担っている
  */
 TextTexture::~TextTexture(){
@@ -16,14 +16,15 @@ TextTexture::~TextTexture(){
 
 /**
  * @brief ムーブコンストラクタ
- * 
- * @param other 
+ *
+ * @param other
  */
 TextTexture::TextTexture(TextTexture&& other) noexcept
     : texture_(other.texture_)
     , width_(other.width_)
     , height_(other.height_)
     , cached_text_(std::move(other.cached_text_))
+    , cached_color_(other.cached_color_)     // キャッシュカラーも移動
 {
     // 移動元の所有権を無効化(デストラクタでSDL_DestroyTextureが呼ばれないようにするため)
     other.texture_ = nullptr;
@@ -33,9 +34,9 @@ TextTexture::TextTexture(TextTexture&& other) noexcept
 
 /**
  * @brief ムーブ代入演算子
- * 
- * @param other 
- * @return TextTexture& 
+ *
+ * @param other
+ * @return TextTexture&
  */
 TextTexture& TextTexture::operator=(TextTexture&& other) noexcept{
     if(this != &other){
@@ -44,7 +45,8 @@ TextTexture& TextTexture::operator=(TextTexture&& other) noexcept{
         texture_       = other.texture_;
         width_         = other.width_;
         height_        = other.height_;
-        cached_text_   = std::move(other.cached_text_);  // string_viewではないのでOK
+        cached_text_   = std::move(other.cached_text_);
+        cached_color_  = other.cached_color_;           // キャッシュカラーも移動
         // 移動元の所有権を無効化
         other.texture_ = nullptr;
         other.width_   = 0;
@@ -55,15 +57,20 @@ TextTexture& TextTexture::operator=(TextTexture&& other) noexcept{
 
 /**
  * @brief 文字列の更新処理(成功可否を返す)
- * 
- * テキストが変化した場合のみSurface→Textureを再生成する
- * 
+ *
+ * テキストと色が前回と同じ場合はSurface/Textureを再生成しない
+ *
+ * キャッシュヒットの条件:
+ *   texture_ != nullptr (テクスチャが存在する)
+ *   かつ text == cached_text_ (テキストが同じ)
+ *   かつ color == cached_color_ (色が同じ)
+ *
  * @param renderer 所有しない
  * @param font     所有しない
- * @param text     string_viewで所有権を持たない
- * @param color    内部実装のcolorを受け取り内部でSDL_Colorに変換
- * @return true 
- * @return false 
+ * @param text     所有権を持たない文字列参照
+ * @param color    内部でSDL_Colorに変換
+ * @return true
+ * @return false
  */
 bool TextTexture::Update(
     SDL_Renderer*       renderer,
@@ -72,30 +79,26 @@ bool TextTexture::Update(
     zimovka::Color      color
 )
 {
-    // チェック
     if (!renderer) {
         throw std::invalid_argument(
             "TextTexture requires a valid SDL_Renderer."
         );
     }
-    // フォントエラーの際はゲーム事態は継続
     if (!font) {
         SDL_Log("TextTexture::Update received a null font.");
         return false;
     }
-    // 同色か判定
-    const bool same_color = has_cached_color_
+
+    // テクスチャが有効 かつ テキスト・色がともに同じなら再生成しない
+    if(texture_
+        && text    == cached_text_
         && color.r == cached_color_.r
         && color.g == cached_color_.g
         && color.b == cached_color_.b
-        && color.a == cached_color_.a;
-    // テクスチャが有効 かつ 同一の文字列 かつ 同色 なら再生成しない
-    if(texture_ && text == cached_text_ && same_color){
+        && color.a == cached_color_.a)
+    {
         return true;
     }
-
-    // キャッシュの判定を超えたのでfalse
-    has_cached_color_ = false;
 
     // zimovka::Color → SDL_Color 変換
     const SDL_Color sdl_color{color.r, color.g, color.b, color.a};
@@ -117,22 +120,23 @@ bool TextTexture::Update(
 
     // 既存テクスチャを解放してから更新
     Reset();
-    texture_     = new_tex;
-    width_       = new_w;
-    height_      = new_h;
-    cached_text_ = text;
+    texture_      = new_tex;
+    width_        = new_w;
+    height_       = new_h;
+    cached_text_  = text;
+    cached_color_ = color;  // 次回のキャッシュ判定用に保存
 
     return true;
 }
 
 /**
  * @brief 描画処理(RendererCopyのラッパ)
- * 
+ *
  * テクスチャが未設定の場合は何もしない
- * 
- * @param renderer 
- * @param x 
- * @param y 
+ *
+ * @param renderer
+ * @param x
+ * @param y
  */
 void TextTexture::Render(SDL_Renderer* renderer, int x, int y) const{
     // テクスチャが無効なら何もしない
@@ -152,7 +156,7 @@ void TextTexture::Render(SDL_Renderer* renderer, int x, int y) const{
 
 /**
  * @brief リセット関数(テクスチャを解放して初期状態に戻す)
- * 
+ *
  */
 void TextTexture::Reset() noexcept{
     if(texture_){

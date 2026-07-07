@@ -89,8 +89,10 @@ bool DebugOverlay::Update(const DebugStats& stats){
             stats.max_render_ms
         ), 
         std::format(
-            "steps:     {}", 
-            stats.update_steps
+            "steps:     max {}, zero {}, multi {}", 
+            stats.max_update_steps, 
+            stats.zero_update_frames, 
+            stats.multi_update_frames
         ), 
         std::format(
             "bullets:   {} / {}", 

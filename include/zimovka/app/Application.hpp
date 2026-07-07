@@ -24,7 +24,6 @@ class Application{
 public:
     // ターゲットFPSと1フレームの目標時間(ms)
     static constexpr int   TARGET_FPS     = 60;
-    static constexpr float FRAME_DELAY_MS = 1000.0f / static_cast<float>(TARGET_FPS);
     static constexpr int   MAX_UPDATE_PER_FRAME = 5;
     // 画面サイズ
     static constexpr int WINDOW_WIDTH = 960;
@@ -44,8 +43,6 @@ private:
     PlayerSystem player_system_;
     // バレットシステム
     BulletSystem bullet_system_;    // デフォルトプールは1200
-    float bullet_spawn_timer_ = 0.0f;
-    Vec2 temp_spawn_{7.0f, 11.0f};  // スポーン用の変数(一時的なもの)
     // 衝突システム
     CollisionSystem collision_system_;
     // デバッグ情報
@@ -63,17 +60,10 @@ private:
     void CapFrameRate(std::chrono::steady_clock::time_point frame_start_ms);
 
     // 性能試験用関数
-    // 弾を瞬間的に
     void InitializeBulletStressTest();
-    // デバッグ情報の累積
-    void AccumulateDebugStats(
-        const float raw_frame_ms, 
-        const float raw_update_ms, 
-        const float raw_render_ms, 
-        const float raw_processing_ms 
-    );
-    // デバッグ情報描画用のdebug_stats_へ渡す
-    void FlushDebugStats(const std::size_t update_steps);
+    // デバッグ情報をdebug_acc_からdebug_stats_へ書き出す
+    // (タイミング以外のゲーム値もここで設定する)
+    void FlushDebugStats();
 
 };
 

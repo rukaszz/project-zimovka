@@ -20,8 +20,7 @@ private:
     int height_ = 0;
     // 毎フレーム更新しないためキャッシュする
     std::string cached_text_;
-    bool has_cached_color_ = false;
-    Color cached_color_{};
+    Color       cached_color_{};
 
 public:
     // コンストラクタ等の定義
