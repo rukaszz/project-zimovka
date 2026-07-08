@@ -65,3 +65,12 @@ target_compile_options(${PROJECT_NAME} PRIVATE
     $<$<CONFIG:Debug>:-g -O0 -DDEBUG>   # デバッグ時は最適化しない
     $<$<CONFIG:Release>:-O2 -DNDEBUG>   # リリース用はO2の最適化を適用
 )
+
+# ──────────────────────────────────────────────────────
+# テスト(GoogleTest via FetchContent)
+# BUILD_TESTING=OFF でスキップできる
+# ──────────────────────────────────────────────────────
+option(BUILD_TESTING "Build unit tests" ON)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

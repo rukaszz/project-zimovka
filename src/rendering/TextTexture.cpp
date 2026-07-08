@@ -23,13 +23,18 @@ TextTexture::TextTexture(TextTexture&& other) noexcept
     : texture_(other.texture_)
     , width_(other.width_)
     , height_(other.height_)
+    // キャッシュも移動させる
+    , cached_renderer_(other.cached_renderer_)
+    , cached_font_(other.cached_font_)
     , cached_text_(std::move(other.cached_text_))
-    , cached_color_(other.cached_color_)     // キャッシュカラーも移動
+    , cached_color_(other.cached_color_)
 {
     // 移動元の所有権を無効化(デストラクタでSDL_DestroyTextureが呼ばれないようにするため)
-    other.texture_ = nullptr;
-    other.width_   = 0;
-    other.height_  = 0;
+    other.texture_         = nullptr;
+    other.cached_renderer_ = nullptr;
+    other.cached_font_     = nullptr;
+    other.width_           = 0;
+    other.height_          = 0;
 }
 
 /**
@@ -42,15 +47,19 @@ TextTexture& TextTexture::operator=(TextTexture&& other) noexcept{
     if(this != &other){
         // 既存テクスチャを解放してから移動
         Reset();
-        texture_       = other.texture_;
-        width_         = other.width_;
-        height_        = other.height_;
-        cached_text_   = std::move(other.cached_text_);
-        cached_color_  = other.cached_color_;           // キャッシュカラーも移動
+        texture_          = other.texture_;
+        width_            = other.width_;
+        height_           = other.height_;
+        cached_renderer_  = other.cached_renderer_;
+        cached_font_      = other.cached_font_;
+        cached_text_      = std::move(other.cached_text_);
+        cached_color_     = other.cached_color_;
         // 移動元の所有権を無効化
-        other.texture_ = nullptr;
-        other.width_   = 0;
-        other.height_  = 0;
+        other.texture_          = nullptr;
+        other.cached_renderer_  = nullptr;
+        other.cached_font_      = nullptr;
+        other.width_            = 0;
+        other.height_           = 0;
     }
     return *this;
 }
@@ -89,13 +98,15 @@ bool TextTexture::Update(
         return false;
     }
 
-    // テクスチャが有効 かつ テキスト・色がともに同じなら再生成しない
+    /**
+     * @brief テクスチャが有効 かつ rendererが同一
+     * かつ テキストが同一 かつ 色が同一 ならキャッシュを使用
+     */
     if(texture_
-        && text    == cached_text_
-        && color.r == cached_color_.r
-        && color.g == cached_color_.g
-        && color.b == cached_color_.b
-        && color.a == cached_color_.a)
+        && renderer == cached_renderer_
+        && font     == cached_font_
+        && text     == cached_text_
+        && color    == cached_color_)   // zimovka::Colorは==をオーバーロードしている
     {
         return true;
     }
@@ -120,11 +131,14 @@ bool TextTexture::Update(
 
     // 既存テクスチャを解放してから更新
     Reset();
-    texture_      = new_tex;
-    width_        = new_w;
-    height_       = new_h;
-    cached_text_  = text;
-    cached_color_ = color;  // 次回のキャッシュ判定用に保存
+    // 次回のキャッシュ判定用に保存
+    texture_         = new_tex;
+    cached_renderer_ = renderer;
+    cached_font_     = font;
+    cached_text_     = text;
+    cached_color_    = color;  
+    width_           = new_w;
+    height_          = new_h;
 
     return true;
 }
@@ -138,20 +152,15 @@ bool TextTexture::Update(
  * @param x
  * @param y
  */
-void TextTexture::Render(SDL_Renderer* renderer, int x, int y) const{
-    // テクスチャが無効なら何もしない
-    if(!texture_){
+void TextTexture::Render(int x, int y) const{
+    // テクスチャ または レンダラが無効なら何もしない
+    if(!texture_ || !cached_renderer_){
         return;
-    }
-    if (!renderer) {
-        throw std::invalid_argument(
-            "DebugOverlay requires a valid SDL_Renderer."
-        );
     }
     // 描画範囲
     const SDL_Rect dest{x, y, width_, height_};
     // レンダラへ送信
-    SDL_RenderCopy(renderer, texture_, nullptr, &dest);
+    SDL_RenderCopy(cached_renderer_, texture_, nullptr, &dest);
 }
 
 /**
@@ -163,8 +172,11 @@ void TextTexture::Reset() noexcept{
         SDL_DestroyTexture(texture_);
         texture_ = nullptr;
     }
-    width_       = 0;
-    height_      = 0;
+    cached_renderer_ = nullptr;
+    cached_font_     = nullptr;
+    cached_color_    = {};
+    width_           = 0;
+    height_          = 0;
     cached_text_.clear();
 }
 

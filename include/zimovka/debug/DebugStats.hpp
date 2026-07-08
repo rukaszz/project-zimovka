@@ -14,7 +14,7 @@ struct DebugStats{
     std::size_t bullet_capacity     = 0;
     std::size_t collision_checks    = 0;
     // ゲームの情報
-    std::size_t update_steps        = 0;      // 更新遅延によるUpdate実行回数の計測用
+    // 更新遅延によるUpdate実行回数の計測用
     std::size_t max_update_steps    = 0;
     std::size_t zero_update_frames  = 0;
     std::size_t multi_update_frames = 0;

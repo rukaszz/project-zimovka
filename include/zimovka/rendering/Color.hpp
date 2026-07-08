@@ -15,6 +15,8 @@ struct Color{
     std::uint8_t g = 255;
     std::uint8_t b = 255;
     std::uint8_t a = 255;
+    // 比較演算子==のオーバーロード
+    constexpr bool operator==(const Color&) const noexcept = default;
 };
 
 }   // namespace zimovka

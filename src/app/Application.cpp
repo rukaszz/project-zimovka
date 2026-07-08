@@ -59,8 +59,6 @@ int Application::Run(int argc, char* argv[]){
     const auto max_acc = fixed_ns * MAX_UPDATE_PER_FRAME;
 
     // ループ処理開始前の時刻取得
-    // 1フレーム前のupdate開始時刻
-    //auto previous_update_start = Clock::now();
     // 1フレーム前のフレーム開始時刻
     auto previous_frame_start  = Clock::now();
 

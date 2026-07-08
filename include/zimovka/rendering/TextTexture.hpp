@@ -19,8 +19,10 @@ private:
     int width_ = 0;
     int height_ = 0;
     // 毎フレーム更新しないためキャッシュする
-    std::string cached_text_;
-    Color       cached_color_{};
+    SDL_Renderer* cached_renderer_ = nullptr;
+    TTF_Font*     cached_font_ = nullptr;
+    std::string   cached_text_;
+    Color         cached_color_{};
 
 public:
     // コンストラクタ等の定義
@@ -40,7 +42,7 @@ public:
         zimovka::Color      color       // zimovka::Color (SDL_Colorへの変換は内部で実施)
     );
     // 描画関数
-    void Render(SDL_Renderer* renderer, int x, int y) const;
+    void Render(int x, int y) const;
     // リセット関数
     void Reset() noexcept;
 };

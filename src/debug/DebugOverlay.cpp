@@ -67,7 +67,7 @@ bool DebugOverlay::Update(const DebugStats& stats){
     constexpr zimovka::Color YELLOW{255, 255, 0, 255};
 
     // lines_へ格納する文字列textの作成(LINE_COUNT行分)
-    const std::array<std::string, LINE_COUNT> text{
+    const std::array<std::string, LINE_COUNT> texts{
         std::format(
             "frame:     avg{:6.2f}, max{:6.2f} ms", 
             stats.frame_ms, 
@@ -111,7 +111,7 @@ bool DebugOverlay::Update(const DebugStats& stats){
     for(std::size_t i = 0; i < lines_.size(); ++i){
         // TextTextureのUpdate()を呼び出して文字列のテクスチャを設定
         // success = Update() && successにすることで，どこかで失敗したらfalseを取れる
-        success = lines_[i].Update(renderer_, font_, text[i], YELLOW) && success;
+        success = lines_[i].Update(renderer_, font_, texts[i], YELLOW) && success;
     }
     return success;
 }
@@ -133,7 +133,7 @@ void DebugOverlay::Render() const{
     // TextTextureのRender()で描画
     for(std::size_t i = 0; i < lines_.size(); ++i){
         const int y = TOP + static_cast<int>(i) * line_height_;
-        lines_[i].Render(renderer_, X, y);
+        lines_[i].Render(X, y);
     }
 }
 
