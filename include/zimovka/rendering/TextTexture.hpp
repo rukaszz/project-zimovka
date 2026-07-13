@@ -42,7 +42,7 @@ public:
         zimovka::Color      color       // zimovka::Color (SDL_Colorへの変換は内部で実施)
     );
     // 描画関数
-    void Render(int x, int y) const;
+    bool Render(int x, int y) const;
     // リセット関数
     void Reset() noexcept;
 };

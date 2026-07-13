@@ -1,20 +1,23 @@
 # GoogleTestをFetchContentで取得(システムを汚染しない)
 include(FetchContent)
+# GithubからGoogleTestをダウンロードしてビルド対象に取り込む
 FetchContent_Declare(
     googletest
     GIT_REPOSITORY https://github.com/google/googletest.git
     GIT_TAG        v1.14.0
 )
 # Windows向け: ランタイムDLLの設定を統一する
+# DDL版C Runtimeを強制し，親プロジェクトのコンパイラ・リンカの設定を上書きするのを防ぐ
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 # ──────────────────────────────────────────────────────
 # テスト対象ソース
-# main.cpp / SdlContext / Window / Renderer / DebugOverlay など
+# main.cpp/SdlContext/Window/Renderer/DebugOverlayなど
 # SDL初期化が必要なファイルは除外する
-# BulletSystem.cpp と PlayerSystem.cpp は PrimitiveRenderer.hpp を
-# インクルードするため，PrimitiveRenderer.cpp のリンクが必要
+# PrimitiveRenderer.cppのリンクは
+# BulletSystem.cppとPlayerSystem.cppがPrimitiveRenderer.hppを
+# インクルードするため含めている
 # ──────────────────────────────────────────────────────
 set(ZIMOVKA_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/input/InputState.cpp
@@ -25,13 +28,15 @@ set(ZIMOVKA_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
 )
 
+# ビルドする実行ファイル設定
 add_executable(zimovka_tests
-    test_vec2.cpp
-    test_input.cpp
-    test_bullet_system.cpp
-    test_player_system.cpp
-    test_collision.cpp
-    test_debug_accumulator.cpp
+    test_Vec2.cpp
+    test_InputState.cpp
+    test_InputSystem.cpp
+    test_BulletSystem.cpp
+    test_PlayerSystem.cpp
+    test_Collision.cpp
+    test_DebugAccumulator.cpp
     ${ZIMOVKA_TEST_SOURCES}
 )
 
@@ -41,7 +46,7 @@ target_include_directories(zimovka_tests PRIVATE
     ${SDL2_INCLUDE_DIRS}
 )
 
-# リンク: GTest + SDL2(PrimitiveRenderer.cppとInputSystem.cppが必要)
+# リンク: GTest + SDL2(PrimitiveRenderer.cppとInputSystem.cppで使用する)
 target_link_libraries(zimovka_tests PRIVATE
     GTest::gtest_main
     ${SDL2_LIBRARIES}

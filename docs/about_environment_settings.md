@@ -199,6 +199,280 @@ target_compile_options(${PROJECT_NAME} PRIVATE
   - `0`なら最適化はほぼされない．コードがそのまま機械語に展開されるので，デバッグがやりやすい
   - `2`は実行速度の最大化を目的に強力な最適化を実施する．リリースビルドで推奨される
 
+### GoogleTest用のCMakeLists.txtの記述
+
+#### GoogleTestについて
+
+Googleが開発したC++向けの単体テスト自動化フレームワーク．OSSでありクロスプラットホーム対応，アサーションが豊富でテストから実行までが容易，モックもある，といたれりつくせりなフレームワークである．
+
+Project Zimovkaでは，単体テストはGoogleTestを用いて実施する．
+
+#### CMakeListの内容
+
+```cmake
+# GoogleTestをFetchContentで取得(システムを汚染しない)
+include(FetchContent)
+# GithubからGoogleTestをダウンロードしてビルド対象に取り込む
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.14.0
+)
+# Windows向け: ランタイムDLLの設定を統一する
+# DDL版C Runtimeを強制し，親プロジェクトのコンパイラ・リンカの設定を上書きするのを防ぐ
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+
+# ──────────────────────────────────────────────────────
+# テスト対象ソース
+# main.cpp/SdlContext/Window/Renderer/DebugOverlayなど
+# SDL初期化が必要なファイルは除外する
+# PrimitiveRenderer.cppのリンクは
+# BulletSystem.cppとPlayerSystem.cppがPrimitiveRenderer.hppを
+# インクルードするため含めている
+# ──────────────────────────────────────────────────────
+set(ZIMOVKA_TEST_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/input/InputState.cpp
+    ${CMAKE_SOURCE_DIR}/src/input/InputSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/bullet/BulletSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
+)
+
+# ビルドする実行ファイル設定
+add_executable(zimovka_tests
+    test_Vec2.cpp
+    test_Input.cpp
+    test_BulletSystem.cpp
+    test_PlayerSystem.cpp
+    test_Collision.cpp
+    test_DebugAccumulator.cpp
+    ${ZIMOVKA_TEST_SOURCES}
+)
+
+# インクルードパス(親CMakeLists.txtでpkg_check_modulesが実行済みなので変数が使える)
+target_include_directories(zimovka_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${SDL2_INCLUDE_DIRS}
+)
+
+# リンク: GTest + SDL2(PrimitiveRenderer.cppとInputSystem.cppで使用する)
+target_link_libraries(zimovka_tests PRIVATE
+    GTest::gtest_main
+    ${SDL2_LIBRARIES}
+)
+
+target_compile_options(zimovka_tests PRIVATE
+    -Wall -Wextra -Wpedantic
+    $<$<CONFIG:Debug>:-g -O0>
+    $<$<CONFIG:Release>:-O2>
+)
+
+# CTestへ自動登録
+include(GoogleTest)
+gtest_discover_tests(zimovka_tests)
+
+```
+
+#### CMakeListsの内容について
+
+```cmake
+# GoogleTestをFetchContentで取得(システムを汚染しない)
+include(FetchContent)
+# GithubからGoogleTestをダウンロードしてビルド対象に取り込む
+FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG        v1.14.0
+)
+# Windows向け: ランタイムDLLの設定を統一する
+# DDL版C Runtimeを強制し，親プロジェクトのコンパイラ・リンカの設定を上書きするのを防ぐ
+set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(googletest)
+```
+
+- `include(FetchContent)`
+  - CMake 3.11以降で使えるモジュール
+  - 外部依存するライブラリを，「CMakeが自動でダウンロードしてビルドする」仕組み
+  - FetchContentを用いると，外部コンテンツの依存をCMakeList内に留められる
+- `FetchContent_Declare()`
+  - 外部コンテンツ(GoogleTest)を宣言する
+    - この時点では有効化されていない
+  - 宣言の順に次の意味を持つ
+    - googletest：この依存関係の名前
+    - GIT_REPOSITORY ...：どのGitリポジトリから取得するか
+    - GIT_TAG：どのコミット/タグを使用するか
+- `FetchContent_MakeAvailable()`
+  - これで宣言した`googletest`を与えると
+    - `git clone`される
+    - CMakeがライブラリをconfigure & buildする
+- `set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)`
+  - Windows + MSVC環境で，GoogleTestが共有ランライムライブラリを使用するように強制できる
+  - `gtest_force_shared_crt`
+    - GoogleTestがランタイムライブラリ(CRT)に共有ランタイム(DLL)を使うことを指定するオプション
+  - `ON CACHE BOOL`
+    - CMake configureで上記のオプションを指定する必要がある
+    - set()ではconfigureまでセットされないので，CACHEを指定してキャッシュに書き込んでいる
+  - `FORCE`
+    - キャッシュへの書き込みで上書きさせる
+  - MSVCのランタイムライブラリについて
+    - `/MD`：共有ランタイム(DLL)(リリース用)
+    - `/MDd`：共有ランタイム(デバッグ用)
+    - `/MT`：静的ランタイム(lib)(リリース用)
+    - `/MTd`：静的ランタイム(デバッグ用)
+    - Windowsの標準ライブラリはDLLで提供されており，共有ランタイム(DLL)が事実上標準となっている
+    - 静的リンクは実行ファイル肥大化などを招き，また/MDと併用すると未定義動作になる→共有ランタイムをGoogleTestでも使うようにしている
+
+```cmake
+# ──────────────────────────────────────────────────────
+# テスト対象ソース
+# main.cpp/SdlContext/Window/Renderer/DebugOverlayなど
+# SDL初期化が必要なファイルは除外する
+# PrimitiveRenderer.cppのリンクは
+# BulletSystem.cppとPlayerSystem.cppがPrimitiveRenderer.hppを
+# インクルードするため含めている
+# ──────────────────────────────────────────────────────
+set(ZIMOVKA_TEST_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/input/InputState.cpp
+    ${CMAKE_SOURCE_DIR}/src/input/InputSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/bullet/BulletSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
+)
+
+# ビルドする実行ファイル設定
+add_executable(zimovka_tests
+    test_Vec2.cpp
+    test_Input.cpp
+    test_BulletSystem.cpp
+    test_PlayerSystem.cpp
+    test_Collision.cpp
+    test_DebugAccumulator.cpp
+    ${ZIMOVKA_TEST_SOURCES}
+)
+
+# インクルードパス(親CMakeLists.txtでpkg_check_modulesが実行済みなので変数が使える)
+target_include_directories(zimovka_tests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${SDL2_INCLUDE_DIRS}
+)
+
+# リンク: GTest + SDL2(PrimitiveRenderer.cppとInputSystem.cppで使用する)
+target_link_libraries(zimovka_tests PRIVATE
+    GTest::gtest_main
+    ${SDL2_LIBRARIES}
+)
+
+```
+
+重複する部分が多いため全体的な流れのみ説明する．
+流れとしては，set→add_executable→target_include_directories→target_link_librariesとなっている．
+
+- `set`
+  - ビルドに必要な実装(cppファイル)を宣言
+- `add_executable`
+  - テストコードと，テストする実装ファイルを宣言
+- `target_include directories`
+  - テストコードが必要とするヘッダの探索パスを追加
+  - 親となるプロジェクトのCMakeListsも参照される
+- `target_link_libraries`
+  - テストの実行ファイルに`gtest/gtest_main`をリンクする
+
+```cmake
+# CTestへ自動登録
+include(GoogleTest)
+gtest_discover_tests(zimovka_tests)
+```
+
+- `include(GoogleTest)`
+  - GoogleTest.cmakeというモジュールを読み込む命令
+  - CTestというテストランナーと関連付ける
+- `gtest_discover_tests(zimovka_tests)`
+  - テストの実行ファイル`zimovka_tests`を実行し，内部の`TEST()`を自動検出し，CTestに登録させる
+  - 実行時にGoogleTestがCTestへテスト一覧を渡している
+  - TEST()とCTestの結びつきをしてくれる
+
+#### GoogleTestの基礎
+
+テストしたい実装のヘッダを読み込んで，`TEST()`にテスト内容を記述していく：
+
+```cpp
+#include <gtest/gtest.h>
+
+#include "sample.hpp"
+
+TEST(IsEvenTest, Negative) {
+    EXPECT_FALSE(IsEven(-1));
+    EXPECT_TRUE(IsEven(-2));
+}
+
+TEST(IsEvenTest, Zero) {
+    EXPECT_TRUE(IsEven(0));
+}
+
+TEST(IsEvenTest, Positive) {
+    EXPECT_FALSE(IsEven(1));
+    EXPECT_TRUE(IsEven(2));
+}
+
+```
+
+実行結果の例：
+
+```bash
+# 実行結果
+Running main() from /usr/local/src/googletest-release-1.8.1/googletest/src/gtest_main.cc
+[==========] Running 3 tests from 1 test case.
+[----------] Global test environment set-up.
+[----------] 3 tests from IsEvenTest
+[ RUN      ] IsEvenTest.Negative
+[       OK ] IsEvenTest.Negative (0 ms)
+[ RUN      ] IsEvenTest.Zero
+[       OK ] IsEvenTest.Zero (0 ms)
+[ RUN      ] IsEvenTest.Positive
+[       OK ] IsEvenTest.Positive (0 ms)
+[----------] 3 tests from IsEvenTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 3 tests from 1 test case ran. (0 ms total)
+[  PASSED  ] 3 tests.
+```
+
+テストしたテストでパスしたものは`OK`，失敗したものは`FAILED`となる．成功したテストの合計は`PASSED`に出る．
+
+テスト関数は`TEST()`を使い，第1引数にテストケース名、第2引数にテスト名を記述する：
+
+```cpp
+// テストケース名とテスト名には _ を含んではいけない
+TEST(/* テストケース名(大項目)*/, /* テスト名(小項目) */) {
+  // テスト関数内は、通常通り C++ のコードを記述可能
+}
+```
+
+アサーションはいくつも用意されているため，代表的なものを列挙する：
+
+```cpp
+// true/falseのアサーション
+EXPECT_TRUE(condition);     // condition が true  か
+EXPECT_FALSE(condition);    // condition が false か
+
+// 2つの値を比較するアサーション
+EXPECT_EQ(expected, actual);  // expected == actual か
+EXPECT_NE(expected, actual);  // expected != actual か
+EXPECT_LT(expected, actual);  // expected <  actual か
+EXPECT_LE(expected, actual);  // expected <= actual か
+EXPECT_GT(expected, actual);  // expected >  actual か
+EXPECT_GE(expected, actual);  // expected >= actual か
+```
+
+これらのアサーションを利用する場合は，期待結果 (expected)→テスト対象 (actual)の順で記述する
+
+`EXPECT_`で始まるアサーションの他に，`ASSERT_`で始まるアサーションがある．`EXPECT_`の場合は，テストに失敗してもテスト関数がそのまま続行されるが，`ASSERT_`の場合は，テストに失敗するとその時点でテストを中断してテスト関数を抜ける．例としてはゼロ除算やテストの前提となる直前の処理がうまく成功したかどうかなど，テストの本筋とは関係ない前提条件などで用いる．
+
+参考：[Google Test の使い方](https://rinatz.github.io/cpp-book/test-how-to-gtest/)
+
 ## vscodeの設定
 
 `.vscode`に格納する，プロジェクトの設定について解説する．

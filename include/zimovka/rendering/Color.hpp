@@ -15,7 +15,7 @@ struct Color{
     std::uint8_t g = 255;
     std::uint8_t b = 255;
     std::uint8_t a = 255;
-    // 比較演算子==のオーバーロード
+    // 比較演算子==のオーバーロード(=defaultによる全メンバの自動比較はC++20から)
     constexpr bool operator==(const Color&) const noexcept = default;
 };
 

@@ -67,7 +67,7 @@ InputState InputSystem::ConsumeStateForTick() noexcept{
  *   LShiftを離す  : hold_count[Slow] == 1 → カウント減，まだ1なので held は維持
  *   RShiftを離す  : hold_count[Slow] == 0 → SetHeld(false), SetReleased
  *
- * @param scancode: 物理キーボードの位置を表すコード
+ * @param scancode: キーボード上の物理的な位置を表すコード
  * @param repeat  event.key.repeat != 0 なので押され続けている→trueになる
  */
 void InputSystem::HandleKeyDown(SDL_Scancode scancode, bool repeat){

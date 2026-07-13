@@ -67,15 +67,17 @@ TextTexture& TextTexture::operator=(TextTexture&& other) noexcept{
 /**
  * @brief 文字列の更新処理(成功可否を返す)
  *
- * テキストと色が前回と同じ場合はSurface/Textureを再生成しない
+ * キャッシュを持ち，テキストの内容が前回と同じ場合はSurface/Textureを再生成しない
  *
  * キャッシュヒットの条件:
  *   texture_ != nullptr (テクスチャが存在する)
- *   かつ text == cached_text_ (テキストが同じ)
- *   かつ color == cached_color_ (色が同じ)
+ *   かつ renderer == cached_renderer_ (同一のレンダラ)
+ *   かつ font     == cached_font_ (同一のフォント)
+ *   かつ text     == cached_text_ (同一のテキスト)
+ *   かつ color    == cached_color_ (同色)
  *
- * @param renderer 所有しない
- * @param font     所有しない
+ * @param renderer 所有しない(TextTextureより長く生存しなければならない)
+ * @param font     所有しない(TextTextureより長く生存しなければならない)
  * @param text     所有権を持たない文字列参照
  * @param color    内部でSDL_Colorに変換
  * @return true
@@ -152,15 +154,20 @@ bool TextTexture::Update(
  * @param x
  * @param y
  */
-void TextTexture::Render(int x, int y) const{
+bool TextTexture::Render(int x, int y) const{
     // テクスチャ または レンダラが無効なら何もしない
     if(!texture_ || !cached_renderer_){
-        return;
+        return false;
     }
     // 描画範囲
     const SDL_Rect dest{x, y, width_, height_};
     // レンダラへ送信
-    SDL_RenderCopy(cached_renderer_, texture_, nullptr, &dest);
+    return SDL_RenderCopy(
+        cached_renderer_, 
+        texture_, 
+        nullptr, 
+        &dest
+    ) == 0;
 }
 
 /**

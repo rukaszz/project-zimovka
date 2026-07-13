@@ -133,7 +133,7 @@ void DebugOverlay::Render() const{
     // TextTextureのRender()で描画
     for(std::size_t i = 0; i < lines_.size(); ++i){
         const int y = TOP + static_cast<int>(i) * line_height_;
-        lines_[i].Render(X, y);
+        (void)lines_[i].Render(X, y);   // Debug用なのでTextTextureの戻り値は無視する
     }
 }
 

@@ -12,7 +12,7 @@
 namespace zimovka{
 
 /**
- * @brief SDL入力をゲーム内Actionへ変換し，1フレーム分の入力状態を管理するクラス
+ * @brief SDL入力をゲーム内Actionへ変換し，次の固定更新で消費される入力状態を管理するクラス
  *
  */
 class InputSystem{
