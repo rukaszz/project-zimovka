@@ -565,3 +565,7 @@ FetchContent_MakeAvailable(googletest)
 | tests/test_player_system.cpp | 移動とclamp処理をテスト |
 | tests/test_collision.cpp | Intersects + CollisionSystemをテスト |
 | tests/test_debug_accumulator.cpp | 値の累積処理をテスト |
+
+### 2026/07/14
+
+RunRecorderSystemの導入．
