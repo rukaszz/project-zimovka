@@ -26,7 +26,7 @@ set(ZIMOVKA_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
-    ${CMAKE_SOURCE_DIR}/src/replay/RunRecorderSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/replay/RunRecorder.cpp
 )
 
 # ビルドする実行ファイル設定
@@ -38,7 +38,7 @@ add_executable(zimovka_tests
     test_PlayerSystem.cpp
     test_Collision.cpp
     test_DebugAccumulator.cpp
-    test_RunRecorderSystem.cpp
+    test_RunRecorder.cpp
     ${ZIMOVKA_TEST_SOURCES}
 )
 

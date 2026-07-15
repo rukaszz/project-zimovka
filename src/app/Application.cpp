@@ -30,6 +30,7 @@ int Application::Run(int argc, char* argv[]){
     Window window("Zimovka", WINDOW_WIDTH, WINDOW_HEIGHT);
     Renderer renderer(window.Get());
     PrimitiveRenderer prim(renderer.Get());
+    run_recorder_.Start(INITIAL_SEED);
     // デバッグ情報
     // フォントのパスはとりあえずシステムフォントを使う(※環境依存なので最終的には修正する)
     DebugOverlay debug_overlay(
@@ -44,11 +45,13 @@ int Application::Run(int argc, char* argv[]){
 
     // プレイヤーの初期化
     player_system_.Initialize(static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT));
+    
     // 弾1200発生成
     InitializeBulletStressTest();
 
     // 固定タイムステップ用クロック(steady_clockはis_steadyが保証される)
     using Clock = std::chrono::steady_clock;
+
     // float精度の1/60
     const float fixed_delta = 1.0f / static_cast<float>(TARGET_FPS);
     // 精度を保証しつつナノ秒単位の1/60を取得
@@ -61,9 +64,9 @@ int Application::Run(int argc, char* argv[]){
     // ループ処理開始前の時刻取得
     // 1フレーム前のフレーム開始時刻
     auto previous_frame_start  = Clock::now();
-
     // 1ループ中の更新を保証する累積値
     std::chrono::nanoseconds update_time_acc{0};
+
     // デバッグ文字列更新用カウンタ
     auto debug_refresh_acc = Clock::duration::zero();
 
@@ -114,6 +117,9 @@ int Application::Run(int argc, char* argv[]){
         while(update_time_acc >= fixed_ns){
             // 入力状態のスナップショットを取得して渡す
             const InputState tick_input = input_system_.ConsumeStateForTick();
+            // 入力ビットを記録(戻り値は現時点で使用しない)
+            (void)run_recorder_.Record(tick_input);
+
             Update(fixed_delta, tick_input);
             update_time_acc -= fixed_ns;
             ++update_steps;
@@ -155,7 +161,8 @@ int Application::Run(int argc, char* argv[]){
         // fpsキャップ
         CapFrameRate(frame_start);
     }
-
+    // 終了処理
+    run_recorder_.Stop();
     return 0;
 }
 

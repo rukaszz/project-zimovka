@@ -568,4 +568,31 @@ FetchContent_MakeAvailable(googletest)
 
 ### 2026/07/14
 
-RunRecorderSystemの導入．
+RunRecorderの導入．
+ゲーム実行時の入力を記録するRunRecorderを実装した．
+InputStateの設計当初から明示している通り，ビットによる0/1でキーが押された/押されていないを管理する．リプレイ時はフレームごとの0/1ビットを流し込んでリプレイを実施する．
+
+RunRecorderはそのビットを格納するクラスである．RunRecord構造体にリプレイ用の情報を格納する．プレイ時とリプレイ時で環境が異なると，リプレイが正確に再生されないため，ヘッダ的な情報を付加している．
+例えばフォーマットのバージョン，ゲームのfps，ランダムシードなどである．
+
+```cpp
+/**
+ * @brief リプレイで用いるゲーム開始〜終了までの記録
+ * 
+ */
+struct RunRecord{
+    std::uint32_t format_version = RUN_RECORD_FORMAT_VERSION;   // フォーマットのバージョン(リプレイ時の判別用)
+    std::uint32_t simulation_hz = 60;   // 記録時のゲームの想定fps
+    std::uint32_t random_seed = 0;
+    bool truncated = false; // 記録の終了地点を示す
+
+    std::vector<RecordedInputFrame> frames;
+};
+```
+
+実装はシンプルで，`Start()`で記録を開始し，`Record()`でビットを記録していく．そして`Stop()`で再生を停止する．
+
+プレイ中の入力は何でも記録してはいけない．Quit/Pauseなどの操作はゲームを止める操作であり，ゲームプレイには直接関係しないため，記録してはいけない．そのため，ビットマスクを実装するが，このビットマスクはブラックリスト方式ではなくホワイトリスト方式である．
+理由としては，未定義の入力や，新しいKEY→Actionのマッピングが追加された際の意図しない記録を防止することができるためである．
+
+また，記録用のvectorはデフォルトで72,000frameを記録する．ヒープ領域の確保を防ぐために`Start()`時に72,00frame分確保する．MAXで記録したとしても，1frameで`uint_32_t`3個なので，900KiB弱(864KiBくらい？)であり，問題ない．
