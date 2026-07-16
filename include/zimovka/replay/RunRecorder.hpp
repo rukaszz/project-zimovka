@@ -1,6 +1,7 @@
 #ifndef ZIMOVKA_REPLAY_RUNRECORDER_HPP_
 #define ZIMOVKA_REPLAY_RUNRECORDER_HPP_
 
+#include <cstddef>
 #include <cstdint>
 
 #include "zimovka/input/Action.hpp"
@@ -13,9 +14,11 @@ namespace zimovka{
  *
  */
 class RunRecorder{
-private:
+public:
     // 20 * 60s * 60fps = 72,000 frameを確保しておく
-    static constexpr std::uint32_t MAX_RECORD_FRAMES = 72000;
+    static constexpr std::size_t MAX_RECORD_FRAMES = 72000; // 定数として外部へ晒す
+
+private:
     // 記録する/しないの管理
     bool recording_ = false;
     // 入力記録用構造体
@@ -34,7 +37,7 @@ private:
     
 public:
     // 記録開始
-    void Start(std::uint32_t seed, std::uint32_t reserve_frames = MAX_RECORD_FRAMES);
+    void Start(std::uint32_t seed, std::size_t reserve_frames = MAX_RECORD_FRAMES);
     // 記録
     bool Record(const InputState& input);
     // 記録停止

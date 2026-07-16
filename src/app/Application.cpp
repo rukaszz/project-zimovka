@@ -118,7 +118,7 @@ int Application::Run(int argc, char* argv[]){
             // 入力状態のスナップショットを取得して渡す
             const InputState tick_input = input_system_.ConsumeStateForTick();
             // 入力ビットを記録(戻り値は現時点で使用しない)
-            (void)run_recorder_.Record(tick_input);
+            debug_stats_.recording = run_recorder_.Record(tick_input);
 
             Update(fixed_delta, tick_input);
             update_time_acc -= fixed_ns;

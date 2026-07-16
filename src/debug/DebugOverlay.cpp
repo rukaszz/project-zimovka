@@ -103,6 +103,10 @@ bool DebugOverlay::Update(const DebugStats& stats){
             "collision: {} checks", 
             stats.collision_checks
         ), 
+        std::format(
+            "recordig: {}", 
+            stats.recording
+        ), 
     };
     
     // Update処理の成否

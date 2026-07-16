@@ -59,12 +59,12 @@ TEST(RunRecorderTest, InitialState_EmptyRecord){
 }
 
 /**
- * @brief 生成直後のRunRecordがtruncatedでないことを確認
+ * @brief 生成直後のRunRecordがframe_limit_reachedでないことを確認
  * 
  */
-TEST(RunRecorderTest, InitialState_NotTruncated){
+TEST(RunRecorderTest, InitialState_NotFrameLimitReached){
     RunRecorder rr;
-    EXPECT_FALSE(rr.GetRecord().truncated);
+    EXPECT_FALSE(rr.GetRecord().frame_limit_reached);
 }
 
 // ──────────────────────────────────────────────────────
@@ -273,15 +273,15 @@ TEST(RunRecorderTest, Stop_RecordPreserved){
 }
 
 /**
- * @brief 通常Stop()ではtruncatedが立たないことを確認
+ * @brief 通常Stop()ではframe_limit_reachedが立たないことを確認
  * 
  */
-TEST(RunRecorderTest, Stop_NotTruncated){
+TEST(RunRecorderTest, Stop_NotFrameLimitReached){
     RunRecorder rr;
     rr.Start(0u);
     rr.Record(MakeInput(0u));
     rr.Stop();
-    EXPECT_FALSE(rr.GetRecord().truncated);
+    EXPECT_FALSE(rr.GetRecord().frame_limit_reached);
 }
 
 // ──────────────────────────────────────────────────────
@@ -328,20 +328,19 @@ TEST(RunRecorderTest, Clear_AllowsRestart){
 // フレーム上限での自動停止
 // ──────────────────────────────────────────────────────
 /**
- * @brief MAX_RECORD_FRAMESに達したとき自動停止し，truncated=trueが立つことを確認
+ * @brief MAX_RECORD_FRAMESに達したとき自動停止し，frame_limit_reached=trueが立つことを確認
  *
  * 72,000フレーム = 20分 * 60fps に相当する上限
  */
-TEST(RunRecorderTest, AutoStop_SetsRecordTruncated){
+TEST(RunRecorderTest, AutoStop_SetsRecordFrameLimitReached){
     RunRecorder rr;
     rr.Start(0u);
     const InputState empty_input;
     // 72,000フレーム記録して上限に到達させる
-    constexpr std::size_t MAX_FRAMES = 72000u;
-    for(std::size_t i = 0; i < MAX_FRAMES; ++i){
+    for(std::size_t i = 0; i < RunRecorder::MAX_RECORD_FRAMES; ++i){
         rr.Record(empty_input);
     }
-    EXPECT_FALSE(rr.IsRecording());           // 自動停止
-    EXPECT_TRUE(rr.GetRecord().truncated);    // 途中終了フラグ
-    EXPECT_EQ(rr.GetRecord().frames.size(), MAX_FRAMES);
+    EXPECT_FALSE(rr.IsRecording());                     // 自動停止
+    EXPECT_TRUE(rr.GetRecord().frame_limit_reached);    // 途中終了フラグ
+    EXPECT_EQ(rr.GetRecord().frames.size(), RunRecorder::MAX_RECORD_FRAMES);
 }

@@ -28,6 +28,8 @@ struct DebugStats{
     float       max_processing_ms   = 0.0f;
     float       max_update_ms       = 0.0f;
     float       max_render_ms       = 0.0f;
+    // リプレイ記録
+    bool        recording           = true;
 };
 
 }   // namespace zimovka
