@@ -19,6 +19,7 @@ inline constexpr float FIXED_DELTA_SECONDS = 1.0f/static_cast<float>(SIMULATION_
 inline constexpr std::chrono::nanoseconds FIXED_STEP{
     1'000'000'000LL / SIMULATION_HZ
 };
+
 }   // namespace SimulationConfig
 }   // namespace zimovka
 

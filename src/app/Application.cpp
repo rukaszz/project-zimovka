@@ -43,11 +43,9 @@ int Application::Run(int argc, char* argv[]){
         return static_cast<float>(d.count()) / 1'000'000.0f;
     };
 
-    // プレイヤーの初期化
-    player_system_.Initialize(static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT));
-    
-    // 弾1200発生成
-    InitializeBulletStressTest();
+    // パイプライン初期化(内部の全サブシステムを初期化する)
+    update_pipeline_.Initialize(static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT));
+    update_pipeline_.InitializeBulletStressTest();
 
     // 固定タイムステップ用クロック(steady_clockはis_steadyが保証される)
     using Clock = std::chrono::steady_clock;
@@ -192,27 +190,12 @@ void Application::ProcessEvents(){
  *
  * @param dt 固定タイムステップ(秒)
  */
-void Application::Update(float dt, const InputState& state){
-    // 活性状態の弾がなくなったらまた弾をMAXまで表示
-    if(bullet_system_.CountActive() == 0){
-        InitializeBulletStressTest();
+void Application::Update(float dt, const InputState& input){
+    // 敵弾が尽きたら再生成(仮の負荷試験ロジック)
+    if(update_pipeline_.GetEnemyBullets().CountActive() <= 0){
+        update_pipeline_.InitializeBulletStressTest();
     }
-    bullet_system_.Update(dt, WINDOW_WIDTH, WINDOW_HEIGHT);
-    // 次にプレイヤー
-    player_system_.Update(dt, state);
-    // 最後に衝突判定
-    if(collision_system_.CheckPlayerHitByBullets(
-        player_system_.GetPlayer(), 
-        bullet_system_
-    ))
-    {
-        // 衝突した場合はプレイヤーの位置を初期化(仮)
-        player_system_.Initialize(
-            static_cast<float>(WINDOW_WIDTH), 
-            static_cast<float>(WINDOW_HEIGHT)
-        );
-        bullet_system_.Clear();
-    }
+    update_pipeline_.UpdateTick(dt, input);
 }
 
 /**
@@ -220,8 +203,8 @@ void Application::Update(float dt, const InputState& state){
  *
  */
 void Application::Render(PrimitiveRenderer& prim){
-    bullet_system_.Render(prim);
-    player_system_.Render(prim);
+    // NOTE: Rendering処理は別クラス(RenderPipelineなど)に移管予定
+    update_pipeline_.Render(prim);
 }
 
 /**
@@ -258,27 +241,6 @@ void Application::CapFrameRate(std::chrono::steady_clock::time_point frame_start
     }
 }
 
-// テスト用関数
-/**
- * @brief 弾を瞬間的に大量に生成して負荷を試験するテスト関数
- * 
- * 呼ばれると弾を1200発生成する(1200はBulletSystemのCapacityに依る)
- */
-void Application::InitializeBulletStressTest(){
-    for(std::size_t i = 0; i < bullet_system_.GetCapacity(); ++i){
-        // x座標を設定(24pxずつx軸へずれる)
-        const float x = static_cast<float>(i % 40) * 24.0f + 12.0f;
-        // y座標を設定(16pxy軸へずれる)
-        const float y = static_cast<float>(i / 40) * 16.0f;
-        // 弾生成
-        bullet_system_.Spawn(
-            Vec2{x, y}, 
-            Vec2{0.0f, 60.0f}, 
-            3.0f
-        );
-    }
-}
-
 /**
  * @brief デバッグ情報をdebug_acc_からdebug_stats_へ書き出す
  *
@@ -288,10 +250,10 @@ void Application::InitializeBulletStressTest(){
 void Application::FlushDebugStats(){
     // タイミング情報のavg/max計算 + debug_acc_のリセットをFlushToに委譲
     debug_acc_.FlushTo(debug_stats_);
-    // ゲーム固有の値はApplicationが取得して設定する
-    debug_stats_.active_bullets   = bullet_system_.CountActive();
-    debug_stats_.bullet_capacity  = bullet_system_.GetCapacity();
-    debug_stats_.collision_checks = collision_system_.LastCheckCount();
+    // ゲーム固有の値はpipelineから取得して設定する
+    debug_stats_.active_bullets   = update_pipeline_.GetEnemyBullets().CountActive();
+    debug_stats_.bullet_capacity  = update_pipeline_.GetEnemyBullets().GetCapacity();
+    debug_stats_.collision_checks = update_pipeline_.GetCollisionSystem().LastCheckCount();
 }
 
 }   // namespace zimovka

@@ -5,9 +5,7 @@
 #include <cstddef>
 
 #include "zimovka/input/InputSystem.hpp"
-#include "zimovka/systems/player/PlayerSystem.hpp"
-#include "zimovka/systems/bullet/BulletSystem.hpp"
-#include "zimovka/systems/collision/CollisionSystem.hpp"
+#include "zimovka/engine/update/UpdatePipeline.hpp"
 #include "zimovka/replay/RunRecorder.hpp"
 
 #include "zimovka/debug/DebugStats.hpp"
@@ -41,16 +39,12 @@ public:
 private:
     // メインゲームループ制御
     bool running_ = true;
+    // 更新順序管理(サブシステムを所有する)
+    UpdatePipeline update_pipeline_;
     // 入力
     InputSystem input_system_;
-    // プレイヤーシステム
-    PlayerSystem player_system_;
-    // バレットシステム
-    BulletSystem bullet_system_;    // デフォルトプールは1200
-    // 衝突システム
-    CollisionSystem collision_system_;
     // 入力記録
-    RunRecorder run_recorder_;  // デフォルトで72,000 frameまで記録できる
+    RunRecorder run_recorder_;
     // デバッグ情報
     DebugStats debug_stats_;
     // デバッグ統計の累積(0.25s毎にflushして平均・最大値を計算)
@@ -59,16 +53,12 @@ private:
     // イベントの処理
     void ProcessEvents();
     // ゲームの更新
-    void Update(float dt, const InputState& state);
+    void Update(float dt, const InputState& input);
     // 描画処理
     void Render(PrimitiveRenderer& prim);
     // fpsキャップ
     void CapFrameRate(std::chrono::steady_clock::time_point frame_start_ms);
-
-    // 性能試験用関数
-    void InitializeBulletStressTest();
     // デバッグ情報をdebug_acc_からdebug_stats_へ書き出す
-    // (タイミング以外のゲーム値もここで設定する)
     void FlushDebugStats();
 
 };

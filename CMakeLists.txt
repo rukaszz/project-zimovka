@@ -36,8 +36,10 @@ add_executable(${PROJECT_NAME}
     src/input/InputState.cpp
     src/input/InputSystem.cpp
     src/systems/player/PlayerSystem.cpp
+    src/systems/player/PlayerWeaponSystem.cpp
     src/systems/bullet/BulletSystem.cpp
     src/systems/collision/CollisionSystem.cpp
+    src/engine/update/UpdatePipeline.cpp
     src/debug/DebugOverlay.cpp
     src/replay/RunRecorder.cpp
 )
