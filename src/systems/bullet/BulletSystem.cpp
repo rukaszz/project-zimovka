@@ -39,7 +39,7 @@ bool BulletSystem::Spawn(
 )
 {
     // 無効な半径はfalse
-    if (radius <= 0.0f) {
+    if(radius <= 0.0f) {
         return false;
     }
     // サイズ取得

@@ -6,7 +6,7 @@
 #include "zimovka/systems/player/Player.hpp"
 #include "zimovka/systems/player/PlayerWeaponConfig.hpp"
 #include "zimovka/systems/player/PlayerWeaponState.hpp"
-#include "zimovka/events/PlayerWeaponTickEvents.hpp"
+#include "zimovka/events/PlayerWeaponEvents.hpp"
 
 namespace zimovka{
 
@@ -17,7 +17,7 @@ private:
     // 射撃状態
     PlayerWeaponState state_;
     // リロードを開始する
-    void StartReload(WeaponTickEvents& events) noexcept;
+    void StartReload(PlayerWeaponEvents& events) noexcept;
 
 public:
     // PlayerWeaponConfigのみ受け取るようにexplicit
@@ -25,7 +25,7 @@ public:
     // 状態のリセット
     void Reset() noexcept;
     // 更新
-    WeaponTickEvents UpdateTick(
+    PlayerWeaponEvents UpdateTick(
         const InputState& input, 
         const Player& player, 
         BulletSystem& player_bullets

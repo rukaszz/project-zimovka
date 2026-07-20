@@ -1,5 +1,6 @@
 #include "zimovka/systems/player/PlayerWeaponSystem.hpp"
 
+#include <cmath>
 #include <stdexcept>
 
 #include "zimovka/input/Action.hpp"
@@ -28,14 +29,20 @@ PlayerWeaponSystem::PlayerWeaponSystem(
             "PlayerWeaponConfig::reload_duration_ticks must be positive. "
         );
     }
-    if(config_.bullet_speed <= 0.0f){
+    // isfinite()を用いてNaNを排除する
+    if(!std::isfinite(config_.bullet_speed) || config_.bullet_speed <= 0.0f){
         throw std::invalid_argument(
             "PlayerWeaponConfig::bullet_speed must be positive. "
         );
     }
-    if(config_.bullet_radius <= 0.0f){
+    if(!std::isfinite(config_.bullet_radius) || config_.bullet_radius <= 0.0f){
         throw std::invalid_argument(
             "PlayerWeaponConfig::bullet_radius must be positive. "
+        );
+    }
+    if (!std::isfinite(config_.muzzle_offset.x) || !std::isfinite(config_.muzzle_offset.y)) {
+        throw std::invalid_argument(
+            "PlayerWeaponConfig::muzzle_offset must be finite."
         );
     }
     // 初期化
@@ -57,7 +64,7 @@ void PlayerWeaponSystem::Reset() noexcept{
  * 
  * @param events 
  */
-void PlayerWeaponSystem::StartReload(WeaponTickEvents& events) noexcept{
+void PlayerWeaponSystem::StartReload(PlayerWeaponEvents& events) noexcept{
     // リロード時間設定
     state_.reload_ticks_remaining = config_.reload_duration_ticks;
     events.reload_started = true;   // 参照しているのでtrueが設定される
@@ -74,14 +81,14 @@ void PlayerWeaponSystem::StartReload(WeaponTickEvents& events) noexcept{
  * @param player_bullets 
  * @return WeaponTickEvents 
  */
-WeaponTickEvents PlayerWeaponSystem::UpdateTick(
+PlayerWeaponEvents PlayerWeaponSystem::UpdateTick(
     const InputState& input, 
     const Player& player, 
     BulletSystem& player_bullets
 )
 {
     // イベントの状態保持用変数
-    WeaponTickEvents events{};
+    PlayerWeaponEvents events{};
     // ────────────────────────────────
     // 最初に射撃クールダウン/リロードの状態のチェック    
     // ────────────────────────────────
@@ -118,11 +125,11 @@ WeaponTickEvents PlayerWeaponSystem::UpdateTick(
     // 発射位置設定
     const Vec2 muzzle_position{
         player.position.x + config_.muzzle_offset.x, 
-        player.position.y - player.height * 0.5f   // 中心位置くらいから発射
+        player.position.y - player.height * 0.5f   // プレイヤー中央上くらいから発射
             + config_.muzzle_offset.y
     };
     // 弾の発生
-    // とりあえず別プールでプレイヤー弾を管理している
+    // NOTE: とりあえず別プールでプレイヤー弾を管理している
     const bool fired = player_bullets.Spawn(
         muzzle_position, 
         Vec2{0.0f, -config_.bullet_speed}, 

@@ -1,20 +1,34 @@
 #include "zimovka/engine/update/UpdatePipeline.hpp"
 
+#include <cassert>
+
 #include "zimovka/core/Vec2.hpp"
-#include "zimovka/events/PlayerWeaponTickEvents.hpp"
+#include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 
 namespace zimovka{
 /**
  * @brief 各システムの初期化
+ * 冪等性を持つ
  * 
  * @param width 
  * @param height 
  */
 void UpdatePipeline::Initialize(float width, float height){
+    // 引数チェック
+    if(width <= 0.0f || height <= 0.0f){
+        throw std::invalid_argument(
+            "Game play world size must be positive. "
+        );
+    }
     world_width_  = width;
     world_height_ = height;
+    // Player関係初期化
     player_system_.Initialize(width, height);
+    player_weapon_system_.Reset();
+    // BulletSystem初期化
+    player_bullets_.Clear();
+    enemy_bullets_.Clear();
 }
 
 /**
@@ -52,7 +66,7 @@ void UpdatePipeline::UpdatePlayer(float dt, const InputState& input){
  * @param input 
  */
 void UpdatePipeline::UpdateWeapons(const InputState& input){
-    const WeaponTickEvents events = 
+    const PlayerWeaponEvents events = 
         player_weapon_system_.UpdateTick(
             input, 
             player_system_.GetPlayer(), 

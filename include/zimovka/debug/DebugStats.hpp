@@ -37,6 +37,7 @@ struct DebugStats{
     float       max_render_ms       = 0.0f;
     // リプレイ記録
     bool        recording           = true;
+    std::size_t recorded_frames     = 0; 
 };
 
 }   // namespace zimovka

@@ -1,5 +1,5 @@
-#ifndef ZIMOVKA_EVENTS_PLAYERWEAPONTICKEVENTS_HPP_
-#define ZIMOVKA_EVENTS_PLAYERWEAPONTICKEVENTS_HPP_
+#ifndef ZIMOVKA_EVENTS_PLAYERWEAPONEVENTS_HPP_
+#define ZIMOVKA_EVENTS_PLAYERWEAPONEVENTS_HPP_
 
 namespace zimovka{
 /**
@@ -7,7 +7,7 @@ namespace zimovka{
  * 
  * PlayerWeaponSystemがSEなどを直接呼び出さないためのイベント管理
  */
-struct WeaponTickEvents{
+struct PlayerWeaponEvents{
     bool shot_fired = false;
     bool reload_started = false;
     bool reload_completed = false;
@@ -16,4 +16,4 @@ struct WeaponTickEvents{
 
 }   // namespace zimovka
 
-#endif  // ZIMOVKA_EVENTS_PLAYERWEAPONTICKEVENTS_HPP_
+#endif  // ZIMOVKA_EVENTS_PLAYERWEAPONEVENTS_HPP_

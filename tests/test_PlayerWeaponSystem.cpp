@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-#include "zimovka/events/PlayerWeaponTickEvents.hpp"
+#include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/input/Action.hpp"
 #include "zimovka/input/InputState.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
@@ -17,7 +17,7 @@ using zimovka::InputState;
 using zimovka::Player;
 using zimovka::PlayerWeaponConfig;
 using zimovka::PlayerWeaponSystem;
-using zimovka::WeaponTickEvents;
+using zimovka::PlayerWeaponEvents;
 
 // ヘルパ関数
 namespace{
@@ -593,6 +593,24 @@ TEST(PlayerWeaponSystemTest, MultiShot_EachShotDecrementsAmmo){
     pws.UpdateTick(NoInput(), p, bs);           // cooldown 2→1
     pws.UpdateTick(ShootPressed(), p, bs);      // cooldown 1→0, ammo 2→1
     EXPECT_EQ(pws.GetState().ammo, 1u);
+}
+
+/**
+ * @brief リロード完了のTickでShootが押された場合
+ * 
+ */
+TEST(PlayerWeaponSystemTest, ReloadCompletionTick_DoesNotFire){
+    PlayerWeaponSystem pws(MinimalConfig());
+    BulletSystem bullets(10);
+    Player player = TestPlayer();
+    // Shoot押下 → 残弾ゼロ
+    pws.UpdateTick(ShootPressed(), player, bullets);
+    // リロードのTickまで進める
+    AdvanceTicks(pws, 2, bullets, player);
+    // リロードTickでShoot押下
+    const auto events = pws.UpdateTick(ShootPressed(), player, bullets);
+    EXPECT_TRUE(events.reload_completed);
+    EXPECT_FALSE(events.shot_fired);
 }
 
 // ──────────────────────────────────────────────────────

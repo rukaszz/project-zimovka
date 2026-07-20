@@ -18,7 +18,7 @@ struct PlayerWeaponConfig{
     // クールダウンなどの時間はTick(ゲームループ基準の間隔)で管理する
     // 連続射撃抑制用のクールダウン
     std::uint32_t shot_cooldown_ticks = 8;
-    // 球切れから装填完了までの固定時間
+    // 弾切れから装填完了までの固定時間
     std::uint32_t reload_duration_ticks = 90;
     // 弾の設定
     float bullet_speed = 720.0f;

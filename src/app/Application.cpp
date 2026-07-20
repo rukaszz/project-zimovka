@@ -91,6 +91,10 @@ int Application::Run(int argc, char* argv[]){
         // 入力受付
         // ────────────────────────────────
         ProcessEvents();
+        // 余計な入力が1tick分記録されないように終了判定をチェック
+        if(!running_){
+            break;
+        }
 
         // ────────────────────────────────
         // 更新(固定タイムステップ)
@@ -116,7 +120,9 @@ int Application::Run(int argc, char* argv[]){
             // 入力状態のスナップショットを取得して渡す
             const InputState tick_input = input_system_.ConsumeStateForTick();
             // 入力ビットを記録(戻り値は現時点で使用しない)
-            debug_stats_.recording = run_recorder_.Record(tick_input);
+            (void)run_recorder_.Record(tick_input);
+            debug_stats_.recording = run_recorder_.IsRecording();
+            debug_stats_.recorded_frames = run_recorder_.GetRecord().frames.size();
 
             Update(fixed_delta, tick_input);
             update_time_acc -= fixed_ns;
