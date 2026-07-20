@@ -251,9 +251,16 @@ void Application::FlushDebugStats(){
     // タイミング情報のavg/max計算 + debug_acc_のリセットをFlushToに委譲
     debug_acc_.FlushTo(debug_stats_);
     // ゲーム固有の値はpipelineから取得して設定する
-    debug_stats_.active_bullets   = update_pipeline_.GetEnemyBullets().CountActive();
-    debug_stats_.bullet_capacity  = update_pipeline_.GetEnemyBullets().GetCapacity();
+    debug_stats_.active_enemy_bullets   = update_pipeline_.GetEnemyBullets().CountActive();
+    debug_stats_.enemy_bullet_capacity  = update_pipeline_.GetEnemyBullets().GetCapacity();
     debug_stats_.collision_checks = update_pipeline_.GetCollisionSystem().LastCheckCount();
+    // PlayerWeapon関係
+    debug_stats_.active_player_bullets    = update_pipeline_.GetPlayerBullets().CountActive();
+    debug_stats_.player_bullet_capacity   = update_pipeline_.GetPlayerBullets().GetCapacity();
+    debug_stats_.ammo                     = update_pipeline_.GetPlayerWeaponSystem().GetState().ammo;
+    debug_stats_.max_ammo                 = update_pipeline_.GetPlayerWeaponSystem().GetConfig().max_ammo;
+    debug_stats_.cooldown_ticks_remaining = update_pipeline_.GetPlayerWeaponSystem().GetState().cooldown_ticks_remaining;
+    debug_stats_.reload_ticks_remaining   = update_pipeline_.GetPlayerWeaponSystem().GetState().reload_ticks_remaining;
 }
 
 }   // namespace zimovka

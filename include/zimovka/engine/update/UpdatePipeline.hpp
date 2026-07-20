@@ -46,8 +46,18 @@ public:
     void Render(PrimitiveRenderer& prim) const;
 
     // ── デバッグ/統計用 getter ───────────────────────────
-    const BulletSystem&     GetEnemyBullets()    const noexcept { return enemy_bullets_;     }
-    const CollisionSystem&  GetCollisionSystem() const noexcept { return collision_system_;  }
+    const BulletSystem& GetPlayerBullets() const noexcept{
+        return player_bullets_;
+    }
+    const PlayerWeaponSystem& GetPlayerWeaponSystem() const noexcept{
+        return player_weapon_system_;
+    }
+    const BulletSystem& GetEnemyBullets() const noexcept{
+        return enemy_bullets_;
+    }
+    const CollisionSystem& GetCollisionSystem() const noexcept{
+        return collision_system_;
+    }
 
     // ── 性能試験用 ───────────────────────────────────────
     // NOTE: 将来的にはEnemySystemに移行する

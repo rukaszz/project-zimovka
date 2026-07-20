@@ -19,7 +19,7 @@ namespace zimovka{
 class DebugOverlay{
 public:
     // デバッグ情報の描画行数
-    static constexpr std::size_t LINE_COUNT = 8;
+    static constexpr std::size_t LINE_COUNT = 12;
 private:
     SDL_Renderer* renderer_    = nullptr;   // 所有しない
     TTF_Font*     font_        = nullptr;   // 所有する

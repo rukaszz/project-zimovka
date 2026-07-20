@@ -95,13 +95,32 @@ bool DebugOverlay::Update(const DebugStats& stats){
             stats.multi_update_frames
         ), 
         std::format(
-            "bullets:   {} / {}", 
-            stats.active_bullets, 
-            stats.bullet_capacity
+            "enemy bullets: {} / {}", 
+            stats.active_enemy_bullets, 
+            stats.enemy_bullet_capacity
         ), 
         std::format(
             "collision: {} checks", 
             stats.collision_checks
+        ), 
+        // PlayerWeapon情報
+        std::format(
+            "player bullets: {} / {}", 
+            stats.active_player_bullets, 
+            stats.player_bullet_capacity
+        ), 
+        std::format(
+            "player ammo: {} / {}", 
+            stats.ammo, 
+            stats.max_ammo
+        ), 
+        std::format(
+            "player cooldown: {} ticks", 
+            stats.cooldown_ticks_remaining
+        ), 
+        std::format(
+            "player reload: {} ticks", 
+            stats.reload_ticks_remaining
         ), 
         std::format(
             "recordig: {}", 

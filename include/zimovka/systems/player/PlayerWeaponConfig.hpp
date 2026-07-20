@@ -10,6 +10,7 @@ namespace zimovka{
 /**
  * @brief プレイヤー弾や発射処理に関する設定
  * 
+ * 静的な情報はこちらで管理する
  */
 struct PlayerWeaponConfig{
     // 最大弾数
@@ -18,7 +19,7 @@ struct PlayerWeaponConfig{
     // 連続射撃抑制用のクールダウン
     std::uint32_t shot_cooldown_ticks = 8;
     // 球切れから装填完了までの固定時間
-    std::int32_t reload_duration_ticks = 90;
+    std::uint32_t reload_duration_ticks = 90;
     // 弾の設定
     float bullet_speed = 720.0f;
     float bullet_radius = 3.0f;

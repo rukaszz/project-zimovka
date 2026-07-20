@@ -17,4 +17,3 @@ struct WeaponTickEvents{
 }   // namespace zimovka
 
 #endif  // ZIMOVKA_EVENTS_PLAYERWEAPONTICKEVENTS_HPP_
-

@@ -24,6 +24,7 @@ set(ZIMOVKA_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/input/InputSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/bullet/BulletSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerWeaponSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
     ${CMAKE_SOURCE_DIR}/src/replay/RunRecorder.cpp
@@ -39,6 +40,7 @@ add_executable(zimovka_tests
     test_Collision.cpp
     test_DebugAccumulator.cpp
     test_RunRecorder.cpp
+    test_PlayerWeaponSystem.cpp
     ${ZIMOVKA_TEST_SOURCES}
 )
 

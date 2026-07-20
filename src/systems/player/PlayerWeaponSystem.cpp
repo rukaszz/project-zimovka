@@ -99,7 +99,7 @@ WeaponTickEvents PlayerWeaponSystem::UpdateTick(
         }
         return events;
     }
-    // 外的要因で残弾ゼロ担った場合もreload開始
+    // 外的要因で残弾ゼロになった場合もreload開始
     if(state_.ammo == 0){
         StartReload(events);
         return events;
@@ -118,7 +118,7 @@ WeaponTickEvents PlayerWeaponSystem::UpdateTick(
     // 発射位置設定
     const Vec2 muzzle_position{
         player.position.x + config_.muzzle_offset.x, 
-        player.position.y - static_cast<float>(player.height*0.5)   // 中心位置くらいから発射
+        player.position.y - player.height * 0.5f   // 中心位置くらいから発射
             + config_.muzzle_offset.y
     };
     // 弾の発生

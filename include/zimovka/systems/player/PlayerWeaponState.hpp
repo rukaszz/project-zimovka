@@ -7,6 +7,7 @@ namespace zimovka{
 /**
  * @brief プレイヤーの弾発射に関する状態管理用構造体
  * 
+ * 可変な情報はこちらで管理する
  */
 struct PlayerWeaponState{
     // 残弾
