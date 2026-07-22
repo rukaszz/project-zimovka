@@ -5,6 +5,7 @@
 
 #include <SDL2/SDL.h>
 
+#include "zimovka/events/GamePlayTickEvents.hpp"
 #include "zimovka/platform/SdlContext.hpp"
 #include "zimovka/platform/Window.hpp"
 #include "zimovka/rendering/Renderer.hpp"
@@ -201,7 +202,8 @@ void Application::Update(float dt, const InputState& input){
     if(update_pipeline_.GetEnemyBullets().CountActive() <= 0){
         update_pipeline_.InitializeBulletStressTest();
     }
-    update_pipeline_.UpdateTick(dt, input);
+    const GamePlayTickEvents events = update_pipeline_.UpdateTick(dt, input);
+    (void)events;   // NOTE: のちのちSE再生などで使用する
 }
 
 /**

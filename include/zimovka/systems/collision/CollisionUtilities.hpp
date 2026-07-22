@@ -31,7 +31,7 @@ inline bool Intersects(const Circle& a, const Circle& b) noexcept{
      * 2つの円の中心座標の差d が 2つの円の半径の和より小さいなら円は交差している
      * なお，d^2 <= (r1 + r2)^2 にすると平方根が無視できる
      */
-    return d.LengthSquare() <= r * r;
+    return d.LengthSquared() <= r * r;
 }
 
 }   // namespace CollisionUtilities

@@ -139,9 +139,9 @@ TEST(Vec2Test, Length){
  * @brief 2次元ベクトルのノルムの2乗
  * 
  */
-TEST(Vec2Test, LengthSquare){
+TEST(Vec2Test, LengthSquared){
     Vec2 v{3.0f, 4.0f};
-    EXPECT_FLOAT_EQ(v.LengthSquare(), 25.0f);
+    EXPECT_FLOAT_EQ(v.LengthSquared(), 25.0f);
 }
 
 /**

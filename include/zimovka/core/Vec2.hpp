@@ -30,14 +30,14 @@ struct Vec2{
      * @return float 
      */
     float Length() const{
-        return std::sqrt(LengthSquare());
+        return std::sqrt(LengthSquared());
     }
     /**
      * @brief 2次元ベクトルの長さの2乗
      * 
      * @return float 
      */
-    float LengthSquare() const{
+    float LengthSquared() const{
         return Dot(*this);
     }
     /**

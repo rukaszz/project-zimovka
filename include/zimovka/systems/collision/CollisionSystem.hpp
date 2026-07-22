@@ -4,6 +4,7 @@
 #include <cstddef>
 
 #include "zimovka/core/Circle.hpp"
+#include "zimovka/systems/enemy/Enemy.hpp"
 #include "zimovka/systems/player/Player.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 

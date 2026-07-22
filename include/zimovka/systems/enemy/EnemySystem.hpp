@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "zimovka/systems/enemy/Enemy.hpp"
+#include "zimovka/systems/enemy/EnemyDamageResult.hpp"
 
 namespace zimovka{
 
@@ -26,30 +27,35 @@ private:
     std::size_t active_count_ = 0;
     std::size_t next_spawn_index_ = 0;
 
+    // 画面外判定
+    bool IsOutOfScreen(const Enemy& enemy, float world_width, float world_height) const;
+
 public:
     // 暗黙的な型変換を防止したコンストラクタ
     explicit EnemySystem(std::size_t capacity = 32);
     // 生成
     bool Spawn(
-        Vec2 posision, 
+        Vec2 position, 
         Vec2 velocity, 
         Vec2 size, 
         std::int32_t hp
     );
+    // 初期化
+    void Clear() noexcept;
     // 更新
-    void Update(float dt, float wirld_width, float world_height);
+    void Update(float dt, float world_width, float world_height);
     // 描画
     void Render(PrimitiveRenderer& renderer) const;
     // ダメージを受ける
-    bool TakeDamage(std::size_t index, std::int32_t damage);
-    // 画面外判定
-    bool IsOutOfScreen(const Enemy& Enemy, float wirld_width, float world_height) const;
+    EnemyDamageResult TakeDamage(std::size_t index, std::int32_t damage);
 
     // getter
     std::span<const Enemy> GetEnemies() const noexcept{
         return enemies_;
     }
-    std::size_t CountActive() const noexcept;
+    std::size_t CountActive() const noexcept{
+        return active_count_;
+    }
     std::size_t GetCapacity() const noexcept{
         return enemies_.size();
     }

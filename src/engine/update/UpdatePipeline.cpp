@@ -1,6 +1,7 @@
 #include "zimovka/engine/update/UpdatePipeline.hpp"
 
 #include <cassert>
+#include <cstddef>
 
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
@@ -33,11 +34,15 @@ void UpdatePipeline::Initialize(float width, float height){
 
 /**
  * @brief ここで固定更新順序を実装する
+ * 各サブシステムから伝搬されるイベントを受け取り上位へ伝搬させる
  * 
  * @param dt 
  * @param input 
+ * @return * GamePlayTickEvents 
  */
-void UpdatePipeline::UpdateTick(float dt, const InputState& input){
+GamePlayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input){
+    // イベント受け取り用
+    GamePlayTickEvents events{};
     // Simulation pipeline:
     // 1. Player movement
     // 2. Weapon and projectile spawning
@@ -45,9 +50,12 @@ void UpdatePipeline::UpdateTick(float dt, const InputState& input){
     // 4. Collision detection
     // 5. Gameplay state resolution
     UpdatePlayer(dt, input);
-    UpdateWeapons(input);
+    events.weapon = UpdateWeapons(input);
     UpdateProjectiles(dt);
-    ResolveCollisions();
+    events.player_hit = ResolveCollisions();
+
+    // 最後に伝搬したイベントを返す
+    return events;
 }
 
 /**
@@ -65,14 +73,15 @@ void UpdatePipeline::UpdatePlayer(float dt, const InputState& input){
  * 
  * @param input 
  */
-void UpdatePipeline::UpdateWeapons(const InputState& input){
+PlayerWeaponEvents UpdatePipeline::UpdateWeapons(const InputState& input){
     const PlayerWeaponEvents events = 
         player_weapon_system_.UpdateTick(
             input, 
             player_system_.GetPlayer(), 
             player_bullets_
         );
-    (void)events;   // 戻り値は現状無視
+    // PlayerWeaponSystemから伝搬したイベントを返す
+    return events;
 }
 
 /**
@@ -96,11 +105,14 @@ void UpdatePipeline::UpdateProjectiles(float dt){
 }
 
 /**
- * @brief 当たり判定の更新
+ * @brief 当たり判定の処理
+ * 現状はGamePlayTickEventsのplayer_hitを返す
  * 
+ * @return true 
+ * @return false 
  */
-void UpdatePipeline::ResolveCollisions(){
-    // 最後に衝突判定
+bool UpdatePipeline::ResolveCollisions(){
+    // Player vs Bullet
     if(collision_system_.CheckPlayerHitByBullets(
         player_system_.GetPlayer(), 
         enemy_bullets_
@@ -114,7 +126,9 @@ void UpdatePipeline::ResolveCollisions(){
         enemy_bullets_.Clear();
         player_bullets_.Clear();
         player_weapon_system_.Reset();
+        return true;
     }
+    return false;
 }
 
 /**

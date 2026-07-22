@@ -126,6 +126,10 @@ bool DebugOverlay::Update(const DebugStats& stats){
             "recordig: {}", 
             stats.recording
         ), 
+        std::format(
+            "recordig frames: {}", 
+            stats.recorded_frames
+        ), 
     };
     
     // Update処理の成否
