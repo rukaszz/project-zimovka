@@ -5,6 +5,7 @@
 
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
+#include "zimovka/systems/enemy/EnemySpawnParams.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 
 namespace zimovka{
@@ -27,6 +28,8 @@ void UpdatePipeline::Initialize(float width, float height){
     // Player関係初期化
     player_system_.Initialize(width, height);
     player_weapon_system_.Reset();
+    // 敵初期化
+    enemy_system_.Clear();
     // BulletSystem初期化
     player_bullets_.Clear();
     enemy_bullets_.Clear();
@@ -51,8 +54,9 @@ GamePlayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     // 5. Gameplay state resolution
     UpdatePlayer(dt, input);
     events.weapon = UpdateWeapons(input);
+    UpdateEnemy(dt);
     UpdateProjectiles(dt);
-    events.player_hit = ResolveCollisions();
+    ResolveCollisions(events.player_hit, events.enemy_hit);
 
     // 最後に伝搬したイベントを返す
     return events;
@@ -66,6 +70,29 @@ GamePlayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
  */
 void UpdatePipeline::UpdatePlayer(float dt, const InputState& input){
     player_system_.Update(dt, input);
+}
+
+/**
+ * @brief 敵の更新
+ * 
+ * @param dt 
+ */
+void UpdatePipeline::UpdateEnemy(float dt){
+    // NOTE：仮の実装として敵を1体出現させる
+    const EnemySpawnParams params{
+        .position = {static_cast<float>(world_width_*0.5), static_cast<float>(world_height_*0.5)},
+        .velocity = {10.0f, 10.0f}, 
+        .render_size = {32.0f, 32.0f}, 
+        .hurtbox_offset = {0.0f, 0.0f}, 
+        .hurtbox_radius = 13.0f, 
+        .contact_offset = {0.0f, 0.0f}, 
+        .contact_radius = 10.0f, 
+        .hp = 2
+    };
+    if(enemy_system_.CountActive() == 0){
+        enemy_system_.Spawn(params);    
+    }
+    enemy_system_.Update(dt, world_width_, world_height_);
 }
 
 /**
@@ -111,7 +138,7 @@ void UpdatePipeline::UpdateProjectiles(float dt){
  * @return true 
  * @return false 
  */
-bool UpdatePipeline::ResolveCollisions(){
+void UpdatePipeline::ResolveCollisions(bool& player_hit_out, bool& enemy_hit_out){
     // Player vs Bullet
     if(collision_system_.CheckPlayerHitByBullets(
         player_system_.GetPlayer(), 
@@ -126,9 +153,16 @@ bool UpdatePipeline::ResolveCollisions(){
         enemy_bullets_.Clear();
         player_bullets_.Clear();
         player_weapon_system_.Reset();
-        return true;
+        player_hit_out = true;
     }
-    return false;
+    // PlayerBullet vs Enemy
+    if(collision_system_.ResolvePlayerBulletVsEnemies(
+        player_bullets_, 
+        enemy_system_
+    ))
+    {
+        enemy_hit_out = true;
+    }
 }
 
 /**
@@ -137,8 +171,12 @@ bool UpdatePipeline::ResolveCollisions(){
  * @param prim
  */
 void UpdatePipeline::Render(PrimitiveRenderer& prim) const{
+    // 敵更新
+    enemy_system_.Render(prim);
+    // 弾更新
     player_bullets_.Render(prim);
     enemy_bullets_.Render(prim);
+    // プレイヤー更新
     player_system_.Render(prim);
 }
 

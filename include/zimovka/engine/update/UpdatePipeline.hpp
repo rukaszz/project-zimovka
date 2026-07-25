@@ -8,6 +8,7 @@
 #include "zimovka/systems/player/PlayerWeaponSystem.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/collision/CollisionSystem.hpp"
+#include "zimovka/systems/enemy/EnemySystem.hpp"
 
 namespace zimovka{
 
@@ -27,6 +28,8 @@ private:
     // プレイヤー関連
     PlayerSystem       player_system_;
     PlayerWeaponSystem player_weapon_system_;
+    // 敵
+    EnemySystem  enemy_system_;
     // 弾プール: enemy/playerを別プールで管理する
     BulletSystem enemy_bullets_{1200};
     BulletSystem player_bullets_{100};
@@ -36,8 +39,9 @@ private:
     // 各段階のUpdate(UpdateTick()から順番に呼ばれる)
     void UpdatePlayer(float dt, const InputState& input);
     PlayerWeaponEvents UpdateWeapons(const InputState& input);
+    void UpdateEnemy(float dt);
     void UpdateProjectiles(float dt);
-    bool ResolveCollisions();
+    void ResolveCollisions(bool& player_hit_out, bool& enemy_hit_out);
 
 public:
     // 初期化

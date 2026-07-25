@@ -8,6 +8,7 @@
 
 #include "zimovka/systems/enemy/Enemy.hpp"
 #include "zimovka/systems/enemy/EnemyDamageResult.hpp"
+#include "zimovka/systems/enemy/EnemySpawnParams.hpp"
 
 namespace zimovka{
 
@@ -34,12 +35,7 @@ public:
     // 暗黙的な型変換を防止したコンストラクタ
     explicit EnemySystem(std::size_t capacity = 32);
     // 生成
-    bool Spawn(
-        Vec2 position, 
-        Vec2 velocity, 
-        Vec2 size, 
-        std::int32_t hp
-    );
+    bool Spawn(const EnemySpawnParams& params);
     // 初期化
     void Clear() noexcept;
     // 更新

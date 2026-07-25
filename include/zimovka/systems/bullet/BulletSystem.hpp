@@ -24,6 +24,7 @@ class BulletSystem{
 private:
     std::vector<Bullet> bullets_;
     std::size_t next_spawn_idx_ = 0;
+    std::size_t active_count_ = 0;
 
     // 弾が画面外かどうか(弾の半径を考慮して完全に出たらtrueにする)
     bool IsOutOfScreen(const Bullet& bullet, float screen_width, float screen_height) const;
@@ -54,6 +55,8 @@ public:
     void Render(PrimitiveRenderer& renderer) const;
     // 弾の消去
     void Clear() noexcept;
+    // 弾の非活性化
+    bool Deactivate(std::size_t index);
 
     // bulletへのアクセサ(spanで所有権を渡さず読み取り専用にする)
     std::span<const Bullet> GetBullets() const noexcept{
@@ -61,7 +64,9 @@ public:
     }
 
     // Debug用
-    std::size_t CountActive() const noexcept;
+    std::size_t CountActive() const noexcept{
+        return active_count_;
+    }
     std::size_t GetCapacity() const noexcept{
         return bullets_.size();
     }

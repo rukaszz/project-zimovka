@@ -39,6 +39,7 @@ add_executable(${PROJECT_NAME}
     src/systems/player/PlayerWeaponSystem.cpp
     src/systems/bullet/BulletSystem.cpp
     src/systems/collision/CollisionSystem.cpp
+    src/systems/enemy/EnemySystem.cpp
     src/engine/update/UpdatePipeline.cpp
     src/debug/DebugOverlay.cpp
     src/replay/RunRecorder.cpp

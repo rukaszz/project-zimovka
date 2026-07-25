@@ -25,6 +25,7 @@ set(ZIMOVKA_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/systems/bullet/BulletSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerWeaponSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/enemy/EnemySystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
     ${CMAKE_SOURCE_DIR}/src/replay/RunRecorder.cpp

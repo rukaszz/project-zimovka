@@ -10,6 +10,7 @@ namespace zimovka{
  */
 struct GamePlayTickEvents{
     bool player_hit = false;
+    bool enemy_hit  = false;
     PlayerWeaponEvents weapon{};
 };
 

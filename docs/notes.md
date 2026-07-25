@@ -625,3 +625,98 @@ Tickはゲームのループ1回分を表す単位であり，`Application::Run(
 前作のTheMysteriousForestのころから，Updateの順序を厳格に固定する必要が出てくる．そこでZimovkaでは，Updateの固定化をUpdatePilelineというクラスで管理することにした．
 
 Updateの優先順位を導入した厳格なスケジューラの導入はコストが高く，現状は必要ではないことから見送った．UpdatePilelineは多くのサブシステムを管理している管理用のクラスである．各サブシステム間のやり取りはイベントを通して行われる．例えばCollisionSystem::ResolveCollision()はplayer_hitを通じてプレイヤーが弾にあたったかを確認する．
+
+### 2026/07/22
+
+#### EnemySystemについて
+
+当初はEnemyは矩形による当たり判定を実装していた．初期実装であることから矩形がそのまま当たり判定であることは自然であった．しかし開発が進みスプライトシートによって敵キャラクタを描画することを考えると，矩形は無駄が多くなる．また，矩形vs円はどちらもプリミティブな図形だが，別の当たり判定を用いることになりコストがかかる．
+
+Enemyの実装を見直し，「見た目」は矩形としてサイズで管理しつつ，当たり判定はたま受け用のhurtbox，プレイヤー接触用のcontactの2つを用意した．これによって．大きなボスなどの敵は円を複数個組み合わせて表現できるようにしている．
+
+```cpp
+#ifndef ZIMOVKA_SYSTEMS_ENEMY_ENEMY_HPP_
+#define ZIMOVKA_SYSTEMS_ENEMY_ENEMY_HPP_
+
+#include <cstdint>
+
+#include "zimovka/core/Vec2.hpp"
+
+namespace zimovka{
+/**
+ * @brief 敵のデータ構造(コンポーネント)
+ * 
+ * 当たり判定(hurtbox)は円で管理し，大型の敵は円の組み合わせで表現する
+ */
+struct Enemy{
+    // 活性/非活性で管理
+    bool active = false;
+    // ゲーム上の中心座標/速度
+    Vec2 position{0, 0};
+    Vec2 velocity{0, 0};
+    // 描画用サイズ(描画時のみ左上座標で管理する)
+    Vec2 render_size{32.0f, 32.0f};
+
+    // 自機弾を受けるhurtbox
+    Vec2 hurtbox_offset{};
+    float hurtbox_radius = 13.0f;
+
+    // Playerとの接触判定用円
+    Vec2 contact_offset{};
+    float contact_radius = 10.0f;
+
+    std::int32_t hp = 1;
+};
+
+}   // namespace zimovka
+
+#endif  // ZIMOVKA_SYSTEMS_ENEMY_ENEMY_HPP_
+
+```
+
+#### zimovkaの当たり判定
+
+現状は次の通りで確定：
+
+- Player vs EnemyBullet
+  - 円 vs 円
+- PlayerBullet vs 通常Enemy
+  - 円 vs 円
+- Player vs 通常Enemy本体
+  - 円 vs 円：hurtboxとは別のcontact circle
+- PlayerBullet vs 横長・大型Enemy
+  - 円 vs 矩形、または円 vs 複数円
+- PlayerBullet vs Boss
+  - 円 vs 複数円
+- 画面外判定
+  - 描画サイズ由来のAABB
+
+#### EnemySystemの実装
+
+EnemySystemはactive/inactiveによるAoSな管理を実施している．
+activeな数は`active_count_`という変数で管理する．activeで+1，inactiveで-1となる．この管理を厳格に実装できれば，getterである`CountActive()`は$O(1)$で済む．
+
+また，Enemyがダメージを受ける際に呼ばれる`TakeDamage()`は，The Mysterious Forestの処理を踏襲し，戻り値で状態を判断することができるようにしている．
+
+その他，`Spawn()`は引数にEnemyへセットするべきデータを渡す必要がある．そのため，引数の数がどんどん増加することが予測される．`EnemySpawnParams`のような構造体で管理することを検討している．
+
+```cpp
+#ifndef ZIMOVKA_SYSTEMS_ENEMY_ENEMYDAMAGERESULT_HPP_
+#define ZIMOVKA_SYSTEMS_ENEMY_ENEMYDAMAGERESULT_HPP_
+
+namespace zimovka{
+
+/**
+ * @brief TakeDamageに対する結果用enum
+ * 
+ */
+enum class EnemyDamageResult{
+    InvalidTarget, 
+    Damaged, 
+    Destroyed, 
+};
+
+}   // namespace zimovka
+
+#endif  // ZIMOVKA_SYSTEMS_ENEMY_ENEMYDAMAGERESULT_HPP_
+```

@@ -6,6 +6,7 @@
 #include "zimovka/core/Circle.hpp"
 #include "zimovka/systems/enemy/Enemy.hpp"
 #include "zimovka/systems/player/Player.hpp"
+#include "zimovka/systems/enemy/EnemySystem.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 
 namespace zimovka{
@@ -21,6 +22,8 @@ private:
 public:
     // プレイヤー vs 弾のヒットチェック
     bool CheckPlayerHitByBullets(const Player& player, const BulletSystem& bullets);
+    // 自機弾 vs 敵のヒットチェック
+    bool ResolvePlayerBulletVsEnemies(BulletSystem& player_bullets, EnemySystem& enemies);
     // getter
     std::size_t LastCheckCount() const noexcept{
         return last_check_count_;

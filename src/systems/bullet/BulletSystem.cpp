@@ -1,5 +1,8 @@
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 
+#include <cassert>
+#include <stdexcept>
+
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 
 namespace zimovka{
@@ -57,6 +60,7 @@ bool BulletSystem::Spawn(
             bullets_[idx].color    = color;
             // 次のSpawn()は1つ後のスロットから探す
             next_spawn_idx_ = (idx + 1) % size;
+            ++active_count_;
             return true;
         }
     }
@@ -85,6 +89,7 @@ void BulletSystem::Update(float dt, float screen_width, float screen_height){
         b.position += b.velocity * dt;
         // 画面外に出たら非活性化
         if(IsOutOfScreen(b, screen_width, screen_height)){
+            --active_count_;
             b.active = false;
         }
     }
@@ -124,26 +129,33 @@ void BulletSystem::Clear() noexcept{
     for(auto& b : bullets_){
         b.active = false;
     }
-    // スポーンインデックスも初期化
+    // index/countも初期化
     next_spawn_idx_ = 0;
+    active_count_ = 0;
 }
 
 /**
- * @brief active な弾の数を返す(Debug用)
- * 弾数プールの上限に応じてactive_count_を検討
- *
- * @return std::size_t
+ * @brief 自機弾の衝突判定などで呼ばれ，非活性にする
+ * 
+ * @param index 
+ * @return true 
+ * @return false 
  */
-std::size_t BulletSystem::CountActive() const noexcept{
-    // 戻り値
-    std::size_t count = 0;
-    for(const auto& b : bullets_){
-        // 単純な計測
-        if(b.active){
-            ++count;
-        }
+bool BulletSystem::Deactivate(std::size_t index){
+    // indexのチェック(index>=capacityで未定義動作)
+    if(index >= bullets_.size()){
+        throw std::out_of_range("BulletSystem::Deactivete index out of range.");
     }
-    return count;
+    Bullet& bullet = bullets_[index];
+    // この時点で非活性になっていたら何もしない
+    if (!bullet.active) {
+        return false;
+    }
+    bullet.active = false;
+    assert(active_count_ > 0);
+    --active_count_;
+
+    return true;
 }
 
 /**

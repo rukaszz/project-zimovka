@@ -18,21 +18,30 @@ EnemySystem::EnemySystem(std::size_t capacity)
     // resizeで空要素で連続メモリ確保
     enemies_.resize(capacity);
 }
-// 生成
-bool EnemySystem::Spawn(
-    Vec2 position, Vec2 velocity, 
-    Vec2 size, std::int32_t hp
-)
-{
+
+/**
+ * @brief 敵を出現させる処理
+ * 
+ * @param position 
+ * @param velocity 
+ * @param size 
+ * @param hp 
+ * @return true 
+ * @return false 
+ */
+bool EnemySystem::Spawn(const EnemySpawnParams& params){
     // 引数チェック(NaNや負の値を検知)
-    const bool valid_size = std::isfinite(size.x)
-                         && std::isfinite(size.y)
-                         && size.x > 0.0f
-                         && size.y > 0.0f;
-    if(!valid_size){
+    const bool valid_size = std::isfinite(params.render_size.x)
+                         && std::isfinite(params.render_size.y)
+                         && params.render_size.x > 0.0f
+                         && params.render_size.y > 0.0f;
+    const bool valid_radius = params.hurtbox_radius > 0.0f
+                           && params.contact_radius > 0.0f;
+    
+    if(!valid_size || !valid_radius){
         return false;
     }
-    if(hp <= 0){
+    if(params.hp <= 0){
         return false;
     }
     // 配列サイズ取得
@@ -47,11 +56,15 @@ bool EnemySystem::Spawn(
         const std::size_t idx = (next_spawn_index_ + i) % array_size;
         // inactiveなenemyを発見したらactiveに
         if(!enemies_[idx].active){
-            enemies_[idx].active      = true;
-            enemies_[idx].position    = position;
-            enemies_[idx].velocity    = velocity;
-            enemies_[idx].render_size = size;
-            enemies_[idx].hp          = hp;
+            enemies_[idx].active         = true;
+            enemies_[idx].position       = params.position;
+            enemies_[idx].velocity       = params.velocity;
+            enemies_[idx].render_size    = params.render_size;
+            enemies_[idx].hurtbox_offset = params.hurtbox_offset;
+            enemies_[idx].hurtbox_radius = params.hurtbox_radius;
+            enemies_[idx].contact_offset = params.contact_offset;
+            enemies_[idx].contact_radius = params.contact_radius;
+            enemies_[idx].hp             = params.hp;
             // 次のSpawn()では見つけた非活性のenemies_インデックス+1から探す
             next_spawn_index_ = (idx +1) % array_size;
             ++active_count_;
@@ -134,7 +147,8 @@ void EnemySystem::Render(PrimitiveRenderer& renderer) const{
 }
 
 /**
- * @brief 
+ * @brief 敵がダメージを受ける際の処理
+ * 結果はEnemyDamageResultによるいずれかも戻り地を受け取り判定する
  * 
  * @param index 
  * @param damage 
