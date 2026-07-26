@@ -2,7 +2,7 @@
 #define ZIMOVKA_ENGINE_UPDATE_UPDATEPIPELINE_HPP_
 
 #include "zimovka/input/InputState.hpp"
-#include "zimovka/events/GamePlayTickEvents.hpp"
+#include "zimovka/events/GameplayTickEvents.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/systems/player/PlayerSystem.hpp"
 #include "zimovka/systems/player/PlayerWeaponSystem.hpp"
@@ -41,13 +41,13 @@ private:
     PlayerWeaponEvents UpdateWeapons(const InputState& input);
     void UpdateEnemy(float dt);
     void UpdateProjectiles(float dt);
-    void ResolveCollisions(bool& player_hit_out, bool& enemy_hit_out);
+    void ResolveCollisions(bool& player_hit_out, EnemyHitEvents& enemy_hit_out);
 
 public:
     // 初期化
     void Initialize(float width, float height);
     // 固定タイムステップ更新
-    GamePlayTickEvents UpdateTick(float dt, const InputState& input);
+    GameplayTickEvents UpdateTick(float dt, const InputState& input);
     // 描画(NOTE: RenderPipelineへ移行するまでの暫定実装)
     void Render(PrimitiveRenderer& prim) const;
 

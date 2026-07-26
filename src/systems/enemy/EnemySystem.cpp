@@ -1,5 +1,6 @@
 #include "zimovka/systems/enemy/EnemySystem.hpp"
 
+#include <cassert>
 #include <cmath>
 #include <stdexcept>
 
@@ -31,10 +32,17 @@ EnemySystem::EnemySystem(std::size_t capacity)
  */
 bool EnemySystem::Spawn(const EnemySpawnParams& params){
     // 引数チェック(NaNや負の値を検知)
-    const bool valid_size = std::isfinite(params.render_size.x)
-                         && std::isfinite(params.render_size.y)
-                         && params.render_size.x > 0.0f
-                         && params.render_size.y > 0.0f;
+    if(!std::isfinite(params.position.x)       || !std::isfinite(params.position.y)
+    || !std::isfinite(params.velocity.x)       || !std::isfinite(params.velocity.y)
+    || !std::isfinite(params.render_size.x)    || !std::isfinite(params.render_size.y)
+    || !std::isfinite(params.hurtbox_offset.x) || !std::isfinite(params.hurtbox_offset.y)
+    || !std::isfinite(params.contact_offset.x) || !std::isfinite(params.contact_offset.y)
+    )
+    {
+        return false;
+    }
+    const bool valid_size   = params.render_size.x > 0.0f
+                           && params.render_size.y > 0.0f;
     const bool valid_radius = params.hurtbox_radius > 0.0f
                            && params.contact_radius > 0.0f;
     
@@ -107,8 +115,7 @@ void EnemySystem::Update(float dt, float world_width, float world_height){
         e.position += e.velocity *dt;
         // 画面外へ出たら非活性化
         if(IsOutOfScreen(e, world_width, world_height)){
-            e.active = false;
-            --active_count_;
+            Deactivate(e);
         }
     }
 }
@@ -127,7 +134,7 @@ void EnemySystem::Render(PrimitiveRenderer& renderer) const{
             continue;
         }
         // activeな敵は描画
-        Color enemy_color{32, 32, 128, 255};
+        Color enemy_color{64, 64, 255, 255};
         // enemy.positionは中心座標
         renderer.DrawFilledRect(
             e.position.x - e.render_size.x * 0.5f,
@@ -136,10 +143,12 @@ void EnemySystem::Render(PrimitiveRenderer& renderer) const{
             e.render_size.y,
             enemy_color
         );
-        Color enemy_center{128, 32, 32, 255};
+        // 当たり判定(自機弾)
+        Color enemy_center{255, 64, 64, 255};
+        const Vec2 hurtbox_center = e.position + e.hurtbox_offset;
         renderer.DrawFilledCircle(
-            e.position.x, 
-            e.position.y,
+            hurtbox_center.x,
+            hurtbox_center.y,
             static_cast<int>(e.hurtbox_radius),
             enemy_center
         );
@@ -173,8 +182,7 @@ EnemyDamageResult EnemySystem::TakeDamage(std::size_t index, std::int32_t damage
     e.hp -= damage;
     // hpがゼロ以下になったら非活性
     if(e.hp <= 0){
-        e.active = false;
-        --active_count_;
+        Deactivate(e);
         return EnemyDamageResult::Destroyed;
     }
     // ダメージを受けたのでtrue
@@ -190,7 +198,7 @@ EnemyDamageResult EnemySystem::TakeDamage(std::size_t index, std::int32_t damage
  * @return true 
  * @return false 
  */
-bool EnemySystem::IsOutOfScreen(const Enemy& enemy, float world_width, float world_height) const{
+bool EnemySystem::IsOutOfScreen(const Enemy& enemy, float world_width, float world_height) const noexcept{
     // 描画サイズの半分を判定の基準にする
     const float half_w = enemy.render_size.x * 0.5f;
     const float half_h = enemy.render_size.y * 0.5f;
@@ -201,6 +209,23 @@ bool EnemySystem::IsOutOfScreen(const Enemy& enemy, float world_width, float wor
          || enemy.position.y + half_h < 0.0f          // 下端が画面上端の外
          || enemy.position.y - half_h > world_height  // 上端が画面下端の外
         );
+}
+
+/**
+ * @brief Enemyの非活性化処理を集約したメソッド
+ * ※複数ヶ所にenemy.active=falseの記述が分散すると，
+ * active_count_の減算処理が漏れたり，不整合を起こす可能性があるため
+ * 
+ * @param enemy 
+ */
+void EnemySystem::Deactivate(Enemy& enemy) noexcept{
+    // 非活性は無視
+    if(!enemy.active){
+        return;
+    }
+    enemy.active = false;
+    assert(active_count_ > 0);  // 加減算で不整合が発生したらアウト
+    --active_count_;
 }
 
 }   // namespace zimovka

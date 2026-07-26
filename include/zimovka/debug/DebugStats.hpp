@@ -11,11 +11,12 @@ namespace zimovka{
  */
 struct DebugStats{
     // 弾関係の変数
-    std::size_t   active_enemy_bullets   = 0;
-    std::size_t   enemy_bullet_capacity  = 0;
-    std::size_t   collision_checks       = 0;
-    std::size_t   active_player_bullets  = 0;
-    std::size_t   player_bullet_capacity = 0;
+    std::size_t   active_enemy_bullets          = 0;
+    std::size_t   enemy_bullet_capacity         = 0;
+    std::size_t   player_vs_enemy_bullet_checks = 0;  // player vs 敵弾チェック数
+    std::size_t   player_bullet_vs_enemy_checks = 0;  // 自機弾 vs enemy チェック数
+    std::size_t   active_player_bullets         = 0;
+    std::size_t   player_bullet_capacity        = 0;
     std::uint32_t ammo                     = 0;
     std::uint32_t max_ammo                 = 0;
     std::uint32_t cooldown_ticks_remaining = 0;

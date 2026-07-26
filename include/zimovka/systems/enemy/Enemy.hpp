@@ -3,6 +3,7 @@
 
 #include <cstdint>
 
+#include "zimovka/core/Circle.hpp"
 #include "zimovka/core/Vec2.hpp"
 
 namespace zimovka{
@@ -29,6 +30,15 @@ struct Enemy{
     float contact_radius = 10.0f;
 
     std::int32_t hp = 1;
+
+    // 自機弾との当たり判定用円を返す
+    Circle GetHurtboxCircle() const noexcept{
+        return Circle{position + hurtbox_offset, hurtbox_radius};
+    }
+    // プレイヤーとの接触判定用円を返す
+    Circle GetContactCircle() const noexcept{
+        return Circle{position + contact_offset, contact_radius};
+    }
 };
 
 }   // namespace zimovka

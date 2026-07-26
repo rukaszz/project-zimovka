@@ -4,6 +4,7 @@
 
 #include "zimovka/systems/bullet/Bullet.hpp"
 #include "zimovka/systems/enemy/Enemy.hpp"
+#include "zimovka/systems/enemy/EnemyDamageResult.hpp"
 #include "zimovka/systems/collision/CollisionUtilities.hpp"
 
 namespace zimovka{
@@ -40,6 +41,8 @@ bool CollisionSystem::CheckPlayerHitByBullets(
             bullet.position, 
             bullet.radius
         };
+        // 衝突判定回数計測
+        ++collision_stats_.player_vs_enemy_bullet_checks;
         // 円同士の衝突判定
         if(CollisionUtilities::Intersects(player_circle, bullet_circle)){
             return true;
@@ -58,12 +61,12 @@ bool CollisionSystem::CheckPlayerHitByBullets(
  * @return true 
  * @return false 
  */
-bool CollisionSystem::ResolvePlayerBulletVsEnemies(
+EnemyHitEvents CollisionSystem::ResolvePlayerBulletVsEnemies(
     BulletSystem& player_bullets, EnemySystem& enemies
 )
 {
-    // 弾が当たったかどうかの判定(戻り値)
-    bool any_hit = false;
+    // 結果(戻り値)
+    EnemyHitEvents result{};
     // 初期化
     last_check_count_ = 0;
     // 最初にplayer_bulletsのループ
@@ -81,7 +84,7 @@ bool CollisionSystem::ResolvePlayerBulletVsEnemies(
         ++last_check_count_;
         // 自機弾当たり判定(円)
         const Circle bullet_circle{
-            b.position, 
+            b.position,
             b.radius
         };
         // enemiesのループ
@@ -91,30 +94,31 @@ bool CollisionSystem::ResolvePlayerBulletVsEnemies(
             if(!e.active){
                 continue;
             }
-            // 敵の当たり判定(円)
-            const Circle enemy_hurtbox{
-                e.position + e.hurtbox_offset, 
-                e.hurtbox_radius
-            };
+            // 判定回数計測
+            ++collision_stats_.player_bullet_vs_enemy_checks;
             // 衝突判定
             if(!CollisionUtilities::Intersects(
-                bullet_circle, 
-                enemy_hurtbox
+                bullet_circle,
+                e.GetHurtboxCircle()
             ))
             {
                 // ヒットしていないなら次へ
-                continue;   
+                continue;
             }
-            // それぞれのシステムへヒットしたインデックスを伝搬
+            // 弾を非活性化
             player_bullets.Deactivate(bullet_index);
-            enemies.TakeDamage(enemy_index, 1);
-            any_hit = true;
+            // ダメージ処理: 結果に応じてhit/killをカウント
+            const EnemyDamageResult dmg = enemies.TakeDamage(enemy_index, 1);
+            ++result.hit_count;
+            if(dmg == EnemyDamageResult::Destroyed){
+                ++result.kill_count;
+            }
             // 弾が当たったので次の弾へ(貫通しない)
             break;
         }
     }
     // 全走査して結果を返す
-    return any_hit;
+    return result;
 }
 
 

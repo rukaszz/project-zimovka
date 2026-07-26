@@ -100,9 +100,13 @@ bool DebugOverlay::Update(const DebugStats& stats){
             stats.enemy_bullet_capacity
         ), 
         std::format(
-            "collision: {} checks", 
-            stats.collision_checks
-        ), 
+            "col pve:  {} checks",
+            stats.player_vs_enemy_bullet_checks
+        ),
+        std::format(
+            "col pbve: {} checks",
+            stats.player_bullet_vs_enemy_checks
+        ),
         // PlayerWeapon情報
         std::format(
             "player bullets: {} / {}", 

@@ -5,7 +5,7 @@
 
 #include <SDL2/SDL.h>
 
-#include "zimovka/events/GamePlayTickEvents.hpp"
+#include "zimovka/events/GameplayTickEvents.hpp"
 #include "zimovka/platform/SdlContext.hpp"
 #include "zimovka/platform/Window.hpp"
 #include "zimovka/rendering/Renderer.hpp"
@@ -202,7 +202,7 @@ void Application::Update(float dt, const InputState& input){
     if(update_pipeline_.GetEnemyBullets().CountActive() <= 0){
         update_pipeline_.InitializeBulletStressTest();
     }
-    const GamePlayTickEvents events = update_pipeline_.UpdateTick(dt, input);
+    const GameplayTickEvents events = update_pipeline_.UpdateTick(dt, input);
     (void)events;   // NOTE: のちのちSE再生などで使用する
 }
 
@@ -259,9 +259,13 @@ void Application::FlushDebugStats(){
     // タイミング情報のavg/max計算 + debug_acc_のリセットをFlushToに委譲
     debug_acc_.FlushTo(debug_stats_);
     // ゲーム固有の値はpipelineから取得して設定する
-    debug_stats_.active_enemy_bullets   = update_pipeline_.GetEnemyBullets().CountActive();
-    debug_stats_.enemy_bullet_capacity  = update_pipeline_.GetEnemyBullets().GetCapacity();
-    debug_stats_.collision_checks = update_pipeline_.GetCollisionSystem().LastCheckCount();
+    debug_stats_.active_enemy_bullets = update_pipeline_.GetEnemyBullets().CountActive();
+    debug_stats_.enemy_bullet_capacity = update_pipeline_.GetEnemyBullets().GetCapacity();
+    {
+        const auto& cs = update_pipeline_.GetCollisionSystem().GetStats();
+        debug_stats_.player_vs_enemy_bullet_checks = cs.player_vs_enemy_bullet_checks;
+        debug_stats_.player_bullet_vs_enemy_checks = cs.player_bullet_vs_enemy_checks;
+    }
     // PlayerWeapon関係
     debug_stats_.active_player_bullets    = update_pipeline_.GetPlayerBullets().CountActive();
     debug_stats_.player_bullet_capacity   = update_pipeline_.GetPlayerBullets().GetCapacity();

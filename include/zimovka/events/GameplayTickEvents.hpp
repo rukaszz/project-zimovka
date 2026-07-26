@@ -2,15 +2,16 @@
 #define ZIMOVKA_EVENTS_GAMEPLAYTICKEVENTS_HPP_
 
 #include "zimovka/events/PlayerWeaponEvents.hpp"
+#include "zimovka/events/EnemyHitEvents.hpp"
 
 namespace zimovka{
 /**
  * @brief GamePlay中のイベントを管理する
- * 
+ *
  */
-struct GamePlayTickEvents{
-    bool player_hit = false;
-    bool enemy_hit  = false;
+struct GameplayTickEvents{
+    bool               player_hit = false;
+    EnemyHitEvents     enemy_hit{};
     PlayerWeaponEvents weapon{};
 };
 

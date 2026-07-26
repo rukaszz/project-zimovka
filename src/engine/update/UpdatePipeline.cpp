@@ -5,6 +5,7 @@
 
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
+#include "zimovka/events/EnemyHitEvents.hpp"
 #include "zimovka/systems/enemy/EnemySpawnParams.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 
@@ -41,11 +42,11 @@ void UpdatePipeline::Initialize(float width, float height){
  * 
  * @param dt 
  * @param input 
- * @return * GamePlayTickEvents 
+ * @return * GameplayTickEvents 
  */
-GamePlayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input){
+GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input){
     // イベント受け取り用
-    GamePlayTickEvents events{};
+    GameplayTickEvents events{};
     // Simulation pipeline:
     // 1. Player movement
     // 2. Weapon and projectile spawning
@@ -133,12 +134,14 @@ void UpdatePipeline::UpdateProjectiles(float dt){
 
 /**
  * @brief 当たり判定の処理
- * 現状はGamePlayTickEventsのplayer_hitを返す
+ * 現状はGameplayTickEventsのplayer_hitを返す
  * 
  * @return true 
  * @return false 
  */
-void UpdatePipeline::ResolveCollisions(bool& player_hit_out, bool& enemy_hit_out){
+void UpdatePipeline::ResolveCollisions(bool& player_hit_out, EnemyHitEvents& enemy_hit_out){
+    // Collision判定回数の初期化
+    collision_system_.InitializeStatsAtBeginTick();
     // Player vs Bullet
     if(collision_system_.CheckPlayerHitByBullets(
         player_system_.GetPlayer(), 
@@ -156,13 +159,10 @@ void UpdatePipeline::ResolveCollisions(bool& player_hit_out, bool& enemy_hit_out
         player_hit_out = true;
     }
     // PlayerBullet vs Enemy
-    if(collision_system_.ResolvePlayerBulletVsEnemies(
-        player_bullets_, 
+    enemy_hit_out = collision_system_.ResolvePlayerBulletVsEnemies(
+        player_bullets_,
         enemy_system_
-    ))
-    {
-        enemy_hit_out = true;
-    }
+    );
 }
 
 /**

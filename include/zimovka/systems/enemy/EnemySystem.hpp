@@ -29,7 +29,9 @@ private:
     std::size_t next_spawn_index_ = 0;
 
     // 画面外判定
-    bool IsOutOfScreen(const Enemy& enemy, float world_width, float world_height) const;
+    bool IsOutOfScreen(const Enemy& enemy, float world_width, float world_height) const  noexcept;
+    // Enemyの非活性化
+    void Deactivate(Enemy& enemy) noexcept;
 
 public:
     // 暗黙的な型変換を防止したコンストラクタ
