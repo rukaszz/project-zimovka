@@ -1,11 +1,25 @@
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 
 #include <cassert>
+#include <cmath>
 #include <stdexcept>
 
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 
 namespace zimovka{
+
+namespace{
+/**
+ * @brief 無限大チェック用ヘルパ関数
+ * 
+ * @param value 
+ * @return true 
+ * @return false 
+ */
+bool IsFinite(const Vec2& value) noexcept{
+    return std::isfinite(value.x) && std::isfinite(value.y);
+}
+}
 
 /**
  * @brief Construct a new Bullet System:: Bullet System object
@@ -29,20 +43,25 @@ BulletSystem::BulletSystem(std::size_t max_bullets)
  * next_spawn_idx_から始めて循環しながら空(!active)スロットを探す
  * 弾は生成された順に期限切れになる可能性が高い(傾向がある)
  * →よって，循環インデックスにより平均的にO(1)で空きを見つけられる
+ * 空きスロットによっては最悪計算量(O(N))
  *
  * @param position  初期座標
  * @param velocity  速度 (px/s)
  * @param radius    弾半径
  * @param color     弾色
- * @return true 生成成功 / false プール満杯
+ * @return true 生成成功 / false 引数不正かプール満杯
  */
 bool BulletSystem::Spawn(
     const Vec2& position, const Vec2& velocity,
     float radius, Color color
 )
 {
-    // 無効な半径はfalse
-    if(radius <= 0.0f) {
+    // 無効な半径や無限大な値はfalse
+    if(radius <= 0.0f
+    || !IsFinite(position)
+    || !IsFinite(velocity)
+    || !std::isfinite(radius))
+    {
         return false;
     }
     // サイズ取得
@@ -89,8 +108,7 @@ void BulletSystem::Update(float dt, float screen_width, float screen_height){
         b.position += b.velocity * dt;
         // 画面外に出たら非活性化
         if(IsOutOfScreen(b, screen_width, screen_height)){
-            --active_count_;
-            b.active = false;
+            Deactivate(b);
         }
     }
 }
@@ -135,22 +153,33 @@ void BulletSystem::Clear() noexcept{
 }
 
 /**
- * @brief 自機弾の衝突判定などで呼ばれ，非活性にする
- * 
- * @param index 
- * @return true 
- * @return false 
+ * @brief インデックス指定で弾を非活性にする(外部向けAPI)
+ *
+ * CollisionSystemなど外部から呼び出す際はこちらを使用する
+ * active_count_の整合性はDeactivate(Bullet&)が保証する
+ *
+ * @param index 非活性化する弾のインデックス
+ * @return true 非活性化成功 / false 範囲外or既に非活性
  */
-bool BulletSystem::Deactivate(std::size_t index){
-    // indexのチェック(index>=capacityで未定義動作)
+bool BulletSystem::DeactivateWithIndex(std::size_t index) noexcept{
     if(index >= bullets_.size()){
-        throw std::out_of_range("BulletSystem::Deactivete index out of range.");
-    }
-    Bullet& bullet = bullets_[index];
-    // この時点で非活性になっていたら何もしない
-    if (!bullet.active) {
         return false;
     }
+    return Deactivate(bullets_[index]);
+}
+
+/**
+ * @brief 弾を非活性にする(内部専用)
+ *
+ * Update()やDeactivateWithIndex()から呼ばれる
+ * active_count_の減算もここで行う
+ */
+bool BulletSystem::Deactivate(Bullet& bullet) noexcept{
+    // この時点で非活性になっていたら何もしない
+    if(!bullet.active){
+        return false;
+    }
+    // 非活性処理
     bullet.active = false;
     assert(active_count_ > 0);
     --active_count_;

@@ -37,6 +37,7 @@ add_executable(zimovka_tests
     test_InputState.cpp
     test_InputSystem.cpp
     test_BulletSystem.cpp
+    test_EnemySystem.cpp
     test_PlayerSystem.cpp
     test_Collision.cpp
     test_DebugAccumulator.cpp

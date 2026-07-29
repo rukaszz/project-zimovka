@@ -1,7 +1,8 @@
 #include "zimovka/engine/update/UpdatePipeline.hpp"
 
-#include <cassert>
+#include <cmath>
 #include <cstddef>
+#include <stdexcept>
 
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
@@ -18,8 +19,12 @@ namespace zimovka{
  * @param height 
  */
 void UpdatePipeline::Initialize(float width, float height){
-    // 引数チェック
-    if(width <= 0.0f || height <= 0.0f){
+    // 引数チェック(負の値とNaNのチェック)
+    if( !std::isfinite(width) 
+     || !std::isfinite(height)
+     || width <= 0.0f || height <= 0.0f
+    )
+    {
         throw std::invalid_argument(
             "Game play world size must be positive. "
         );
@@ -79,20 +84,7 @@ void UpdatePipeline::UpdatePlayer(float dt, const InputState& input){
  * @param dt 
  */
 void UpdatePipeline::UpdateEnemy(float dt){
-    // NOTE：仮の実装として敵を1体出現させる
-    const EnemySpawnParams params{
-        .position = {static_cast<float>(world_width_*0.5), static_cast<float>(world_height_*0.5)},
-        .velocity = {10.0f, 10.0f}, 
-        .render_size = {32.0f, 32.0f}, 
-        .hurtbox_offset = {0.0f, 0.0f}, 
-        .hurtbox_radius = 13.0f, 
-        .contact_offset = {0.0f, 0.0f}, 
-        .contact_radius = 10.0f, 
-        .hp = 2
-    };
-    if(enemy_system_.CountActive() == 0){
-        enemy_system_.Spawn(params);    
-    }
+    SpawnEnemyTest();
     enemy_system_.Update(dt, world_width_, world_height_);
 }
 
@@ -142,12 +134,19 @@ void UpdatePipeline::UpdateProjectiles(float dt){
 void UpdatePipeline::ResolveCollisions(bool& player_hit_out, EnemyHitEvents& enemy_hit_out){
     // Collision判定回数の初期化
     collision_system_.InitializeStatsAtBeginTick();
-    // Player vs Bullet
-    if(collision_system_.CheckPlayerHitByBullets(
+    // 先に衝突処理
+    // Player vs EnemyBullet
+    const bool player_hit = collision_system_.CheckPlayerHitByBullets(
         player_system_.GetPlayer(), 
         enemy_bullets_
-    ))
-    {
+    );
+    // PlayerBullet vs Enemy
+    enemy_hit_out = collision_system_.ResolvePlayerBulletsVsEnemies(
+        player_bullets_,
+        enemy_system_
+    );
+    // 最後にプレイヤーの衝突の解決
+    if(player_hit){
         // 衝突した場合はプレイヤーの位置を初期化(仮)
         player_system_.Initialize(
             world_width_, 
@@ -158,11 +157,6 @@ void UpdatePipeline::ResolveCollisions(bool& player_hit_out, EnemyHitEvents& ene
         player_weapon_system_.Reset();
         player_hit_out = true;
     }
-    // PlayerBullet vs Enemy
-    enemy_hit_out = collision_system_.ResolvePlayerBulletVsEnemies(
-        player_bullets_,
-        enemy_system_
-    );
 }
 
 /**
@@ -184,13 +178,34 @@ void UpdatePipeline::Render(PrimitiveRenderer& prim) const{
  * @brief 弾を瞬間的に大量生成する性能試験用関数
  *
  * 呼ばれると enemy_bullets_ を満杯まで生成する
- * NOTE: 将来的には EnemySystem に移行する
+ * NOTE: 将来的には性能試験用のビルドに移行する
  */
 void UpdatePipeline::InitializeBulletStressTest(){
     for(std::size_t i = 0; i < enemy_bullets_.GetCapacity(); ++i){
         const float x = static_cast<float>(i % 40) * 24.0f + 12.0f;
         const float y = static_cast<float>(i / 40) * 16.0f;
         enemy_bullets_.Spawn(Vec2{x, y}, Vec2{0.0f, 60.0f}, 3.0f);
+    }
+}
+
+/**
+ * @brief 敵を1体出現させる関数
+ * 
+ * NOTE: 仮の実装
+ */
+void UpdatePipeline::SpawnEnemyTest(){
+    const EnemySpawnParams params{
+        .position = {world_width_*0.5f, world_height_*0.5f},
+        .velocity = {10.0f, 10.0f}, 
+        .render_size = {32.0f, 32.0f}, 
+        .hurtbox_offset = {0.0f, 0.0f}, 
+        .hurtbox_radius = 13.0f, 
+        .contact_offset = {0.0f, 0.0f}, 
+        .contact_radius = 10.0f, 
+        .hp = 2
+    };
+    if(enemy_system_.CountActive() == 0){
+        enemy_system_.Spawn(params);    
     }
 }
 

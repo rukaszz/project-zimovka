@@ -720,3 +720,100 @@ enum class EnemyDamageResult{
 
 #endif  // ZIMOVKA_SYSTEMS_ENEMY_ENEMYDAMAGERESULT_HPP_
 ```
+
+### 2026/07/25
+
+#### 当たり判定の伝搬
+
+当たり判定はCollisionSystemが担っているが，当該システム内で完結させると，外部のシステムは衝突の結果を知れずSEなどを鳴らせない．そのため，外部へ伝搬するためのEnemyHitEventsを実装して外部へ伝搬させている．
+
+EnemyHitEvents.hpp
+
+```cpp
+#ifndef ZIMOVKA_EVENTS_ENEMYHITEVENTS_HPP_
+#define ZIMOVKA_EVENTS_ENEMYHITEVENTS_HPP_
+
+#include <cstddef>
+
+namespace zimovka{
+/**
+ * @brief 自機弾が敵に命中した際のイベント
+ *
+ * SE/スコア加算などを呼び出すためのイベント管理
+ * CollisionSystem::ResolvePlayerBulletsVsEnemies()から返される
+ */
+struct EnemyHitEvents{
+    std::size_t hit_count  = 0;  // 命中した弾の数
+    std::size_t kill_count = 0;  // 撃破した敵の数
+};
+
+}   // namespace zimovka
+
+#endif  // ZIMOVKA_EVENTS_ENEMYHITEVENTS_HPP_
+
+```
+
+ResolveCollisions()
+
+```cpp
+/**
+ * @brief 当たり判定の処理
+ * 現状はGameplayTickEventsのplayer_hitを返す
+ * 
+ * @return true 
+ * @return false 
+ */
+void UpdatePipeline::ResolveCollisions(bool& player_hit_out, EnemyHitEvents& enemy_hit_out){
+    // Collision判定回数の初期化
+    collision_system_.InitializeStatsAtBeginTick();
+    // 先に衝突処理
+    // Player vs EnemyBullet
+    const bool player_hit = collision_system_.CheckPlayerHitByBullets(
+        player_system_.GetPlayer(), 
+        enemy_bullets_
+    );
+    // PlayerBullet vs Enemy
+    enemy_hit_out = collision_system_.ResolvePlayerBulletsVsEnemies(
+        player_bullets_,
+        enemy_system_
+    );
+    // 最後にプレイヤーの衝突の解決
+    if(player_hit){
+        // 衝突した場合はプレイヤーの位置を初期化(仮)
+        player_system_.Initialize(
+            world_width_, 
+            world_height_
+        );
+        enemy_bullets_.Clear();
+        player_bullets_.Clear();
+        player_weapon_system_.Reset();
+        player_hit_out = true;
+    }
+}
+```
+
+また，これらイベントを管理する総合的な構造体GameplayTickEventsも実装した．SEなどを鳴らす際は，こちらのイベント用構造体を参照する想定である．
+
+```cpp
+#ifndef ZIMOVKA_EVENTS_GAMEPLAYTICKEVENTS_HPP_
+#define ZIMOVKA_EVENTS_GAMEPLAYTICKEVENTS_HPP_
+
+#include "zimovka/events/PlayerWeaponEvents.hpp"
+#include "zimovka/events/EnemyHitEvents.hpp"
+
+namespace zimovka{
+/**
+ * @brief GamePlay中のイベントを管理する
+ *
+ */
+struct GameplayTickEvents{
+    bool               player_hit = false;
+    EnemyHitEvents     enemy_hit{};
+    PlayerWeaponEvents weapon{};
+};
+
+}   // namespace zimovka
+
+#endif  // ZIMOVKA_EVENTS_GAMEPLAYTICKEVENTS_HPP_
+
+```

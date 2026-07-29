@@ -264,3 +264,59 @@ TEST(BulletSystemTest, NotOutOfScreen_Stationary){
     bs.Update(1.0f, 960.0f, 720.0f);
     EXPECT_EQ(bs.CountActive(), 1u);
 }
+
+// ──────────────────────────────────────────────────────
+// Deactivate(Bullet&)
+// ──────────────────────────────────────────────────────
+/**
+ * @brief 活性状態の弾をDeactivate()して非活性になることを確認
+ *
+ */
+TEST(BulletSystemTest, Deactivate_ActiveBullet){
+    BulletSystem bs(5);
+    bs.Spawn(Vec2{100.0f, 100.0f}, Vec2{0.0f, 0.0f}, 3.0f);
+    EXPECT_EQ(bs.CountActive(), 1u);
+    EXPECT_TRUE(bs.DeactivateWithIndex(0));
+    EXPECT_FALSE(bs.GetBullets()[0].active);
+    EXPECT_EQ(bs.CountActive(), 0u);
+}
+
+/**
+ * @brief すでに非活性なスロットにDeactivateWithIndex()を呼ぶとfalseを返すことを確認
+ *
+ */
+TEST(BulletSystemTest, Deactivate_AlreadyInactive){
+    BulletSystem bs(5);
+    // Spawnしていないのでインデックス[0]はinactive
+    EXPECT_FALSE(bs.DeactivateWithIndex(0));
+    EXPECT_EQ(bs.CountActive(), 0u); // active_count_がアンダーフローしないことも確認
+}
+
+/**
+ * @brief DeactivateWithIndex()後にactive_count_が正確に減少することを確認
+ *
+ */
+TEST(BulletSystemTest, Deactivate_DecrementsActiveCount){
+    BulletSystem bs(5);
+    bs.Spawn(Vec2{100.0f, 100.0f}, Vec2{0.0f, 0.0f}, 3.0f);
+    bs.Spawn(Vec2{200.0f, 200.0f}, Vec2{0.0f, 0.0f}, 3.0f);
+    bs.Spawn(Vec2{300.0f, 300.0f}, Vec2{0.0f, 0.0f}, 3.0f);
+    EXPECT_EQ(bs.CountActive(), 3u);
+    bs.DeactivateWithIndex(1); // 中間スロットを非活性化
+    EXPECT_EQ(bs.CountActive(), 2u);
+}
+
+/**
+ * @brief DeactivateWithIndex()したスロットに再Spawn()できることを確認
+ *
+ */
+TEST(BulletSystemTest, Deactivate_AllowsRespawn){
+    BulletSystem bs(1); // 容量1
+    bs.Spawn(Vec2{100.0f, 100.0f}, Vec2{0.0f, 0.0f}, 3.0f);
+    EXPECT_EQ(bs.CountActive(), 1u);
+    EXPECT_FALSE(bs.Spawn(Vec2{200.0f, 200.0f}, Vec2{0.0f, 0.0f}, 3.0f)); // 満杯
+    bs.DeactivateWithIndex(0);
+    EXPECT_EQ(bs.CountActive(), 0u);
+    EXPECT_TRUE(bs.Spawn(Vec2{200.0f, 200.0f}, Vec2{0.0f, 0.0f}, 3.0f)); // 再Spawn成功
+    EXPECT_EQ(bs.CountActive(), 1u);
+}

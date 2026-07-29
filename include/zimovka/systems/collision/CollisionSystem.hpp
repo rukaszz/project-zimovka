@@ -18,8 +18,6 @@ namespace zimovka{
  */
 class CollisionSystem{
 private:
-    // activeな弾のチェック回数
-    std::size_t last_check_count_ = 0;
     // 衝突判定集計用
     CollisionStats collision_stats_{};
 
@@ -27,11 +25,9 @@ public:
     // プレイヤー vs 弾のヒットチェック
     bool CheckPlayerHitByBullets(const Player& player, const BulletSystem& bullets);
     // 自機弾 vs 敵のヒットチェック・解決
-    EnemyHitEvents ResolvePlayerBulletVsEnemies(BulletSystem& player_bullets, EnemySystem& enemies);
+    EnemyHitEvents ResolvePlayerBulletsVsEnemies(BulletSystem& player_bullets, EnemySystem& enemies);
     // getter
-    std::size_t LastCheckCount() const noexcept{
-        return last_check_count_;
-    }
+    // UpdatePipeline::ResolveCollisions()で冒頭に呼ばれる
     void InitializeStatsAtBeginTick() noexcept{
         collision_stats_ = {};
     }

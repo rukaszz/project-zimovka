@@ -8,7 +8,7 @@ namespace zimovka{
  * @brief 自機弾が敵に命中した際のイベント
  *
  * SE/スコア加算などを呼び出すためのイベント管理
- * CollisionSystem::ResolvePlayerBulletVsEnemies()から返される
+ * CollisionSystem::ResolvePlayerBulletsVsEnemies()から返される
  */
 struct EnemyHitEvents{
     std::size_t hit_count  = 0;  // 命中した弾の数

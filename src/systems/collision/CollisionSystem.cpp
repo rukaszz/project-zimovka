@@ -21,8 +21,6 @@ bool CollisionSystem::CheckPlayerHitByBullets(
     const BulletSystem& bullets
 )
 {
-    // 初期化
-    last_check_count_ = 0;
     // プレイヤーの中心座標を取得
     const Circle player_circle{
         player.position, 
@@ -34,8 +32,6 @@ bool CollisionSystem::CheckPlayerHitByBullets(
         if(!bullet.active){
             continue;
         }
-        // 活性のbulletsを調べるので+1
-        ++last_check_count_;
         // 弾の中心座標
         const Circle bullet_circle{
             bullet.position, 
@@ -61,27 +57,22 @@ bool CollisionSystem::CheckPlayerHitByBullets(
  * @return true 
  * @return false 
  */
-EnemyHitEvents CollisionSystem::ResolvePlayerBulletVsEnemies(
+EnemyHitEvents CollisionSystem::ResolvePlayerBulletsVsEnemies(
     BulletSystem& player_bullets, EnemySystem& enemies
 )
 {
     // 結果(戻り値)
     EnemyHitEvents result{};
-    // 初期化
-    last_check_count_ = 0;
     // 最初にplayer_bulletsのループ
     const auto& bullets    = player_bullets.GetBullets();
     const auto& enemy_list = enemies.GetEnemies();
 
     for(std::size_t bullet_index = 0; bullet_index < bullets.size(); ++bullet_index){
-        // player_bulletの配列の要素へアクセス
         const Bullet& b = bullets[bullet_index];
         // 非活性は飛ばす
         if(!b.active){
             continue;
         }
-        // 活性のbulletsを調べるので+1
-        ++last_check_count_;
         // 自機弾当たり判定(円)
         const Circle bullet_circle{
             b.position,
@@ -106,11 +97,17 @@ EnemyHitEvents CollisionSystem::ResolvePlayerBulletVsEnemies(
                 continue;
             }
             // 弾を非活性化
-            player_bullets.Deactivate(bullet_index);
+            player_bullets.DeactivateWithIndex(bullet_index);
             // ダメージ処理: 結果に応じてhit/killをカウント
-            const EnemyDamageResult dmg = enemies.TakeDamage(enemy_index, 1);
+            const EnemyDamageResult damage_result = enemies.TakeDamage(enemy_index, 1);
+            // ダメージが通らないなら次へ
+            if (damage_result == EnemyDamageResult::InvalidTarget) {
+                continue;
+            }
+
             ++result.hit_count;
-            if(dmg == EnemyDamageResult::Destroyed){
+            
+            if (damage_result == EnemyDamageResult::Destroyed) {
                 ++result.kill_count;
             }
             // 弾が当たったので次の弾へ(貫通しない)

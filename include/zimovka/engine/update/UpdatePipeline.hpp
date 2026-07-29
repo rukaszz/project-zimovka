@@ -65,9 +65,10 @@ public:
         return collision_system_;
     }
 
-    // ── 性能試験用 ───────────────────────────────────────
+    // ── 実装・性能試験用 ───────────────────────────────────────
     // NOTE: 将来的にはEnemySystemに移行する
     void InitializeBulletStressTest();
+    void SpawnEnemyTest();
 };
 
 }   // namespace zimovka

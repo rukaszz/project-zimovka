@@ -8,6 +8,20 @@
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 
 namespace zimovka{
+
+namespace{
+/**
+ * @brief 無限大チェック用ヘルパ関数
+ * 
+ * @param value 
+ * @return true 
+ * @return false 
+ */
+bool IsFinite(const Vec2& value) noexcept{
+    return std::isfinite(value.x) && std::isfinite(value.y);
+}
+}
+
 /**
  * @brief 暗黙的な型変換を防止したコンストラクタ
  * 
@@ -32,11 +46,11 @@ EnemySystem::EnemySystem(std::size_t capacity)
  */
 bool EnemySystem::Spawn(const EnemySpawnParams& params){
     // 引数チェック(NaNや負の値を検知)
-    if(!std::isfinite(params.position.x)       || !std::isfinite(params.position.y)
-    || !std::isfinite(params.velocity.x)       || !std::isfinite(params.velocity.y)
-    || !std::isfinite(params.render_size.x)    || !std::isfinite(params.render_size.y)
-    || !std::isfinite(params.hurtbox_offset.x) || !std::isfinite(params.hurtbox_offset.y)
-    || !std::isfinite(params.contact_offset.x) || !std::isfinite(params.contact_offset.y)
+    if(!IsFinite(params.position)
+    || !IsFinite(params.velocity)
+    || !IsFinite(params.render_size)
+    || !IsFinite(params.hurtbox_offset)
+    || !IsFinite(params.contact_offset)
     )
     {
         return false;
@@ -44,7 +58,9 @@ bool EnemySystem::Spawn(const EnemySpawnParams& params){
     const bool valid_size   = params.render_size.x > 0.0f
                            && params.render_size.y > 0.0f;
     const bool valid_radius = params.hurtbox_radius > 0.0f
-                           && params.contact_radius > 0.0f;
+                           && params.contact_radius > 0.0f
+                           && std::isfinite(params.hurtbox_radius)
+                           && std::isfinite(params.contact_radius);
     
     if(!valid_size || !valid_radius){
         return false;
