@@ -20,7 +20,7 @@ namespace{
 bool IsFinite(const Vec2& value) noexcept{
     return std::isfinite(value.x) && std::isfinite(value.y);
 }
-}
+}   // namespace
 
 /**
  * @brief 暗黙的な型変換を防止したコンストラクタ

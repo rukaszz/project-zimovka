@@ -73,8 +73,28 @@ target_compile_options(${PROJECT_NAME} PRIVATE
 # ──────────────────────────────────────────────────────
 # テスト(GoogleTest via FetchContent)
 # BUILD_TESTING=OFF でスキップできる
+# BUILD_INTEGRATION_TESTING=ON で複合試験を追加ビルド
 # ──────────────────────────────────────────────────────
-option(BUILD_TESTING "Build unit tests" ON)
+option(BUILD_TESTING             "Build unit tests"                    ON)
+option(BUILD_INTEGRATION_TESTING "Build integration/performance tests" OFF) # デフォルトOFF
+
+# GoogleTestをFetchContentで取得(単体テスト・複合試験共通)
+if(BUILD_TESTING OR BUILD_INTEGRATION_TESTING)
+    include(FetchContent)
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG        v1.14.0
+    )
+    # Windows向け: ランタイムDLLの設定を統一する
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+endif()
+
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
+if(BUILD_INTEGRATION_TESTING)
+    add_subdirectory(integration_tests)
+endif()
+

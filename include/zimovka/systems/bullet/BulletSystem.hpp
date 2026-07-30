@@ -33,7 +33,7 @@ private:
 
 public:
     static constexpr std::size_t DEFAULT_MAX_BULLETS = 1200;
-
+    // 暗黙的な型変換を防止したコンストラクタ
     explicit BulletSystem(std::size_t max_bullets = DEFAULT_MAX_BULLETS);
 
     /**
