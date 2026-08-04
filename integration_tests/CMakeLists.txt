@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────
-# 複合試験(Integration/Performance Tests) - フェーズ0
+# 複合試験(Integration Tests) - フェーズ0
 # ※GoogleTestはルートディレクトリのCMakeLists.txtでFetchContent済み
 # ──────────────────────────────────────────────────────
 
@@ -13,7 +13,8 @@ set(ZIMOVKA_INTEGRATION_SOURCES
 )
 # 定常負荷試験ソースの指定
 add_executable(zimovka_integration_tests
-    test_perf_steady_phase0.cpp
+    test_phase0_steady_integration.cpp
+    test_phase0_churn_integration.cpp
     ${ZIMOVKA_INTEGRATION_SOURCES}
 )
 # 必要なヘッダ読み込み

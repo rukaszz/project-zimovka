@@ -97,7 +97,7 @@ EnemyHitEvents CollisionSystem::ResolvePlayerBulletsVsEnemies(
                 continue;
             }
             // 弾を非活性化
-            player_bullets.DeactivateWithIndex(bullet_index);
+            player_bullets.Deactivate(bullet_index);
             // ダメージ処理: 結果に応じてhit/killをカウント
             const EnemyDamageResult damage_result = enemies.TakeDamage(enemy_index, 1);
             // ダメージが通らないなら次へ

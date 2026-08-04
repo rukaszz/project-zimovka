@@ -27,9 +27,9 @@ private:
     std::size_t active_count_ = 0;
 
     // 弾が画面外かどうか(弾の半径を考慮して完全に出たらtrueにする)
-    bool IsOutOfScreen(const Bullet& bullet, float screen_width, float screen_height) const;
+    bool IsOutOfScreen(const Bullet& bullet, float screen_width, float screen_height) const noexcept;
     // 弾の非活性化(内部専用: Update/Spawnなどからのみ呼び出す)
-    bool Deactivate(Bullet& bullet) noexcept;
+    bool DeactivateBullet(Bullet& bullet) noexcept;
 
 public:
     static constexpr std::size_t DEFAULT_MAX_BULLETS = 1200;
@@ -46,8 +46,9 @@ public:
      * @param velocity  速度 (px/s)
      * @param radius    弾半径
      * @param color     弾色
-     * @return true 生成成功 / false プール満杯
+     * @return true 生成成功 / false 引数不正またはプール満杯
      */
+    [[nodiscard]]   // 戻り値の無視はNG
     bool Spawn(const Vec2& position, const Vec2& velocity, float radius,
                Color color = Color{255, 100, 100, 255});
 
@@ -58,7 +59,7 @@ public:
     // 弾の消去
     void Clear() noexcept;
     // インデックス指定で弾を非活性化(外部向けAPI: CollisionSystemなどから呼び出す)
-    bool DeactivateWithIndex(std::size_t index) noexcept;
+    bool Deactivate(std::size_t index) noexcept;
 
     // bulletへのアクセサ(const: 読み取り専用)
     std::span<const Bullet> GetBullets() const noexcept{

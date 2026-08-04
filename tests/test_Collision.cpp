@@ -133,7 +133,7 @@ TEST(CollisionSystemTest, Hit_BulletOnPlayer){
     player.position   = {100.0f, 100.0f};
     player.hit_radius = 10.0f;
     // プレイヤーの中心に弾を置く
-    bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f);
+    ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f));
     EXPECT_TRUE(cs.CheckPlayerHitByBullets(player, bs));
 }
 
@@ -147,7 +147,7 @@ TEST(CollisionSystemTest, NoHit_BulletFarAway){
     Player player;
     player.position   = {100.0f, 100.0f};
     player.hit_radius = 4.0f;
-    bs.Spawn({900.0f, 600.0f}, {0.0f, 0.0f}, 3.0f);
+    ASSERT_TRUE(bs.Spawn({900.0f, 600.0f}, {0.0f, 0.0f}, 3.0f));
     // Player中心座標(100, 100)に対して弾の中心座標(900, 600)
     EXPECT_FALSE(cs.CheckPlayerHitByBullets(player, bs));
 }
@@ -163,9 +163,9 @@ TEST(CollisionSystemTest, Stats_TracksActiveChecks){
     player.position   = {0.0f, 0.0f};
     player.hit_radius = 1.0f;
     // 遠くに3発(どれも当たらない)
-    bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f);
-    bs.Spawn({901.0f, 901.0f}, {0.0f, 0.0f}, 1.0f);
-    bs.Spawn({902.0f, 902.0f}, {0.0f, 0.0f}, 1.0f);
+    ASSERT_TRUE(bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f));
+    ASSERT_TRUE(bs.Spawn({901.0f, 901.0f}, {0.0f, 0.0f}, 1.0f));
+    ASSERT_TRUE(bs.Spawn({902.0f, 902.0f}, {0.0f, 0.0f}, 1.0f));
     cs.InitializeStatsAtBeginTick();
     cs.CheckPlayerHitByBullets(player, bs);
     // 活性の弾が3つチェックされたので3
@@ -183,8 +183,8 @@ TEST(CollisionSystemTest, Stats_ResetByInitializeAtBeginTick){
     player.position   = {0.0f, 0.0f};
     player.hit_radius = 1.0f;
     // 活性状態の弾2つ(当たらない)
-    bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f);
-    bs.Spawn({901.0f, 901.0f}, {0.0f, 0.0f}, 1.0f);
+    ASSERT_TRUE(bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f));
+    ASSERT_TRUE(bs.Spawn({901.0f, 901.0f}, {0.0f, 0.0f}, 1.0f));
     cs.InitializeStatsAtBeginTick();
     cs.CheckPlayerHitByBullets(player, bs);
     EXPECT_EQ(cs.GetStats().player_vs_enemy_bullet_checks, 2u);
@@ -210,9 +210,9 @@ TEST(CollisionSystemTest, EarlyReturn_FirstBulletHits){
     player.position   = {100.0f, 100.0f};
     player.hit_radius = 10.0f;
 
-    bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f); // スロット0：Playerに当たる
-    bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f); // スロット1：当たらない(走査されない)
-    bs.Spawn({800.0f, 800.0f}, {0.0f, 0.0f}, 1.0f); // スロット2：当たらない(走査されない)
+    ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f)); // スロット0：Playerに当たる
+    ASSERT_TRUE(bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f)); // スロット1：当たらない(走査されない)
+    ASSERT_TRUE(bs.Spawn({800.0f, 800.0f}, {0.0f, 0.0f}, 1.0f)); // スロット2：当たらない(走査されない)
 
     cs.InitializeStatsAtBeginTick();
     EXPECT_TRUE(cs.CheckPlayerHitByBullets(player, bs));
@@ -232,9 +232,9 @@ TEST(CollisionSystemTest, EarlyReturn_MiddleBulletHits){
     player.position   = {100.0f, 100.0f};
     player.hit_radius = 10.0f;
 
-    bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f); // スロット0：miss
-    bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f); // スロット1：HIT
-    bs.Spawn({800.0f, 800.0f}, {0.0f, 0.0f}, 1.0f); // スロット2：miss(走査されない)
+    ASSERT_TRUE(bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f)); // スロット0：miss
+    ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f)); // スロット1：HIT
+    ASSERT_TRUE(bs.Spawn({800.0f, 800.0f}, {0.0f, 0.0f}, 1.0f)); // スロット2：miss(走査されない)
 
     cs.InitializeStatsAtBeginTick();
     EXPECT_TRUE(cs.CheckPlayerHitByBullets(player, bs));
@@ -253,9 +253,9 @@ TEST(CollisionSystemTest, FullScan_NoHit_AllActiveChecked){
     player.position   = {100.0f, 100.0f};
     player.hit_radius = 4.0f;
     // プレイヤーに当たらない弾3つSpawn
-    bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f);
-    bs.Spawn({800.0f, 800.0f}, {0.0f, 0.0f}, 1.0f);
-    bs.Spawn({700.0f, 700.0f}, {0.0f, 0.0f}, 1.0f);
+    ASSERT_TRUE(bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f));
+    ASSERT_TRUE(bs.Spawn({800.0f, 800.0f}, {0.0f, 0.0f}, 1.0f));
+    ASSERT_TRUE(bs.Spawn({700.0f, 700.0f}, {0.0f, 0.0f}, 1.0f));
     // 当たらない
     cs.InitializeStatsAtBeginTick();
     EXPECT_FALSE(cs.CheckPlayerHitByBullets(player, bs));
@@ -273,8 +273,8 @@ TEST(CollisionSystemTest, InactiveBullets_NotCounted){
     player.position   = {100.0f, 100.0f};
     player.hit_radius = 4.0f;
 
-    bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f);
-    bs.Spawn({800.0f, 800.0f}, {0.0f, 0.0f}, 1.0f);
+    ASSERT_TRUE(bs.Spawn({900.0f, 900.0f}, {0.0f, 0.0f}, 1.0f));
+    ASSERT_TRUE(bs.Spawn({800.0f, 800.0f}, {0.0f, 0.0f}, 1.0f));
     bs.Clear(); // 全てinactiveへ
 
     cs.InitializeStatsAtBeginTick();
@@ -296,7 +296,7 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_NoBullets){
     EnemySystem     es(10);
 
     // PlayerBulletはSpawnしない
-    es.Spawn(MakeEnemyParams({100.0f, 100.0f}));
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f})));
 
     const auto result = cs.ResolvePlayerBulletsVsEnemies(bs, es);
     EXPECT_EQ(result.hit_count,  0u);
@@ -312,7 +312,7 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_NoEnemies){
     BulletSystem    bs(10);
     EnemySystem     es(10);
 
-    bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f);
+    ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f));
     // EnemyはSpawnしない
 
     const auto result = cs.ResolvePlayerBulletsVsEnemies(bs, es);
@@ -330,9 +330,9 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_Hit_CountsHit){
     EnemySystem     es(10);
 
     // 敵(中心100,100 hurtbox_radius=13)
-    es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 2)); // hp=2→撃破されない
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 2))); // hp=2→撃破されない
     // 弾(中心100,100 radius=5)→完全に重なりヒット
-    bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f);
+    ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f));
 
     const auto result = cs.ResolvePlayerBulletsVsEnemies(bs, es);
     EXPECT_EQ(result.hit_count,  1u);
@@ -348,8 +348,8 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_Hit_BulletDeactivated){
     BulletSystem    bs(10);
     EnemySystem     es(10);
 
-    es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 2));
-    bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f);
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 2)));
+    ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f));
 
     cs.ResolvePlayerBulletsVsEnemies(bs, es);
     EXPECT_EQ(bs.CountActive(), 0u); // ヒット後にPlayerBulletが非活性化
@@ -364,8 +364,8 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_Kill_CountsKill){
     BulletSystem    bs(10);
     EnemySystem     es(10);
 
-    es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 1)); // hp=1
-    bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f);
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 1))); // hp=1
+    ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f));
 
     const auto result = cs.ResolvePlayerBulletsVsEnemies(bs, es);
     EXPECT_EQ(result.hit_count,  1u);
@@ -382,8 +382,8 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_NoHit_BulletFarAway){
     BulletSystem    bs(10);
     EnemySystem     es(10);
 
-    es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f));
-    bs.Spawn({900.0f, 600.0f}, {0.0f, 0.0f}, 5.0f); // 遠く離れた弾
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f)));
+    ASSERT_TRUE(bs.Spawn({900.0f, 600.0f}, {0.0f, 0.0f}, 5.0f)); // 遠く離れた弾
 
     const auto result = cs.ResolvePlayerBulletsVsEnemies(bs, es);
     EXPECT_EQ(result.hit_count, 0u);
@@ -400,9 +400,9 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_BulletHitsOnce){
     EnemySystem     es(10);
 
     // 2体の敵が同じ位置に重なる
-    es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 2)); // 敵A hp=2
-    es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 2)); // 敵B hp=2
-    bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f);
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 2))); // 敵A hp=2
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 2))); // 敵B hp=2
+    ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f));
 
     const auto result = cs.ResolvePlayerBulletsVsEnemies(bs, es);
     // 1発の弾は1体にのみヒット(貫通なし)
@@ -420,8 +420,8 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_InactiveBullets_Skipped)
     BulletSystem    bs(10);
     EnemySystem     es(10);
 
-    es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f));
-    bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f);
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f)));
+    ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f));
     bs.Clear(); // 出現した弾をinactive
 
     const auto result = cs.ResolvePlayerBulletsVsEnemies(bs, es);   // 弾はinactive
@@ -439,11 +439,11 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_MultipleBulletsKillMulti
     EnemySystem     es(10);
 
     // 2体の敵(離れた位置に配置)
-    es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 1)); // 敵A
-    es.Spawn(MakeEnemyParams({500.0f, 500.0f}, 13.0f, 1)); // 敵B
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f}, 13.0f, 1))); // 敵A
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({500.0f, 500.0f}, 13.0f, 1))); // 敵B
     // 各敵に対応した弾
-    bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f); // 弾A→敵Aにヒット
-    bs.Spawn({500.0f, 500.0f}, {0.0f, 0.0f}, 5.0f); // 弾B→敵Bにヒット
+    ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f)); // 弾A→敵Aにヒット
+    ASSERT_TRUE(bs.Spawn({500.0f, 500.0f}, {0.0f, 0.0f}, 5.0f)); // 弾B→敵Bにヒット
 
     const auto result = cs.ResolvePlayerBulletsVsEnemies(bs, es);
     EXPECT_EQ(result.hit_count,  2u);
@@ -464,9 +464,9 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_Stats_ChecksIncremented)
 
     cs.InitializeStatsAtBeginTick();
     // 2体の敵 + 1発の弾(当たらない)
-    es.Spawn(MakeEnemyParams({500.0f, 500.0f}, 13.0f));
-    es.Spawn(MakeEnemyParams({600.0f, 600.0f}, 13.0f));
-    bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f); // 遠くて当たらない
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({500.0f, 500.0f}, 13.0f)));
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({600.0f, 600.0f}, 13.0f)));
+    ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f)); // 遠くて当たらない
     cs.ResolvePlayerBulletsVsEnemies(bs, es);
     
     // 1発の弾 × 2体の敵 = 2回チェック

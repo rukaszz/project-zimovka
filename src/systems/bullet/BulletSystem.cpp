@@ -2,7 +2,6 @@
 
 #include <cassert>
 #include <cmath>
-#include <stdexcept>
 
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 
@@ -64,8 +63,11 @@ bool BulletSystem::Spawn(
     {
         return false;
     }
-    // サイズ取得
+    // サイズ取得，満杯時は即return
     const std::size_t size = bullets_.size();
+    if(active_count_ >= size){
+        return false;
+    }
     // サイズ分連番で走査
     for(std::size_t i = 0; i < size; ++i){
         // 次に出現するインデックスを設定(0〜最大弾数の周期で回る)
@@ -92,6 +94,8 @@ bool BulletSystem::Spawn(
  *
  * activeな弾の位置をvelocity * dt で更新し，
  * 完全に画面外へ出たらinactiveにする
+ * 
+ * NOTE: assertによるチェック飲みにしてリリース時はチェック処理を省略する仕組みを検討中
  *
  * @param dt            固定デルタ時間 (s)
  * @param screen_width  画面幅 (px)
@@ -108,7 +112,7 @@ void BulletSystem::Update(float dt, float screen_width, float screen_height){
         b.position += b.velocity * dt;
         // 画面外に出たら非活性化
         if(IsOutOfScreen(b, screen_width, screen_height)){
-            Deactivate(b);
+            DeactivateBullet(b);
         }
     }
 }
@@ -157,24 +161,26 @@ void BulletSystem::Clear() noexcept{
  *
  * CollisionSystemなど外部から呼び出す際はこちらを使用する
  * active_count_の整合性はDeactivate(Bullet&)が保証する
- *
+ * 
+ * @pre index < GetCapacity()
  * @param index 非活性化する弾のインデックス
  * @return true 非活性化成功 / false 範囲外or既に非活性
  */
-bool BulletSystem::DeactivateWithIndex(std::size_t index) noexcept{
+bool BulletSystem::Deactivate(std::size_t index) noexcept{
     if(index >= bullets_.size()){
+        // CollisionSystemで走査したindexなので原則発生しない
         return false;
     }
-    return Deactivate(bullets_[index]);
+    return DeactivateBullet(bullets_[index]);
 }
 
 /**
  * @brief 弾を非活性にする(内部専用)
  *
- * Update()やDeactivateWithIndex()から呼ばれる
+ * Update()やDeactivate()から呼ばれる
  * active_count_の減算もここで行う
  */
-bool BulletSystem::Deactivate(Bullet& bullet) noexcept{
+bool BulletSystem::DeactivateBullet(Bullet& bullet) noexcept{
     // この時点で非活性になっていたら何もしない
     if(!bullet.active){
         return false;
@@ -198,7 +204,7 @@ bool BulletSystem::Deactivate(Bullet& bullet) noexcept{
  * @param screen_height 画面高さ (px)
  * @return true 完全に画面外 / false 画面内
  */
-bool BulletSystem::IsOutOfScreen(const Bullet& bullet, float screen_width, float screen_height) const{
+bool BulletSystem::IsOutOfScreen(const Bullet& bullet, float screen_width, float screen_height) const noexcept{
     // 半径を加味して上下左右を調べる
     return (bullet.position.x + bullet.radius < 0.0f
          || bullet.position.x - bullet.radius > screen_width

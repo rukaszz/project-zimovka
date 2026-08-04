@@ -37,6 +37,7 @@ public:
     // 暗黙的な型変換を防止したコンストラクタ
     explicit EnemySystem(std::size_t capacity = 32);
     // 生成
+    [[nodiscard]]   // 戻り値の無視はNG
     bool Spawn(const EnemySpawnParams& params);
     // 初期化
     void Clear() noexcept;

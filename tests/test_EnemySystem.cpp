@@ -90,8 +90,8 @@ TEST(EnemySystemTest, SpawnFillsPool){
  */
 TEST(EnemySystemTest, SpawnFailsWhenPoolFull){
     EnemySystem es(2);
-    es.Spawn(MakeDefaultParams());
-    es.Spawn(MakeDefaultParams());
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
     EXPECT_FALSE(es.Spawn(MakeDefaultParams()));
     EXPECT_EQ(es.CountActive(), 2u);
 }
@@ -217,8 +217,8 @@ TEST(EnemySystemTest, SpawnInvalidContsct_Inf){
  */
 TEST(EnemySystemTest, Clear_ResetsActiveCount){
     EnemySystem es(5);
-    es.Spawn(MakeDefaultParams());
-    es.Spawn(MakeDefaultParams());
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
     es.Clear();
     EXPECT_EQ(es.CountActive(), 0u);
 }
@@ -229,8 +229,8 @@ TEST(EnemySystemTest, Clear_ResetsActiveCount){
  */
 TEST(EnemySystemTest, Clear_AllowsRespawn){
     EnemySystem es(2);
-    es.Spawn(MakeDefaultParams());
-    es.Spawn(MakeDefaultParams());
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
     es.Clear();
     EXPECT_TRUE(es.Spawn(MakeDefaultParams()));
     EXPECT_EQ(es.CountActive(), 1u);
@@ -242,8 +242,8 @@ TEST(EnemySystemTest, Clear_AllowsRespawn){
  */
 TEST(EnemySystemTest, Clear_AllEnemiesInactive){
     EnemySystem es(3);
-    es.Spawn(MakeDefaultParams());
-    es.Spawn(MakeDefaultParams());
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
     es.Clear();
     for(const auto& e : es.GetEnemies()){
         EXPECT_FALSE(e.active);
@@ -261,7 +261,7 @@ TEST(EnemySystemTest, Update_MovesEnemy){
     EnemySystem es(5);
     EnemySpawnParams p = MakeDefaultParams({0.0f, 0.0f});
     p.velocity = {60.0f, 0.0f};
-    es.Spawn(p);
+    ASSERT_TRUE(es.Spawn(p));
     es.Update((1.0f/60.0f), 960.0f, 720.0f);
     const auto enemies = es.GetEnemies();
     // 60.0f/60.0fで1.0fくらい進むはず
@@ -276,7 +276,7 @@ TEST(EnemySystemTest, Update_RemovesOutOfScreenEnemy){
     EnemySystem es(5);
     EnemySpawnParams p = MakeDefaultParams({0.0f, 0.0f});
     p.velocity = {-99999.0f, 0.0f}; // 高速で左外へ
-    es.Spawn(p);
+    ASSERT_TRUE(es.Spawn(p));
     es.Update(1.0f, 960.0f, 720.0f);
     EXPECT_EQ(es.CountActive(), 0u);
 }
@@ -287,7 +287,7 @@ TEST(EnemySystemTest, Update_RemovesOutOfScreenEnemy){
  */
 TEST(EnemySystemTest, Update_KeepsEnemyOnScreen){
     EnemySystem es(5);
-    es.Spawn(MakeDefaultParams({480.0f, 360.0f}));
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams({480.0f, 360.0f})));
     es.Update((1.0f/60.0f), 960.0f, 720.0f);
     EXPECT_EQ(es.CountActive(), 1u);
 }
@@ -303,7 +303,7 @@ TEST(EnemySystemTest, TakeDamage_Damaged){
     EnemySystem es(5);
     EnemySpawnParams p = MakeDefaultParams();
     p.hp = 3;
-    es.Spawn(p);
+    ASSERT_TRUE(es.Spawn(p));
     // 1ダメージ
     const EnemyDamageResult result = es.TakeDamage(0, 1);
     EXPECT_EQ(result, EnemyDamageResult::Damaged);
@@ -318,7 +318,7 @@ TEST(EnemySystemTest, TakeDamage_Destroyed){
     EnemySystem es(5);
     EnemySpawnParams p = MakeDefaultParams();
     p.hp = 1;
-    es.Spawn(p);
+    ASSERT_TRUE(es.Spawn(p));
     const EnemyDamageResult result = es.TakeDamage(0, 1);
     EXPECT_EQ(result, EnemyDamageResult::Destroyed);
     EXPECT_EQ(es.CountActive(), 0u); // 撃破
@@ -332,7 +332,7 @@ TEST(EnemySystemTest, TakeDamage_OverkillDestroyed){
     EnemySystem es(5);
     EnemySpawnParams p = MakeDefaultParams();
     p.hp = 2;
-    es.Spawn(p);
+    ASSERT_TRUE(es.Spawn(p));
     const EnemyDamageResult result = es.TakeDamage(0, 99);
     EXPECT_EQ(result, EnemyDamageResult::Destroyed);
     EXPECT_EQ(es.CountActive(), 0u);
@@ -355,7 +355,7 @@ TEST(EnemySystemTest, TakeDamage_InvalidTarget_Inactive){
  */
 TEST(EnemySystemTest, TakeDamage_InvalidTarget_ZeroDamage){
     EnemySystem es(5);
-    es.Spawn(MakeDefaultParams());
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
     const EnemyDamageResult result = es.TakeDamage(0, 0);
     EXPECT_EQ(result, EnemyDamageResult::InvalidTarget);
     EXPECT_EQ(es.CountActive(), 1u); // ダメージなし
@@ -368,7 +368,7 @@ TEST(EnemySystemTest, TakeDamage_InvalidTarget_ZeroDamage){
  */
 TEST(EnemySystemTest, TakeDamage_InvalidTarget_NegativeDamage){
     EnemySystem es(5);
-    es.Spawn(MakeDefaultParams());
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
     const EnemyDamageResult result = es.TakeDamage(0, -1);
     EXPECT_EQ(result, EnemyDamageResult::InvalidTarget);
     EXPECT_EQ(es.CountActive(), 1u); // hpが回復していない
@@ -394,9 +394,9 @@ TEST(EnemySystemTest, TakeDamage_OutOfRange_Throws){
 TEST(EnemySystemTest, CountActive_TracksMutations){
     EnemySystem es(5);
     EXPECT_EQ(es.CountActive(), 0u);
-    es.Spawn(MakeDefaultParams());
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
     EXPECT_EQ(es.CountActive(), 1u);
-    es.Spawn(MakeDefaultParams());
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
     EXPECT_EQ(es.CountActive(), 2u);
     es.TakeDamage(0, 999); // 撃破
     EXPECT_EQ(es.CountActive(), 1u);
@@ -411,7 +411,7 @@ TEST(EnemySystemTest, CountActive_TracksMutations){
 TEST(EnemySystemTest, GetCapacity_FixedAfterConstruct){
     EnemySystem es(8);
     EXPECT_EQ(es.GetCapacity(), 8u);
-    es.Spawn(MakeDefaultParams());
+    ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
     es.Clear();
     EXPECT_EQ(es.GetCapacity(), 8u); // Spawn/Clearで変化しない
 }

@@ -83,27 +83,24 @@ project_zimovka.mdにある通り，第零段階の技術検証として，次�
 
 ```cpp
 for(std::size_t tick = 0; tick < 600; ++tick){
-
     collision_system.InitializeStatsAtBeginTick();
-
+    // 更新
     enemy_bullets.Update(
         FIXED_DELTA,
         WORLD_WIDTH,
         WORLD_HEIGHT
     );
-
     player_bullets.Update(
         FIXED_DELTA,
         WORLD_WIDTH,
         WORLD_HEIGHT
     );
-
     enemies.Update(
         FIXED_DELTA,
         WORLD_WIDTH,
         WORLD_HEIGHT
     );
-
+    // 衝突判定(自機vs敵弾)
     EXPECT_FALSE(
         collision_system
             .CheckPlayerHitByBullets(
@@ -111,27 +108,27 @@ for(std::size_t tick = 0; tick < 600; ++tick){
                 enemy_bullets
             )
     );
-
+    // 衝突判定(自機弾vs敵)
     const EnemyHitEvents hits =
         collision_system
             .ResolvePlayerBulletsVsEnemies(
                 player_bullets,
                 enemies
             );
-
+    // ヒットカウント(定常試験なのでゼロ)
     ASSERT_EQ(hits.hit_count, 0u);
     ASSERT_EQ(hits.kill_count, 0u);
-
+    // active数計測
     ASSERT_EQ(enemy_bullets.CountActive(), 1200u);
     ASSERT_EQ(player_bullets.CountActive(), 100u);
     ASSERT_EQ(enemies.CountActive(), 10u);
-
+    // 自機と敵弾の衝突判定走査
     ASSERT_EQ(
         collision_system.GetStats()
             .player_vs_enemy_bullet_checks,
         1200u
     );
-
+    // 自機弾と敵の衝突判定走査
     ASSERT_EQ(
         collision_system.GetStats()
             .player_bullet_vs_enemy_checks,
@@ -140,25 +137,72 @@ for(std::size_t tick = 0; tick < 600; ++tick){
 }
 ```
 
-### 衝突・再生性負荷試験(Collision Churn)
+### 衝突・負荷試験(Collision Churn)
 
 定常負荷試験とは異なり，状態遷移が多い試験となる．ここでの状態遷移とは，次のようなパターンが考えられる：
 
-- 自機弾が敵へ命中する
-- 自機弾がinactiveになる
-- 敵がダメージを受ける
-- 敵は非活性になる
-- 敵が再出現する
-- 敵/弾が画面外へ出てinactiveになる
-- 配列の空きスロットに再度出現する
+- 自機弾と敵の衝突解決
+  - 敵10体をHP=1で配置
+  - 自機弾を10発配置
+- 衝突解決  
+  - 敵がinactiveになる
+  - 自機弾がinactiveになる
+- 空きスロットと再Spawn
+  - 同じ空きスロットに再Spawn可能
+  - 敵が再出現する
+- 1000サイクルSpawnとinactiveによる消滅を繰り返す
 
 ここでもゲームシステムが安定していることを確認する必要がある：
 
-- active数がぶれない
+- active数がぶれない(active_count_が正確)
 - オブジェクトが意図せず消えない(inactiveにならない)
 - 計測値が正確
-- 冪等性がある(同じ状態，同じ結果になる)
-- active_count_が正確
+- 同一初期状態と同一入力から、同一結果が得られる
+- 空きスロットが再利用できる
+- メモリの連続性
+- hit/killの一致
+
+検証用ソースのイメージ：
+
+```cpp
+for (std::size_t cycle = 0; cycle < 1000; ++cycle){
+    // 敵/自機弾出現処理
+    for (std::size_t i = 0; i < 10; ++i){
+        const Vec2 position{
+            50.0f + static_cast<float>(i) * 80.0f,
+            100.0f
+        };
+
+        ASSERT_TRUE(
+            enemies.Spawn(
+                MakeEnemyParams(position, 1)
+            )
+        );
+
+        ASSERT_TRUE(
+            player_bullets.Spawn(
+                position,
+                {0.0f, 0.0f},
+                3.0f
+            )
+        );
+    }
+
+    collision_system.BeginTick();
+    // 自機弾vs敵
+    const EnemyHitEvents hits =
+        collision_system
+            .ResolvePlayerBulletsVsEnemies(
+                player_bullets,
+                enemies
+            );
+    // 各種計測
+    ASSERT_EQ(hits.hit_count, 10u);
+    ASSERT_EQ(hits.kill_count, 10u);
+    ASSERT_EQ(enemies.CountActive(), 0u);
+    ASSERT_EQ(player_bullets.CountActive(), 0u);
+}
+```
 
 ### ゲームプレイ再現(Game Like)
 
