@@ -18,6 +18,7 @@ set(ZIMOVKA_TEST_SOURCES
     ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
     ${CMAKE_SOURCE_DIR}/src/replay/RunRecorder.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/DeterministicRng.cpp
 )
 
 # ビルドする実行ファイル設定
@@ -32,6 +33,7 @@ add_executable(zimovka_tests
     test_DebugAccumulator.cpp
     test_RunRecorder.cpp
     test_PlayerWeaponSystem.cpp
+    test_DeterministicRng.cpp
     ${ZIMOVKA_TEST_SOURCES}
 )
 

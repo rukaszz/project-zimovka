@@ -13,18 +13,21 @@ namespace zimovka{
  * @param seed 
  */
 DeterministicRng::DeterministicRng(Seed seed) noexcept
-    : mt_engine_(seed)
+    : current_seed_(seed)
+    , mt_engine_(seed)
 {
 
 }
 
 /**
- * @brief メルセンヌツイスタへシード値を設定する
+ * @brief 乱数生成器のシード値や計測用変数の再設定
  * 
  * @param seed 
  */
-void DeterministicRng::SeedEngine(Seed seed) noexcept{
+void DeterministicRng::Reseed(Seed seed) noexcept{
     mt_engine_.seed(seed);
+    current_seed_ = seed;
+    draw_count_ = 0;
 }
 
 /**
@@ -33,6 +36,8 @@ void DeterministicRng::SeedEngine(Seed seed) noexcept{
  * @return std::uint32_t 
  */
 std::uint32_t DeterministicRng::NextU32() noexcept{
+    // 乱数を消費
+    ++draw_count_;
     return static_cast<std::uint32_t>(mt_engine_());
 }
 // 
@@ -87,7 +92,7 @@ std::uint32_t DeterministicRng::UniformU32(
  */
 float DeterministicRng::UnitFloat() noexcept{
     // float型を[0, 1)の範囲に収める
-    constexpr float SCALE = 1.0f / 16'777'216.0f;   // 1 / 2^64
+    constexpr float SCALE = 1.0f / 16'777'216.0f;   // 1 / 2^24
     // 8桁右シフトして切り捨てた値をSCALEで[0, 1)に収める
     return static_cast<float>(
         NextU32() >> 8  // floatは仮数部23bitであり，2^24以上は表現できないので切り捨て
