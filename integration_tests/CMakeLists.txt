@@ -10,11 +10,20 @@ set(ZIMOVKA_INTEGRATION_SOURCES
     ${CMAKE_SOURCE_DIR}/src/systems/enemy/EnemySystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
+    # GameLike複合試験用 (UpdatePipeline依存)
+    ${CMAKE_SOURCE_DIR}/src/engine/update/UpdatePipeline.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerWeaponSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/input/InputState.cpp
+    ${CMAKE_SOURCE_DIR}/src/replay/RunRecorder.cpp
+    ${CMAKE_SOURCE_DIR}/src/replay/RunPlayback.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/DeterministicRng.cpp
 )
-# 定常負荷試験ソースの指定
+# 複合試験ソースの指定
 add_executable(zimovka_integration_tests
     test_phase0_steady_integration.cpp
     test_phase0_churn_integration.cpp
+    test_phase0_gamelike_integration.cpp
     ${ZIMOVKA_INTEGRATION_SOURCES}
 )
 # 必要なヘッダ読み込み

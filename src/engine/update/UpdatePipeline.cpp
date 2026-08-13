@@ -184,7 +184,7 @@ void UpdatePipeline::InitializeBulletStressTest(){
     for(std::size_t i = 0; i < enemy_bullets_.GetCapacity(); ++i){
         const float x = static_cast<float>(i % 40) * 24.0f + 12.0f;
         const float y = static_cast<float>(i / 40) * 16.0f;
-        enemy_bullets_.Spawn(Vec2{x, y}, Vec2{0.0f, 60.0f}, 3.0f);
+        (void)enemy_bullets_.Spawn(Vec2{x, y}, Vec2{0.0f, 60.0f}, 3.0f);
     }
 }
 
@@ -205,7 +205,7 @@ void UpdatePipeline::SpawnEnemyTest(){
         .hp = 2
     };
     if(enemy_system_.CountActive() == 0){
-        enemy_system_.Spawn(params);    
+        (void)enemy_system_.Spawn(params);
     }
 }
 

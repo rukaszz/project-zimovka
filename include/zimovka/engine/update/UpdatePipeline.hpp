@@ -1,14 +1,15 @@
 #ifndef ZIMOVKA_ENGINE_UPDATE_UPDATEPIPELINE_HPP_
 #define ZIMOVKA_ENGINE_UPDATE_UPDATEPIPELINE_HPP_
 
-#include "zimovka/input/InputState.hpp"
+#include "zimovka/core/DeterministicRng.hpp"
 #include "zimovka/events/GameplayTickEvents.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
-#include "zimovka/systems/player/PlayerSystem.hpp"
-#include "zimovka/systems/player/PlayerWeaponSystem.hpp"
+#include "zimovka/input/InputState.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/collision/CollisionSystem.hpp"
 #include "zimovka/systems/enemy/EnemySystem.hpp"
+#include "zimovka/systems/player/PlayerSystem.hpp"
+#include "zimovka/systems/player/PlayerWeaponSystem.hpp"
 
 namespace zimovka{
 
@@ -25,6 +26,10 @@ private:
     // ワールドのサイズ
     float world_width_  = 0.0f;
     float world_height_ = 0.0f;
+    // 決定論的乱数
+    DeterministicRng gameplay_rng_{0};
+    // 更新tick
+    std::uint64_t tick_index_ = 0;
     // プレイヤー関連
     PlayerSystem       player_system_;
     PlayerWeaponSystem player_weapon_system_;

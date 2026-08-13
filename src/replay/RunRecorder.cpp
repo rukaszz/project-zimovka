@@ -45,9 +45,7 @@ bool RunRecorder::Record(const InputState& input){
     }
     // 現在の入力値を取得(Pauseなどのゲームプレイに関係ないUI操作系は記録しない)
     record_.frames.push_back({
-        input.GetHeldBits()     & RECORD_ACTION_MASK,
-        input.GetPressedBits()  & RECORD_ACTION_MASK,
-        input.GetReleasedBits() & RECORD_ACTION_MASK,
+        EncodeRecordedInput(input)  // Codecを通して記録
     });
     // フレーム上限到達で自動停止(frame_limit_reachedで途中終了を明示する)
     if(record_.frames.size() >= static_cast<std::size_t>(MAX_RECORD_FRAMES)){

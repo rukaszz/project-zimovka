@@ -7,6 +7,7 @@
 #include "zimovka/input/Action.hpp"
 #include "zimovka/input/InputState.hpp"
 #include "zimovka/replay/RunRecord.hpp"
+#include "zimovka/replay/ReplayInputCodec.hpp"
 
 namespace zimovka{
 /**
@@ -23,17 +24,6 @@ private:
     bool recording_ = false;
     // 入力記録用構造体
     RunRecord record_;
-
-    // Pause/Quitなどリプレイに関係ない操作は記録しない
-    // 記録するビットの定義
-    static constexpr std::uint32_t RECORD_ACTION_MASK =
-        ActionBit(Action::MoveUp)
-      | ActionBit(Action::MoveDown)
-      | ActionBit(Action::MoveLeft)
-      | ActionBit(Action::MoveRight)
-      | ActionBit(Action::Slow)
-      | ActionBit(Action::Shoot)
-      | ActionBit(Action::Bomb);
     
 public:
     // 記録開始
