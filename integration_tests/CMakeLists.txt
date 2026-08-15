@@ -10,7 +10,7 @@ set(ZIMOVKA_INTEGRATION_SOURCES
     ${CMAKE_SOURCE_DIR}/src/systems/enemy/EnemySystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
-    # GameLike複合試験用 (UpdatePipeline依存)
+    # GameLike複合試験用(UpdatePipeline依存のファイル群)
     ${CMAKE_SOURCE_DIR}/src/engine/update/UpdatePipeline.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerWeaponSystem.cpp

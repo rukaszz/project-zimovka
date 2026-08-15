@@ -26,7 +26,6 @@ using zimovka::Vec2;
 
 namespace {
 
-constexpr float  FIXED_DELTA  = FIXED_DELTA_SECONDS;
 constexpr float  WORLD_WIDTH  = 960.0f;
 constexpr float  WORLD_HEIGHT = 720.0f;
 
@@ -85,10 +84,10 @@ std::size_t CountActiveByScan(const Range& values){
  * 配置(全オブジェクトvelocity=0):
  *   Player:        position=(900,600), hit_radius=4
  *   Enemy Bullet:  1200発 / 40列×30行グリッド(spacing=18px, 始点(12,12))
- *                  → 最大x=732, 最大y=552→全発画面内にactiveで留まる
+ *                  → 最大x=710, 最大y=530→全発画面内にactiveで留まる
  *   Player Bullet: 100発 / 10列×10行(870-915, 480-525)
  *                  → 敵(y=100)までの最短距離≈566px >> hurtbox+radius=16
- *   Enemy:         10体 / y=100, x=0,50,...,450
+ *   Enemy:         10体 / y=100, x=0,50,...,680
  *                  → hp=100で撃破されない
  *
  * 全Tick不変条件:
@@ -162,9 +161,9 @@ TEST(SteadyTest, ActiveCountsAndStatsAreStableFor600Ticks){
     for(std::size_t tick = 0; tick < 600; ++tick){
         collision_system.InitializeStatsAtBeginTick();
 
-        enemy_bullets.Update(FIXED_DELTA, WORLD_WIDTH, WORLD_HEIGHT);
-        player_bullets.Update(FIXED_DELTA, WORLD_WIDTH, WORLD_HEIGHT);
-        enemies.Update(FIXED_DELTA, WORLD_WIDTH, WORLD_HEIGHT);
+        enemy_bullets.Update(FIXED_DELTA_SECONDS, WORLD_WIDTH, WORLD_HEIGHT);
+        player_bullets.Update(FIXED_DELTA_SECONDS, WORLD_WIDTH, WORLD_HEIGHT);
+        enemies.Update(FIXED_DELTA_SECONDS, WORLD_WIDTH, WORLD_HEIGHT);
 
         // プレイヤーが被弾しないことを確認
         ASSERT_FALSE(

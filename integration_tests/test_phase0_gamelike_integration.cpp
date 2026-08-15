@@ -27,9 +27,9 @@ using zimovka::RunRecorder;
 using zimovka::UpdatePipeline;
 
 // ──────────────────────────────────────────────────────────
-// ヘルパ / シナリオ定義 (全てanonymous namespace内に格納)
+// ヘルパ / シナリオ定義 (全て無名名前空間内に格納)
 // ──────────────────────────────────────────────────────────
-namespace {
+namespace{
 
 // ── ワールド設定 ───────────────────────────────────────────
 constexpr float WORLD_W = 960.0f;
@@ -43,68 +43,72 @@ constexpr float DT      = zimovka::SimulationConfig::FIXED_DELTA_SECONDS;
  * duration_ticks : このステップが継続するTick数
  * held_bits      : 押し続けるキー(移動方向など)
  * want_shoot     : このステップでShootを試みるか
- *                  → 実際に発射するかはRNGで確率的に決定する
+ *                  →実際に発射するかはRNGで確率的に決定する
  */
-struct ScenarioStep {
+struct ScenarioStep{
     std::uint32_t duration_ticks;
     std::uint32_t held_bits;
     bool          want_shoot;
 };
 
 /**
- * @brief Phase0 シナリオスクリプト (合計 360 tick = 6秒)
+ * @brief Phase0 シナリオスクリプト (合計360tick = 6秒)
  *
  * PlayerWeaponConfig デフォルト値:
  *   max_ammo=6, shot_cooldown_ticks=8, reload_duration_ticks=90
  *
- * 弾の速度 720 px/s, 1tick=1/60s → 12 px/tick 上昇
+ * 弾の速度 720 px/s, 1tick=1/60s → 12 px/tick上昇
  * 敵出現位置: (480, 360), プレイヤー初期位置: (480, 600)
- * → 自機弾が敵に届くまで: (600-360)/12 ≈ 20 tick
+ * → 自機弾が敵に届くまで: (600-360)/12 ≈ 20tick
  *
- * 各ステップで移動・射撃の組み合わせを網羅し，
- * 衝突/撃破/リロード/再発射が1シナリオに含まれるよう設計
+ * 各ステップをインデックスで与え移動・射撃の組み合わせを網羅し，
+ * 衝突/撃破/リロード/再発射が1シナリオに含まれるようにしている
  */
-static constexpr std::array<ScenarioStep, 6> k_phase0_script = {{
-    // ステップ0: 右移動 + 射撃 (60 tick)
-    //   初弾が20tick前後で敵に命中, 6発打ち切り後にリロード開始
-    { 60u, ActionBit(zimovka::Action::MoveRight), true  },
-    // ステップ1: 左移動 + 射撃 (60 tick)
-    //   リロード継続(90tick), 完了後に弾が再補充されて発射再開
-    { 60u, ActionBit(zimovka::Action::MoveLeft),  true  },
-    // ステップ2: 静止 + 射撃 (60 tick)
-    { 60u, 0u,                                    true  },
-    // ステップ3: 右移動 + 低速 (60 tick, 射撃なし)
-    //   Shoftで低速移動, Shootなし → 弾数変化なし
-    { 60u, ActionBit(zimovka::Action::MoveRight)
-         | ActionBit(zimovka::Action::Slow),       false },
-    // ステップ4: 左移動 + 射撃 (60 tick)
-    { 60u, ActionBit(zimovka::Action::MoveLeft),  true  },
-    // ステップ5: 静止 (60 tick, 射撃なし)
-    { 60u, 0u,                                    false },
+static constexpr std::array<ScenarioStep, 6> phase0_script = {{
+    // ステップ0: 右移動 + 射撃(60tick)
+    //     初弾が20tick前後で敵に命中, 6発打ち切り後にリロード開始
+    {60u, ActionBit(zimovka::Action::MoveRight), true },
+    // ステップ1: 左移動 + 射撃(60tick)
+    //     リロード継続(90tick), 完了後に弾が再補充されて発射再開
+    {60u, ActionBit(zimovka::Action::MoveLeft),  true },
+    // ステップ2: 静止 + 射撃 (60tick)
+    {60u, 0u,                                    true },
+    // ステップ3: 右移動 + 低速(60tick, 射撃なし)
+    //     Shoftで低速移動, Shootなし → 弾数変化なし
+    {60u, ActionBit(zimovka::Action::MoveRight)
+        | ActionBit(zimovka::Action::Slow),      false},
+    // ステップ4: 左移動 + 射撃 (60tick)
+    {60u, ActionBit(zimovka::Action::MoveLeft),  true },
+    // ステップ5: 静止(60 tick, 射撃なし)
+    {60u, 0u,                                    false},
 }};
 
 // ── Phase0ScenarioSystem ───────────────────────────────────
 /**
- * @brief Phase0 用のシナリオ入力生成クラス
+ * @brief Phase0用のシナリオ入力生成クラス
  *
- * UpdatePipeline を汚染しないよう外部クラスとして定義し，
- * UpdatePipeline::UpdateTick() へ渡す InputState のみを生成する．
+ * UpdatePipelineを汚染しないよう外部クラスとして定義している．
+ * UpdatePipeline::UpdateTick()へ渡すInputStateのみを生成する．
  *
- * ### 乱数消費の設計
- * GenerateNextInput() を呼ぶたびに DeterministicRng::UnitFloat() を
- * **必ず1回**消費する (want_shoot の値に関わらず常に消費).
+ * 乱数消費について
+ * GenerateNextInput()を呼ぶたびにDeterministicRng::UnitFloat()を
+ * 必ず1回消費する(want_shootの値に関わらず常に消費).
  *
  *   const float roll = rng_.UnitFloat();        // 消費位置固定(毎tick1回)
- *   bool do_shoot = step.want_shoot && (roll < kShootProb);
+ *   bool do_shoot = step.want_shoot && (roll < SHOOTPROB);
  *
- * こうすることで，ステップ切り替えや want_shoot フラグの値が変わっても
- * 「毎tick N+k 回目の消費が行われる」という不変条件が保たれる.
+ * これによって，ステップ切り替えやwant_shootフラグの値が変わっても
+ * 「毎tick N+k回目の消費が行われる」という乱数の消費が固定で保たれる.
  * → 同一Seedでは必ず同一の入力列が再現される.
  */
-class Phase0ScenarioSystem {
+class Phase0ScenarioSystem{
+private:
+    DeterministicRng  rng_;
+    std::size_t       current_step_         = 0;
+    std::uint32_t     tick_in_current_step_ = 0;
 public:
-    // Shoot試行確率 (90%): 外部からも参照できるよう公開
-    static constexpr float kShootProb = 0.90f;
+    // Shoot試行確率(90%): 外部からも参照できるようにpublic
+    static constexpr float SHOOTPROB = 0.90f;
 
     explicit Phase0ScenarioSystem(DeterministicRng::Seed seed)
         : rng_(seed)
@@ -113,32 +117,33 @@ public:
     /**
      * @brief シードをリセットしてシナリオを最初から再生する
      * テストの「同一Seedで同一列」検証に使用する
+     * 
      */
-    void Reseed(DeterministicRng::Seed seed) {
+    void Reseed(DeterministicRng::Seed seed){
         rng_.Reseed(seed);
         current_step_         = 0;
         tick_in_current_step_ = 0;
     }
 
     /**
-     * @brief 1tick 分の InputState を生成し内部を進める
+     * @brief 1tick分のInputStateを生成し内部Tickを進める
      *
-     * RNG消費: want_shoot に関わらず UnitFloat() を必ず1回消費
+     * RNG消費: want_shootに関わらずUnitFloat()を必ず1回消費する
      */
     [[nodiscard]]
-    InputState GenerateNextInput() {
-        const ScenarioStep& step = k_phase0_script[current_step_];
+    InputState GenerateNextInput(){
+        const ScenarioStep& step = phase0_script[current_step_];
 
-        // 毎tick1回消費 (消費位置の固定)
+        // 毎tick1回乱数消費(消費場所は固定)
         const float roll     = rng_.UnitFloat();
-        const bool do_shoot  = step.want_shoot && (roll < kShootProb);
-
+        const bool  do_shoot = step.want_shoot && (roll < SHOOTPROB);
+        // do_shootに基づいて入力の状態を決定
         const std::uint32_t held    = step.held_bits
                                     | (do_shoot ? ActionBit(zimovka::Action::Shoot) : 0u);
         const std::uint32_t pressed = do_shoot ? ActionBit(zimovka::Action::Shoot) : 0u;
 
         // 内部Tickを進める
-        if (++tick_in_current_step_ >= step.duration_ticks) {
+        if(++tick_in_current_step_ >= step.duration_ticks){
             ++current_step_;
             tick_in_current_step_ = 0;
         }
@@ -146,36 +151,33 @@ public:
         return InputState::FromBits(held, pressed, 0u);
     }
 
-    bool IsFinished() const noexcept {
-        return current_step_ >= k_phase0_script.size();
+    bool IsFinished() const noexcept{
+        return current_step_ >= phase0_script.size();
     }
 
-    std::size_t GetCurrentStep() const noexcept {
+    std::size_t GetCurrentStep() const noexcept{
         return current_step_;
     }
 
     // シナリオの総Tick数
-    static constexpr std::uint32_t TotalTicks() noexcept {
+    static constexpr std::uint32_t TotalTicks() noexcept{
         std::uint32_t total = 0;
-        for (const auto& s : k_phase0_script) total += s.duration_ticks;
+        for(const auto& s : phase0_script){
+            total += s.duration_ticks;
+        }
         return total;
     }
-
-private:
-    DeterministicRng  rng_;
-    std::size_t       current_step_         = 0;
-    std::uint32_t     tick_in_current_step_ = 0;
 };
 
 // ── Phase0TickSnapshot ─────────────────────────────────────
 /**
- * @brief 1tick の観測可能状態スナップショット
+ * @brief 1tick の観測可能な状態のスナップショット
  *
- * UpdatePipeline の公開 API から取得できるフィールドのみで構成する.
- * state_hash は全フィールドの複合ハッシュ.
- * update_ns は処理時間 (gtest では比較しない).
+ * UpdatePipelineの公開APIから取得できるフィールドのみで構成する.
+ * state_hashは全フィールドの複合ハッシュ.
+ * update_nsは処理時間(gtestでは比較しない).
  */
-struct Phase0TickSnapshot {
+struct Phase0TickSnapshot{
     std::uint64_t tick                = 0;
     // 弾プール状態
     std::uint32_t player_bullet_count = 0;
@@ -191,60 +193,72 @@ struct Phase0TickSnapshot {
     bool          shot_fired          = false;
     // 複合ハッシュ(全観測フィールドを含む)
     std::size_t   state_hash          = 0;
-    // 処理時間 [ns] ── gtest では EXPECT せず記録のみ
+    // 処理時間 [ns] ※gtestではEXPECTせず記録して比較する
     std::int64_t  update_ns           = 0;
 };
 
 // ── State Hash ─────────────────────────────────────────────
 /**
- * @brief 32ビット値を FNV-1a 風に混合する
+ * @brief 32ビット値をFNV-1a風に混合する
+ * 
+ * ※FNV-1a: 乗算と排他的論理和(XOR)のみを使用する非常にシンプルで高速な非暗号化ハッシュ関数
+ * 
+ * @param h: 累積ハッシュ値 
+ * @param v: 混ぜ込みたい32ビット値
+ * @return std::size_t 
  */
-static std::size_t HashMix(std::size_t h, std::uint32_t v) noexcept {
+static std::size_t HashMix(std::size_t h, std::uint32_t v) noexcept{
     h ^= static_cast<std::size_t>(v);
-    h *= 0x9e3779b97f4a7c15ULL;
+    h *= 0x9e3779b97f4a7c15ULL; // bitsの拡散を助ける黄金比の小数部分の2乗(0.6180...^2)のマジックナンバー
     return h;
 }
 
 /**
- * @brief float を bit-cast して HashMix に渡す
+ * @brief floatをbit-castしてHashMixに渡す
+ * 
+ * @param h: 累積ハッシュ値
+ * @param f: float値※memcpyでビットをコピーするのでビットの暗黙的な変換は発生しない 
+ * @return * std::size_t 
  */
-static std::size_t HashMixFloat(std::size_t h, float f) noexcept {
+static std::size_t HashMixFloat(std::size_t h, float f) noexcept{
     std::uint32_t bits = 0;
-    std::memcpy(&bits, &f, sizeof(bits));
+    std::memcpy(&bits, &f, sizeof(bits));   // fのメモリ上のビット表現をそのままbitsへ渡す
     return HashMix(h, bits);
 }
 
 /**
- * @brief UpdatePipeline の観測可能状態から複合ハッシュを計算する
+ * @brief UpdatePipelineから観測可能な状態を取得し複合ハッシュを計算する
  *
  * 対象:
- *   - 自機弾の CountActive() と活性弾の position
- *   - 敵弾の CountActive() と活性弾の position
- *   - 武器状態 (ammo / cooldown / reload)
- *   - Tick イベント (player_hit / enemy_hit / kill / shot_fired)
+ *   - 自機弾のCountActive()と活性弾のposition
+ *   - 敵弾のCountActive()と活性弾のposition
+ *   - 武器状態(ammo/cooldown/reload)
+ *   - Tickイベント(player_hit/enemy_hit/kill/shot_fired)
  *   - 衝突判定カウント
  */
 static std::size_t ComputeStateHash(
     const UpdatePipeline&     pipeline,
     const GameplayTickEvents& events
 ) noexcept {
-    // FNV-1a 64-bit offset basis
+    // 累積ハッシュ値：FNV-1a 64-bit分のサイズを確保しておく
     std::size_t h = 0xcbf29ce484222325ULL;
 
     // 自機弾
     const auto& pb = pipeline.GetPlayerBullets();
     h = HashMix(h, static_cast<std::uint32_t>(pb.CountActive()));
-    for (const auto& b : pb.GetBullets()) {
-        if (!b.active) continue;
+    for(const auto& b : pb.GetBullets()){
+        if(!b.active){
+            continue;
+        }
         h = HashMixFloat(h, b.position.x);
         h = HashMixFloat(h, b.position.y);
     }
 
-    // 敵弾 (Phase0 では常に0だが将来拡張に備えてハッシュに含める)
+    // 敵弾(Phase0 では常に0だが将来の拡張に備えてハッシュに含める)
     const auto& eb = pipeline.GetEnemyBullets();
     h = HashMix(h, static_cast<std::uint32_t>(eb.CountActive()));
-    for (const auto& b : eb.GetBullets()) {
-        if (!b.active) continue;
+    for(const auto& b : eb.GetBullets()){
+        if(!b.active) continue;
         h = HashMixFloat(h, b.position.x);
         h = HashMixFloat(h, b.position.y);
     }
@@ -256,9 +270,9 @@ static std::size_t ComputeStateHash(
     h = HashMix(h, ws.reload_ticks_remaining);
 
     // Tickイベント
-    h = HashMix(h, events.player_hit           ? 1u : 0u);
-    h = HashMix(h, events.weapon.shot_fired     ? 1u : 0u);
-    h = HashMix(h, events.weapon.reload_started ? 1u : 0u);
+    h = HashMix(h, events.player_hit              ? 1u : 0u);
+    h = HashMix(h, events.weapon.shot_fired       ? 1u : 0u);
+    h = HashMix(h, events.weapon.reload_started   ? 1u : 0u);
     h = HashMix(h, events.weapon.reload_completed ? 1u : 0u);
     h = HashMix(h, static_cast<std::uint32_t>(events.enemy_hit.hit_count));
     h = HashMix(h, static_cast<std::uint32_t>(events.enemy_hit.kill_count));
@@ -272,7 +286,8 @@ static std::size_t ComputeStateHash(
 }
 
 /**
- * @brief UpdateTick() 後の状態から Phase0TickSnapshot を構築する
+ * @brief UpdateTick()後の状態からPhase0TickSnapshotを構築する
+ * 
  */
 static Phase0TickSnapshot ComputeSnapshot(
     std::uint64_t             tick,
@@ -284,9 +299,11 @@ static Phase0TickSnapshot ComputeSnapshot(
     return Phase0TickSnapshot{
         .tick                = tick,
         .player_bullet_count = static_cast<std::uint32_t>(
-                                   pipeline.GetPlayerBullets().CountActive()),
+                                   pipeline.GetPlayerBullets().CountActive()
+                                ),
         .enemy_bullet_count  = static_cast<std::uint32_t>(
-                                   pipeline.GetEnemyBullets().CountActive()),
+                                   pipeline.GetEnemyBullets().CountActive()
+                                ),
         .weapon_ammo         = ws.ammo,
         .weapon_cooldown     = ws.cooldown_ticks_remaining,
         .weapon_reload       = ws.reload_ticks_remaining,
@@ -303,7 +320,7 @@ static Phase0TickSnapshot ComputeSnapshot(
 /**
  * @brief プレイフェーズ: シナリオを1回実行してスナップショットを収集する
  *
- * @param pipeline  Initialize()済みの UpdatePipeline
+ * @param pipeline  Initialize()済みのUpdatePipeline
  * @param scenario  Reseed 済みの Phase0ScenarioSystem
  * @param recorder  Start()済みの RunRecorder (nullptr可 → 記録しない)
  */
@@ -311,13 +328,13 @@ static std::vector<Phase0TickSnapshot> RunPlayPhase(
     UpdatePipeline&       pipeline,
     Phase0ScenarioSystem& scenario,
     RunRecorder*          recorder
-) {
+){
     std::vector<Phase0TickSnapshot> snaps;
     snaps.reserve(Phase0ScenarioSystem::TotalTicks());
 
-    for (std::uint64_t tick = 0; !scenario.IsFinished(); ++tick) {
+    for(std::uint64_t tick = 0; !scenario.IsFinished(); ++tick){
         const InputState input = scenario.GenerateNextInput();
-        if (recorder) {
+        if(recorder){
             recorder->Record(input);
         }
 
@@ -334,26 +351,29 @@ static std::vector<Phase0TickSnapshot> RunPlayPhase(
 }
 
 /**
- * @brief リプレイフェーズ: RunPlayback から入力を取り出してスナップショットを収集する
+ * @brief リプレイフェーズ: RunPlaybackから入力を取り出してスナップショットを収集する
  *
- * @param pipeline  Initialize()済みの UpdatePipeline
- * @param playback  Start()済みの RunPlayback
+ * @param pipeline  Initialize()済みのUpdatePipeline
+ * @param playback  Start()済みのRunPlayback
  */
 static std::vector<Phase0TickSnapshot> RunReplayPhase(
     UpdatePipeline& pipeline,
     RunPlayback&    playback
-) {
+){
     std::vector<Phase0TickSnapshot> snaps;
 
-    for (std::uint64_t tick = 0; !playback.IsFinished(); ++tick) {
+    for(std::uint64_t tick = 0; !playback.IsFinished(); ++tick){
+        // 記録した入力を取得
         const auto opt = playback.ConsumeNextInput();
         EXPECT_TRUE(opt.has_value()) << "tick=" << tick << " ConsumeNextInput()失敗";
-        if (!opt.has_value()) break;
-
+        if(!opt.has_value()){
+            break;
+        }
+        // UpdatePipelineに記録した入力を流し込む
         const auto t0     = std::chrono::steady_clock::now();
         const auto events = pipeline.UpdateTick(DT, *opt);
         const auto t1     = std::chrono::steady_clock::now();
-
+        // 状態を記録
         snaps.push_back(ComputeSnapshot(
             tick, pipeline, events,
             (t1 - t0).count()
@@ -362,7 +382,7 @@ static std::vector<Phase0TickSnapshot> RunReplayPhase(
     return snaps;
 }
 
-} // anonymous namespace
+} // namespace
 
 // ──────────────────────────────────────────────────────────
 // Phase0 Game-like 複合試験
@@ -413,7 +433,7 @@ TEST(GameLikePhase0Test, PlayAndReplayProduceSameStateHash){
     ASSERT_EQ(play_snaps.size(), replay_snaps.size())
         << "プレイとリプレイでTick数が異なる";
 
-    for (std::size_t i = 0; i < play_snaps.size(); ++i) {
+    for(std::size_t i = 0; i < play_snaps.size(); ++i){
         const auto& p = play_snaps[i];
         const auto& r = replay_snaps[i];
 
@@ -442,11 +462,11 @@ TEST(GameLikePhase0Test, PlayAndReplayProduceSameStateHash){
             << "shot_fired 不一致 tick=" << p.tick;
     }
 
-    // 処理時間は比較せず合計値として記録のみ (参考値)
+    // 処理時間は比較せず合計値として記録のみ※参考値
     std::int64_t play_total_ns   = 0;
     std::int64_t replay_total_ns = 0;
-    for (const auto& s : play_snaps)   play_total_ns   += s.update_ns;
-    for (const auto& s : replay_snaps) replay_total_ns += s.update_ns;
+    for(const auto& s : play_snaps)   play_total_ns   += s.update_ns;
+    for(const auto& s : replay_snaps) replay_total_ns += s.update_ns;
 
     // NOTE: RecordProperty はgtest XML出力に付加される参考値
     RecordProperty("play_total_us",   static_cast<int>(play_total_ns   / 1000));
@@ -473,7 +493,7 @@ TEST(GameLikePhase0Test, SameSeedProducesSameStateHash){
     const auto snaps2 = RunOnce();
 
     ASSERT_EQ(snaps1.size(), snaps2.size());
-    for (std::size_t i = 0; i < snaps1.size(); ++i) {
+    for(std::size_t i = 0; i < snaps1.size(); ++i){
         EXPECT_EQ(snaps1[i].state_hash, snaps2[i].state_hash)
             << "2回目のstate_hash不一致 tick=" << snaps1[i].tick;
     }
@@ -499,8 +519,8 @@ TEST(GameLikePhase0Test, DifferentSeedsDifferentScenario){
     ASSERT_EQ(snaps_a.size(), snaps_b.size());
 
     bool any_diff = false;
-    for (std::size_t i = 0; i < snaps_a.size(); ++i) {
-        if (snaps_a[i].state_hash != snaps_b[i].state_hash) {
+    for(std::size_t i = 0; i < snaps_a.size(); ++i){
+        if(snaps_a[i].state_hash != snaps_b[i].state_hash){
             any_diff = true;
             break;
         }
@@ -513,7 +533,7 @@ TEST(GameLikePhase0Test, DifferentSeedsDifferentScenario){
 /**
  * @brief シナリオが所定の360 tick で完了することを確認
  *
- * Phase0ScenarioSystemが正確に TotalTicks() 回だけ入力を生成して
+ * Phase0ScenarioSystemが正確にTotalTicks() 回だけ入力を生成して
  * IsFinished()==trueになることを検証する
  */
 TEST(GameLikePhase0Test, ScenarioRunsExactly360Ticks){
@@ -523,7 +543,7 @@ TEST(GameLikePhase0Test, ScenarioRunsExactly360Ticks){
     // TotalTicksと一致するか
     EXPECT_EQ(Phase0ScenarioSystem::TotalTicks(), 360u);
 
-    while (!scenario.IsFinished()) {
+    while (!scenario.IsFinished()){
         // 入力生成のみ(UpdatePipelineは使わない)
         (void)scenario.GenerateNextInput();
         ++count;
@@ -534,8 +554,8 @@ TEST(GameLikePhase0Test, ScenarioRunsExactly360Ticks){
 /**
  * @brief RunRecorder/RunPlaybackのラウンドトリップで入力列が保全されることを確認
  *
- * プレイ中に記録した入力を RunPlayback で取り出すと
- * 元の InputState と一致することを確認する軽量試験
+ * プレイ中に記録した入力をRunPlaybackで取り出すと
+ * 元のInputStateと一致することを確認する軽量試験
  */
 TEST(GameLikePhase0Test, RecordedInputRoundTrip){
     constexpr DeterministicRng::Seed SEED = 7u;
@@ -548,7 +568,7 @@ TEST(GameLikePhase0Test, RecordedInputRoundTrip){
     std::vector<InputState> recorded_inputs;
     recorded_inputs.reserve(TICKS);
 
-    for (std::uint32_t t = 0; t < TICKS; ++t) {
+    for(std::uint32_t t = 0; t < TICKS; ++t){
         const InputState input = scenario.GenerateNextInput();
         recorded_inputs.push_back(input);
         recorder.Record(input);
@@ -561,7 +581,7 @@ TEST(GameLikePhase0Test, RecordedInputRoundTrip){
         PlaybackStartResult::Started
     );
 
-    for (std::uint32_t t = 0; t < TICKS; ++t) {
+    for(std::uint32_t t = 0; t < TICKS; ++t){
         const auto opt = playback.ConsumeNextInput();
         ASSERT_TRUE(opt.has_value()) << "t=" << t;
 

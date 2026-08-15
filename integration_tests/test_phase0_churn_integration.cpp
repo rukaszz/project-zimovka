@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
@@ -164,6 +165,7 @@ TEST(CollisionChurnTest, SpawnCollideRespawnIsStableFor1000Cycles){
  * 
  * SpawnCollideRespawnIsStableFor1000Cycles
  * は最良計算に近いので，逆順で弾を配置して判定回数を増加させる
+ * ※全弾命中する場合の中で判定回数が多い配置
  * 
  * Bullet 0 → Enemy 9
  * Bullet 1 → Enemy 8
