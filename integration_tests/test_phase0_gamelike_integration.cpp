@@ -103,26 +103,24 @@ static constexpr std::array<ScenarioStep, 6> phase0_script = {{
  */
 class Phase0ScenarioSystem{
 private:
-    DeterministicRng  rng_;
-    std::size_t       current_step_         = 0;
-    std::uint32_t     tick_in_current_step_ = 0;
+    std::size_t   current_step_  = 0;
+    std::uint32_t tick_in_step_  = 0;
+    std::uint32_t previous_held_ = 0;
 public:
     // Shoot試行確率(90%): 外部からも参照できるようにpublic
     static constexpr float SHOOTPROB = 0.90f;
 
-    explicit Phase0ScenarioSystem(DeterministicRng::Seed seed)
-        : rng_(seed)
-    {}
+    explicit Phase0ScenarioSystem(DeterministicRng::Seed /*seed*/) {}
 
     /**
      * @brief シードをリセットしてシナリオを最初から再生する
      * テストの「同一Seedで同一列」検証に使用する
-     * 
+     *
      */
-    void Reseed(DeterministicRng::Seed seed){
-        rng_.Reseed(seed);
-        current_step_         = 0;
-        tick_in_current_step_ = 0;
+    void Reseed(DeterministicRng::Seed /*seed*/){
+        current_step_  = 0;
+        tick_in_step_  = 0;
+        previous_held_ = 0;
     }
 
     /**
@@ -132,23 +130,33 @@ public:
      */
     [[nodiscard]]
     InputState GenerateNextInput(){
+        // 実施するスクリプト
         const ScenarioStep& step = phase0_script[current_step_];
 
-        // 毎tick1回乱数消費(消費場所は固定)
-        const float roll     = rng_.UnitFloat();
-        const bool  do_shoot = step.want_shoot && (roll < SHOOTPROB);
-        // do_shootに基づいて入力の状態を決定
-        const std::uint32_t held    = step.held_bits
-                                    | (do_shoot ? ActionBit(zimovka::Action::Shoot) : 0u);
-        const std::uint32_t pressed = do_shoot ? ActionBit(zimovka::Action::Shoot) : 0u;
+        // 押し続ける入力を保持
+        std::uint32_t held = step.held_bits;
 
-        // 内部Tickを進める
-        if(++tick_in_current_step_ >= step.duration_ticks){
+        // 12Tickごとに1TickだけShootを入力
+        if(step.want_shoot && tick_in_step_ % 12u == 0u){
+            held |= ActionBit(zimovka::Action::Shoot);
+        }
+        
+        // 今のTickで押された & 前回押されていない(前回押されたの否定) = pressed
+        const std::uint32_t pressed = held & ~previous_held_;
+
+        // 前回のTickで押された & 今回押されていない(今回押されているの否定) = released
+        const std::uint32_t released = previous_held_ & ~held;
+
+        previous_held_ = held;
+        ++tick_in_step_;
+
+        // 内部Tickを進める(スクリプトで定義した間隔をすぎるまで，スクリプトのステップはそのまま)
+        if(++tick_in_step_ >= step.duration_ticks){
             ++current_step_;
-            tick_in_current_step_ = 0;
+            tick_in_step_ = 0;
         }
 
-        return InputState::FromBits(held, pressed, 0u);
+        return InputState::FromBits(held, pressed, released);
     }
 
     bool IsFinished() const noexcept{
@@ -192,7 +200,8 @@ struct Phase0TickSnapshot{
     std::uint32_t enemy_kill_count    = 0;
     bool          shot_fired          = false;
     // 複合ハッシュ(全観測フィールドを含む)
-    std::size_t   state_hash          = 0;
+    // size_tはプラットフォーム依存なのでuint64_t
+    std::uint64_t state_hash          = 0;
     // 処理時間 [ns] ※gtestではEXPECTせず記録して比較する
     std::int64_t  update_ns           = 0;
 };
@@ -205,10 +214,10 @@ struct Phase0TickSnapshot{
  * 
  * @param h: 累積ハッシュ値 
  * @param v: 混ぜ込みたい32ビット値
- * @return std::size_t 
+ * @return std::uint64_t
  */
-static std::size_t HashMix(std::size_t h, std::uint32_t v) noexcept{
-    h ^= static_cast<std::size_t>(v);
+static std::uint64_t HashMix(std::uint64_t h, std::uint32_t v) noexcept{
+    h ^= static_cast<std::uint64_t>(v);
     h *= 0x9e3779b97f4a7c15ULL; // bitsの拡散を助ける黄金比の小数部分の2乗(0.6180...^2)のマジックナンバー
     return h;
 }
@@ -218,9 +227,9 @@ static std::size_t HashMix(std::size_t h, std::uint32_t v) noexcept{
  * 
  * @param h: 累積ハッシュ値
  * @param f: float値※memcpyでビットをコピーするのでビットの暗黙的な変換は発生しない 
- * @return * std::size_t 
+ * @return * std::uint64_t 
  */
-static std::size_t HashMixFloat(std::size_t h, float f) noexcept{
+static std::uint64_t HashMixFloat(std::uint64_t h, float f) noexcept{
     std::uint32_t bits = 0;
     std::memcpy(&bits, &f, sizeof(bits));   // fのメモリ上のビット表現をそのままbitsへ渡す
     return HashMix(h, bits);
@@ -230,46 +239,88 @@ static std::size_t HashMixFloat(std::size_t h, float f) noexcept{
  * @brief UpdatePipelineから観測可能な状態を取得し複合ハッシュを計算する
  *
  * 対象:
- *   - 自機弾のCountActive()と活性弾のposition
- *   - 敵弾のCountActive()と活性弾のposition
- *   - 武器状態(ammo/cooldown/reload)
- *   - Tickイベント(player_hit/enemy_hit/kill/shot_fired)
+ *   - tick_index_(パイプラインTick)
+ *   - Player: position, hit_radius
+ *   - Enemy per-slot: active/position/velocity/hp/hurtbox_radius
+ *   - 自機弾 per-slot: slot番号/active/position/velocity/radius + next_spawn_idx_
+ *   - 敵弾 per-slot: slot番号/active/position/velocity/radius + next_spawn_idx_
+ *   - 武器状態: ammo/cooldown/reload
+ *   - Tickイベント: player_hit/enemy_hit/kill/shot_fired等
  *   - 衝突判定カウント
+ *   - RNG状態: seed/draw_count_
  */
-static std::size_t ComputeStateHash(
+static std::uint64_t ComputeStateHash(
     const UpdatePipeline&     pipeline,
     const GameplayTickEvents& events
 ) noexcept {
-    // 累積ハッシュ値：FNV-1a 64-bit分のサイズを確保しておく
-    std::size_t h = 0xcbf29ce484222325ULL;
+    // 累積ハッシュ値：FNV-1a 64-bit
+    std::uint64_t h = 0xcbf29ce484222325ULL;
 
-    // 自機弾
-    const auto& pb = pipeline.GetPlayerBullets();
-    h = HashMix(h, static_cast<std::uint32_t>(pb.CountActive()));
-    for(const auto& b : pb.GetBullets()){
-        if(!b.active){
-            continue;
+    // ── Pipeline: tick_index_ ───────────────────────────────
+    const std::uint64_t tick = pipeline.GetTickIndex();
+    h = HashMix(h, static_cast<std::uint32_t>(tick));
+    h = HashMix(h, static_cast<std::uint32_t>(tick >> 32));
+
+    // ── Player ──────────────────────────────────────────────
+    const auto& player = pipeline.GetPlayerSystem().GetPlayer();
+    h = HashMixFloat(h, player.position.x);
+    h = HashMixFloat(h, player.position.y);
+    h = HashMixFloat(h, player.hit_radius);
+
+    // ── Enemy per-slot ───────────────────────────────────────
+    for(const auto& e : pipeline.GetEnemySystem().GetEnemies()){
+        h = HashMix(h, e.active ? 1u : 0u);
+        h = HashMixFloat(h, e.position.x);
+        h = HashMixFloat(h, e.position.y);
+        h = HashMixFloat(h, e.velocity.x);
+        h = HashMixFloat(h, e.velocity.y);
+        h = HashMix(h, static_cast<std::uint32_t>(e.hp));
+        h = HashMixFloat(h, e.hurtbox_radius);
+    }
+
+    // ── 自機弾 per-slot ──────────────────────────────────────
+    {
+        const auto& pb = pipeline.GetPlayerBullets();
+        h = HashMix(h, static_cast<std::uint32_t>(pb.CountActive()));
+        h = HashMix(h, static_cast<std::uint32_t>(pb.GetNextSpawnIdx()));
+        std::uint32_t slot = 0u;
+        for(const auto& b : pb.GetBullets()){
+            h = HashMix(h, slot);
+            h = HashMix(h, b.active ? 1u : 0u);
+            h = HashMixFloat(h, b.position.x);
+            h = HashMixFloat(h, b.position.y);
+            h = HashMixFloat(h, b.velocity.x);
+            h = HashMixFloat(h, b.velocity.y);
+            h = HashMixFloat(h, b.radius);
+            ++slot;
         }
-        h = HashMixFloat(h, b.position.x);
-        h = HashMixFloat(h, b.position.y);
     }
 
-    // 敵弾(Phase0 では常に0だが将来の拡張に備えてハッシュに含める)
-    const auto& eb = pipeline.GetEnemyBullets();
-    h = HashMix(h, static_cast<std::uint32_t>(eb.CountActive()));
-    for(const auto& b : eb.GetBullets()){
-        if(!b.active) continue;
-        h = HashMixFloat(h, b.position.x);
-        h = HashMixFloat(h, b.position.y);
+    // ── 敵弾 per-slot ────────────────────────────────────────
+    {
+        const auto& eb = pipeline.GetEnemyBullets();
+        h = HashMix(h, static_cast<std::uint32_t>(eb.CountActive()));
+        h = HashMix(h, static_cast<std::uint32_t>(eb.GetNextSpawnIdx()));
+        std::uint32_t slot = 0u;
+        for(const auto& b : eb.GetBullets()){
+            h = HashMix(h, slot);
+            h = HashMix(h, b.active ? 1u : 0u);
+            h = HashMixFloat(h, b.position.x);
+            h = HashMixFloat(h, b.position.y);
+            h = HashMixFloat(h, b.velocity.x);
+            h = HashMixFloat(h, b.velocity.y);
+            h = HashMixFloat(h, b.radius);
+            ++slot;
+        }
     }
 
-    // 武器状態
+    // ── 武器状態 ─────────────────────────────────────────────
     const auto& ws = pipeline.GetPlayerWeaponSystem().GetState();
     h = HashMix(h, ws.ammo);
     h = HashMix(h, ws.cooldown_ticks_remaining);
     h = HashMix(h, ws.reload_ticks_remaining);
 
-    // Tickイベント
+    // ── Tickイベント ─────────────────────────────────────────
     h = HashMix(h, events.player_hit              ? 1u : 0u);
     h = HashMix(h, events.weapon.shot_fired       ? 1u : 0u);
     h = HashMix(h, events.weapon.reload_started   ? 1u : 0u);
@@ -277,10 +328,16 @@ static std::size_t ComputeStateHash(
     h = HashMix(h, static_cast<std::uint32_t>(events.enemy_hit.hit_count));
     h = HashMix(h, static_cast<std::uint32_t>(events.enemy_hit.kill_count));
 
-    // 衝突判定カウント
+    // ── 衝突判定カウント ──────────────────────────────────────
     const auto& cs = pipeline.GetCollisionSystem().GetStats();
     h = HashMix(h, static_cast<std::uint32_t>(cs.player_vs_enemy_bullet_checks));
     h = HashMix(h, static_cast<std::uint32_t>(cs.player_bullet_vs_enemy_checks));
+
+    // ── RNG状態(gameplay_rng_) ───────────────────────────────
+    h = HashMix(h, pipeline.GetRngSeed());
+    const std::uint64_t draw = pipeline.GetRngDrawCount();
+    h = HashMix(h, static_cast<std::uint32_t>(draw));
+    h = HashMix(h, static_cast<std::uint32_t>(draw >> 32));
 
     return h;
 }
@@ -397,6 +454,12 @@ static std::vector<Phase0TickSnapshot> RunReplayPhase(
  *   3. 全Tickのstate_hashと個別フィールドが一致することを確認
  *
  * 処理時間(update_ns)はスナップショットに記録するが EXPECT_* では比較しない
+ * 
+ * Play:
+ * record.seed -> UpdatePipeline
+ * Replay:
+ * record.seed -> UpdatePipeline
+ * という対称性を持たせる
  */
 TEST(GameLikePhase0Test, PlayAndReplayProduceSameStateHash){
     constexpr DeterministicRng::Seed SEED = 42u;
@@ -406,8 +469,8 @@ TEST(GameLikePhase0Test, PlayAndReplayProduceSameStateHash){
     Phase0ScenarioSystem scenario(SEED);
     RunRecorder          recorder;
 
-    play_pipeline.Initialize(WORLD_W, WORLD_H);
     recorder.Start(SEED);
+    play_pipeline.StartRun(WORLD_W, WORLD_H, SEED);
 
     const auto play_snaps = RunPlayPhase(play_pipeline, scenario, &recorder);
 
@@ -419,7 +482,7 @@ TEST(GameLikePhase0Test, PlayAndReplayProduceSameStateHash){
 
     // ── リプレイフェーズ ────────────────────────────────────
     UpdatePipeline replay_pipeline;
-    replay_pipeline.Initialize(WORLD_W, WORLD_H);
+    replay_pipeline.StartRun(WORLD_W, WORLD_H, SEED);
 
     RunPlayback playback;
     ASSERT_EQ(
@@ -502,14 +565,14 @@ TEST(GameLikePhase0Test, SameSeedProducesSameStateHash){
 /**
  * @brief 異なるSeedでは少なくとも一部のTickのstate_hashが異なることを確認
  *
- * RNGのShoot確率(90%)により射撃タイミングが変わり，自機弾の軌跡や
- * 衝突タイミングが変化するため，異なるSeedでは状態が分岐する
+ * StartRun(seed)でgameplay_rng_のSeedが変わり，敵のスポーン位置・速度が
+ * 変化するため，異なるSeedでは状態が分岐する
  */
 TEST(GameLikePhase0Test, DifferentSeedsDifferentScenario){
     auto RunWithSeed = [](DeterministicRng::Seed seed) -> std::vector<Phase0TickSnapshot> {
         UpdatePipeline       pipeline;
         Phase0ScenarioSystem scenario(seed);
-        pipeline.Initialize(WORLD_W, WORLD_H);
+        pipeline.StartRun(WORLD_W, WORLD_H, seed);
         return RunPlayPhase(pipeline, scenario, nullptr);
     };
 

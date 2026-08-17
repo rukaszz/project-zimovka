@@ -37,6 +37,14 @@ public:
     // 偏りを出さずに範囲内のfloat値へ変換する
     float UniformFloat(float min, float max);
 
+    // getter
+    Seed GetSeed() const noexcept{
+        return current_seed_;
+    }
+    std::uint64_t GetDrawCount() const noexcept{
+        return draw_count_;
+    }
+
 private:
     // 乱数の証跡(同一seedで乱数の消費のずれなどをチェックする)
     // 乱数の消費回数

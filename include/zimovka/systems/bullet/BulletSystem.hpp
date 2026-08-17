@@ -73,6 +73,9 @@ public:
     std::size_t GetCapacity() const noexcept{
         return bullets_.size();
     }
+    std::size_t GetNextSpawnIdx() const noexcept{
+        return next_spawn_idx_;
+    }
 
 };
 

@@ -26,8 +26,8 @@ public:
     static constexpr int   TARGET_FPS     = 60;
     static constexpr int   MAX_UPDATE_PER_FRAME = 5;
     // 画面サイズ
-    static constexpr int   WINDOW_WIDTH = 960;
-    static constexpr int   WINDOW_HEIGHT = 720;
+    static constexpr float WINDOW_WIDTH  = 960;
+    static constexpr float WINDOW_HEIGHT = 720;
     // 固定ランダムシード
     static constexpr std::uint32_t INITIAL_SEED = 0x12345678u;
     // デバッグ情報の更新間隔(0.25sで描画更新)

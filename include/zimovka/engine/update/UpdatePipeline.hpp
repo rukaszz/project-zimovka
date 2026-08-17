@@ -51,12 +51,20 @@ private:
 public:
     // 初期化
     void Initialize(float width, float height);
+    // 実行開始API
+    void StartRun(float width, float height, DeterministicRng::Seed seed);
     // 固定タイムステップ更新
     GameplayTickEvents UpdateTick(float dt, const InputState& input);
     // 描画(NOTE: RenderPipelineへ移行するまでの暫定実装)
     void Render(PrimitiveRenderer& prim) const;
 
     // ── デバッグ/統計用 getter ───────────────────────────
+    const PlayerSystem& GetPlayerSystem() const noexcept{
+        return player_system_;
+    }
+    const EnemySystem& GetEnemySystem() const noexcept{
+        return enemy_system_;
+    }
     const BulletSystem& GetPlayerBullets() const noexcept{
         return player_bullets_;
     }
@@ -69,11 +77,21 @@ public:
     const CollisionSystem& GetCollisionSystem() const noexcept{
         return collision_system_;
     }
+    std::uint64_t GetTickIndex() const noexcept{
+        return tick_index_;
+    }
+    DeterministicRng::Seed GetRngSeed() const noexcept{
+        return gameplay_rng_.GetSeed();
+    }
+    std::uint64_t GetRngDrawCount() const noexcept{
+        return gameplay_rng_.GetDrawCount();    // Replayのデバッグ用
+    }
 
     // ── 実装・性能試験用 ───────────────────────────────────────
     // NOTE: 将来的にはEnemySystemに移行する
     void InitializeBulletStressTest();
     void SpawnEnemyTest();
+    void SpawnPhase0EnemyIfNeeded();
 };
 
 }   // namespace zimovka

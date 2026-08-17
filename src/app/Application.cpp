@@ -31,7 +31,9 @@ int Application::Run(int argc, char* argv[]){
     Window window("Zimovka", WINDOW_WIDTH, WINDOW_HEIGHT);
     Renderer renderer(window.Get());
     PrimitiveRenderer prim(renderer.Get());
-    run_recorder_.Start(INITIAL_SEED);
+
+    const auto seed = INITIAL_SEED;
+    run_recorder_.Start(seed);
     // デバッグ情報
     // フォントのパスはとりあえずシステムフォントを使う(※環境依存なので最終的には修正する)
     DebugOverlay debug_overlay(
@@ -45,7 +47,7 @@ int Application::Run(int argc, char* argv[]){
     };
 
     // パイプライン初期化(内部の全サブシステムを初期化する)
-    update_pipeline_.Initialize(static_cast<float>(WINDOW_WIDTH), static_cast<float>(WINDOW_HEIGHT));
+    update_pipeline_.StartRun(WINDOW_WIDTH, WINDOW_HEIGHT, seed);
     update_pipeline_.InitializeBulletStressTest();
 
     // 固定タイムステップ用クロック(steady_clockはis_steadyが保証される)

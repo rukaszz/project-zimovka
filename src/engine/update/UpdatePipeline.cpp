@@ -42,6 +42,20 @@ void UpdatePipeline::Initialize(float width, float height){
 }
 
 /**
+ * @brief ゲーム実行開始用の初期化ラッパAPI
+ * 画面サイズやシード値などを決定する
+ * 
+ * @param width 
+ * @param height 
+ * @param seed 
+ */
+void UpdatePipeline::StartRun(float width, float height, DeterministicRng::Seed seed){
+    Initialize(width, height);
+    gameplay_rng_.Reseed(seed);
+    tick_index_ = 0;
+}
+
+/**
  * @brief ここで固定更新順序を実装する
  * 各サブシステムから伝搬されるイベントを受け取り上位へ伝搬させる
  * 
@@ -58,6 +72,9 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     // 3. Projectile movement
     // 4. Collision detection
     // 5. Gameplay state resolution
+    // ── 実装・性能試験用 ───────────────────────────────────────
+    SpawnPhase0EnemyIfNeeded();
+    // ─────────────────────────────────────────
     UpdatePlayer(dt, input);
     events.weapon = UpdateWeapons(input);
     UpdateEnemy(dt);
@@ -65,6 +82,7 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     ResolveCollisions(events.player_hit, events.enemy_hit);
 
     // 最後に伝搬したイベントを返す
+    ++tick_index_;
     return events;
 }
 
@@ -207,6 +225,38 @@ void UpdatePipeline::SpawnEnemyTest(){
     if(enemy_system_.CountActive() == 0){
         (void)enemy_system_.Spawn(params);
     }
+}
+
+/**
+ * @brief 実際に乱数を消費して敵を生成する
+ * 
+ * NOTE: 仮の実装
+ */
+void UpdatePipeline::SpawnPhase0EnemyIfNeeded(){
+    // 120Tick周期で生成する
+    if(tick_index_ % 120u != 0u){
+        return;
+    }
+
+    // x座標はランダム
+    const float spawn_x = static_cast<float>(
+        gameplay_rng_.UniformU32(100u, 860u)    // 100〜860
+    );
+    // スピードでも乱数を消費
+    const float speed = static_cast<float>(
+        gameplay_rng_.UniformU32(30u, 70u)      // 30〜70
+    );
+    
+    // 敵生成用引数を用意
+    EnemySpawnParams params{};
+    params.position       = {spawn_x, 80.0f};
+    params.velocity       = {0.0f, speed};    // y軸のみ速度をつける
+    params.render_size    = {32.0f, 32.0f};
+    params.hurtbox_radius = 13.0f;
+    params.contact_radius = 10.0f;
+    params.hp             = 2;
+
+    (void)enemy_system_.Spawn(params);
 }
 
 }   // namespace zimovka
