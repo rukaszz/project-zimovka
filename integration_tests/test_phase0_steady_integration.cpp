@@ -1,7 +1,10 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <chrono>
+#include <vector>
 
+#include "timing_stats.hpp"
 #include "zimovka/config/SimulationConfig.hpp"
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/systems/enemy/Enemy.hpp"
@@ -158,7 +161,12 @@ TEST(SteadyTest, ActiveCountsAndStatsAreStableFor600Ticks){
     const Enemy*  enemy_data         = enemies.GetEnemies().data();
 
     // ──── 600Tick定常負荷試験 ────
+    std::vector<std::int64_t> tick_ns;
+    tick_ns.reserve(600);
+
     for(std::size_t tick = 0; tick < 600; ++tick){
+        const auto t0 = std::chrono::steady_clock::now();
+
         collision_system.InitializeStatsAtBeginTick();
 
         enemy_bullets.Update(FIXED_DELTA_SECONDS, WORLD_WIDTH, WORLD_HEIGHT);
@@ -173,6 +181,11 @@ TEST(SteadyTest, ActiveCountsAndStatsAreStableFor600Ticks){
         // 自機弾と敵の衝突解決
         const EnemyHitEvents hits =
             collision_system.ResolvePlayerBulletsVsEnemies(player_bullets, enemies);
+
+        const auto t1 = std::chrono::steady_clock::now();
+        tick_ns.push_back(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count()
+        );
 
         ASSERT_EQ(hits.hit_count,  0u) << "Tick " << tick;
         ASSERT_EQ(hits.kill_count, 0u) << "Tick " << tick;
@@ -206,6 +219,15 @@ TEST(SteadyTest, ActiveCountsAndStatsAreStableFor600Ticks){
             1000u
         ) << "Tick " << tick;
     }
+
+    // ──── タイミング統計(600tick) ────
+    const auto stats = test_util::TimingStats::Compute(tick_ns);
+    RecordProperty("steady_avg_us",  stats.avg_ns / 1000);
+    RecordProperty("steady_p55_us",  stats.p55_ns / 1000);
+    RecordProperty("steady_p99_us",  stats.p99_ns / 1000);
+    RecordProperty("steady_max_us",  stats.max_ns / 1000);
+    // 1tick(1200敵弾+100自機弾+10敵のUpdate+衝突2種)が5ms以内であること
+    EXPECT_LT(stats.p99_ns, 5'000'000LL) << "p99 > 5ms: 定常負荷が重すぎる";
 
     // vectorの内部ストレージが再確保されていないか調べる
     EXPECT_EQ(

@@ -2,6 +2,10 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
+#include <vector>
+
+#include "timing_stats.hpp"
 
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
@@ -97,6 +101,9 @@ TEST(CollisionChurnTest, SpawnCollideRespawnIsStableFor1000Cycles){
     const Bullet* bullet_data = player_bullets.GetBullets().data();
     const Enemy*  enemy_data  = enemies.GetEnemies().data();
 
+    std::vector<std::int64_t> cycle_ns;
+    cycle_ns.reserve(1000);
+
     for(std::size_t cycle = 0; cycle < 1000; ++cycle){
 
         // サイクル開始時は全てinactive
@@ -104,6 +111,7 @@ TEST(CollisionChurnTest, SpawnCollideRespawnIsStableFor1000Cycles){
         ASSERT_EQ(player_bullets.CountActive(), 0u) << "cycle=" << cycle;
 
         // 敵/自機弾出現処理(弾と敵を同座標に配置するので衝突が確定)
+        const auto t0 = std::chrono::steady_clock::now();
         for(std::size_t i = 0; i < 10; ++i){
             const Vec2 position{
                 50.0f + static_cast<float>(i) * 80.0f,
@@ -127,6 +135,10 @@ TEST(CollisionChurnTest, SpawnCollideRespawnIsStableFor1000Cycles){
         // ── 自機弾vs敵の衝突解決 ──
         const EnemyHitEvents hits =
             collision_system.ResolvePlayerBulletsVsEnemies(player_bullets, enemies);
+        const auto t1 = std::chrono::steady_clock::now();
+        cycle_ns.push_back(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count()
+        );
 
         // hit/kill検証
         ASSERT_EQ(hits.hit_count,  10u) << "cycle=" << cycle;
@@ -158,6 +170,15 @@ TEST(CollisionChurnTest, SpawnCollideRespawnIsStableFor1000Cycles){
     // ループ終了後にメモリアドレスが変化していないことを確認(ヒープ再確保なし)
     EXPECT_EQ(player_bullets.GetBullets().data(), bullet_data);
     EXPECT_EQ(enemies.GetEnemies().data(),        enemy_data);
+
+    // ──── タイミング統計(1000cycle) ────
+    const auto stats = test_util::TimingStats::Compute(cycle_ns);
+    RecordProperty("churn_avg_us",  stats.avg_ns / 1000);
+    RecordProperty("churn_p55_us",  stats.p55_ns / 1000);
+    RecordProperty("churn_p99_us",  stats.p99_ns / 1000);
+    RecordProperty("churn_max_us",  stats.max_ns / 1000);
+    // 10体spawn + 衝突解決10回が1ms以内であること
+    EXPECT_LT(stats.p99_ns, 1'000'000LL) << "p99 > 1ms: Churnサイクルが重すぎる";
 }
 
 /**

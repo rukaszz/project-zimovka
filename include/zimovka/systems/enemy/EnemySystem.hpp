@@ -58,6 +58,9 @@ public:
     std::size_t GetCapacity() const noexcept{
         return enemies_.size();
     }
+    std::size_t GetNextSpawnIndex() const noexcept{
+        return next_spawn_index_;
+    }
 };
 
 }   // namespace zimovka

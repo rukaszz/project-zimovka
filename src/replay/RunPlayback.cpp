@@ -14,7 +14,7 @@ PlaybackStartResult RunPlayback::Start(const RunRecord& record) noexcept{
     Stop();
     // リプレイの状態チェック処理
     if(record.format_version != RUN_RECORD_FORMAT_VERSION){
-        return PlaybackStartResult::UnsupprtedFormat;
+        return PlaybackStartResult::UnsupportedFormat;
     }
     if(record.simulation_hz != SimulationConfig::SIMULATION_HZ){
         return PlaybackStartResult::SimulationHzMismatch;
@@ -24,6 +24,9 @@ PlaybackStartResult RunPlayback::Start(const RunRecord& record) noexcept{
     }
     if(record.frame_limit_reached){
         return PlaybackStartResult::IncompleteRecord;
+    }
+    if(record.frames.empty()){
+        return PlaybackStartResult::EmptyRecord;
     }
     // チェック処理完了後，渡されたレコードを参照する
     record_ = &record;
