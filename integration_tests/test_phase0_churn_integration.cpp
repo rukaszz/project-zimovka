@@ -25,7 +25,7 @@ using zimovka::EnemySpawnParams;
 using zimovka::EnemySystem;
 using zimovka::Vec2;
 
-namespace {
+namespace{
 
 /**
  * @brief 敵出現用ヘルパ関数
@@ -101,12 +101,12 @@ TEST(CollisionChurnTest, SpawnCollideRespawnIsStableFor1000Cycles){
     const Bullet* bullet_data = player_bullets.GetBullets().data();
     const Enemy*  enemy_data  = enemies.GetEnemies().data();
 
+    // 処理時間記録用cycle_ns: 1000Tick分確保
     std::vector<std::int64_t> cycle_ns;
     cycle_ns.reserve(1000);
 
     for(std::size_t cycle = 0; cycle < 1000; ++cycle){
-
-        // サイクル開始時は全てinactive
+        // サイクル開始時は全てinactiveであることを確認
         ASSERT_EQ(enemies.CountActive(),        0u) << "cycle=" << cycle;
         ASSERT_EQ(player_bullets.CountActive(), 0u) << "cycle=" << cycle;
 
@@ -123,13 +123,14 @@ TEST(CollisionChurnTest, SpawnCollideRespawnIsStableFor1000Cycles){
                 << "cycle=" << cycle << " i=" << i;
         }
 
-        // Spawn後はactive数が正確か確認(Spawn直後は衝突判定をしていない)
+        // Spawn後はactive数が正確か確認(Spawn直後は衝突判定を実施していないのでまだ消えない)
         ASSERT_EQ(enemies.CountActive(),        10u) << "cycle=" << cycle;
         ASSERT_EQ(player_bullets.CountActive(), 10u) << "cycle=" << cycle;
         // active数のカウントとの照合もしておく
         ASSERT_EQ(enemies.CountActive(), CountActiveByScan(enemies.GetEnemies()));
         ASSERT_EQ(player_bullets.CountActive(), CountActiveByScan(player_bullets.GetBullets()));
 
+        // 衝突処理開始
         collision_system.InitializeStatsAtBeginTick();
 
         // ── 自機弾vs敵の衝突解決 ──
@@ -174,9 +175,15 @@ TEST(CollisionChurnTest, SpawnCollideRespawnIsStableFor1000Cycles){
     // ──── タイミング統計(1000cycle) ────
     const auto stats = test_util::TimingStats::Compute(cycle_ns);
     RecordProperty("churn_avg_us",  stats.avg_ns / 1000);
-    RecordProperty("churn_p55_us",  stats.p55_ns / 1000);
+    RecordProperty("churn_p95_us",  stats.p95_ns / 1000);
     RecordProperty("churn_p99_us",  stats.p99_ns / 1000);
     RecordProperty("churn_max_us",  stats.max_ns / 1000);
+    test_util::AppendTimingCSV(
+        "bench_results/timing.csv",
+        "CollisionChurnTest",
+        "SpawnCollideRespawnIsStableFor1000Cycles",
+        stats
+    );
     // 10体spawn + 衝突解決10回が1ms以内であること
     EXPECT_LT(stats.p99_ns, 1'000'000LL) << "p99 > 1ms: Churnサイクルが重すぎる";
 }
@@ -185,13 +192,13 @@ TEST(CollisionChurnTest, SpawnCollideRespawnIsStableFor1000Cycles){
  * @brief 最悪計算想定の探索テスト
  * 
  * SpawnCollideRespawnIsStableFor1000Cycles
- * は最良計算に近いので，逆順で弾を配置して判定回数を増加させる
- * ※全弾命中する場合の中で判定回数が多い配置
+ * は最良計算に近いので，逆順で弾を衝突させ判定回数を増加させる
+ * ※全弾命中する場合の中で走査回数が多い配置
  * 
- * Bullet 0 → Enemy 9
- * Bullet 1 → Enemy 8
+ * Bullet: 0 → Enemy: 9
+ * Bullet: 1 → Enemy: 8
  * ...
- * Bullet 9 → Enemy 0
+ * Bullet: 9 → Enemy: 0
  * 
  * この場合は判定回数は10+9+...+1=55になる
  */
@@ -214,13 +221,14 @@ TEST(CollisionChurnTest, ReverseTargetOrderProduces55Checks){
     for (std::size_t i = 0; i < 10; ++i) {
         ASSERT_TRUE(
             bullets.Spawn(
-                positions[9 - i],
+                positions[9 - i],   // 9〜0で配置
                 {0.0f, 0.0f},
                 3.0f
             )
         );
     }
- 
+
+    // 衝突処理開始
     collisions.InitializeStatsAtBeginTick();
     // ── 自機弾vs敵の衝突解決 ──
     const auto hits =
@@ -255,6 +263,7 @@ TEST(CollisionChurnTest, ReverseTargetOrderProduces55Checks){
  *   player_bullet_vs_enemy_checks == 100 (全件走査: 10発×10体)
  */
 TEST(CollisionChurnTest, AllBulletsMiss_FullScan100Checks){
+    // 容量10で構築(各サイクルで使い切る)
     BulletSystem    player_bullets(10);
     EnemySystem     enemies(10);
     CollisionSystem collision_system;
@@ -279,6 +288,7 @@ TEST(CollisionChurnTest, AllBulletsMiss_FullScan100Checks){
     ASSERT_EQ(enemies.CountActive(),        10u);
     ASSERT_EQ(player_bullets.CountActive(), 10u);
 
+    // 衝突処理開始
     collision_system.InitializeStatsAtBeginTick();
     const EnemyHitEvents hits =
         collision_system.ResolvePlayerBulletsVsEnemies(player_bullets, enemies);

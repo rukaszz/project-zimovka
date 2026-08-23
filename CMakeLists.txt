@@ -28,6 +28,7 @@ pkg_check_modules(SDL2MIXER  REQUIRED SDL2_mixer)
 add_executable(${PROJECT_NAME}
     src/main.cpp
     src/app/Application.cpp
+    src/core/DeterministicRng.cpp
     src/platform/SdlContext.cpp
     src/platform/Window.cpp
     src/rendering/Renderer.cpp

@@ -1169,10 +1169,369 @@ HashMixFloat関数はfloatの値を安全にハッシュ値に混ぜ込むため
 
 #### 定数`0x9e3779b97f4a7c15ULL`
 
-黄金比に由来する定数であり，64ビットの乱数生成器やハッシュ関数などで用いられるマジックナンバーである．データをうまく分散させるために使われる．
+黄金比に由来する定数であり，64ビットの乱数生成器やハッシュ関数などで用いられるマジックナンバーである．データをうまく分散させるために使われる．FNV-1などでは初期値として定義されている．
 
 この値自体は$2^{64}$を黄金比の値をスケールした無理数に近い定数であり，ビットの偏りが少なく「衝突」を防ぎやすい．黄金比は数字を効率的に均等に分散させられる性質があるようで，3距離定理などと呼ばれるようである．有理数ではなく無理数で分割することで同じパターンの繰り返しを回避しつつ，ある程度均等に分割することができ，その走査に**黄金比の小数部分**が有効のようである．
 
 つまりこの定数を用いて，64ビットの整数空間を均等に分割しているということである．数式にするならこんな感じになる：
 
 $V = \frac{2^{64}}{\phi} = 2^{64} \times (\sqrt{5} - 1)/2$
+
+### 2026/08/12
+
+#### テスト用スクリプト
+
+ゲームプレイをなるべく再現するために，テスト用cppファイルにスクリプトを定義した．
+シナリオとして，ステップごとに入力を変えていくために`ScenarioStep`を定義した．
+例えばステップ0は「右へ移動+射撃」という操作をするスクリプトである．それに対して，`ScenarioStep`はそのステップを続けるTick数，どのキーを押すか，射撃するか，という情報を保持する．
+
+```cpp
+// ── シナリオスクリプト定義 ─────────────────────────────────
+/**
+ * @brief シナリオの1ステップ
+ *
+ * duration_ticks: このステップが継続するTick数
+ * held_bits     : 押し続けるキー(移動方向など)
+ * want_shoot    : このstepでShoot入力を生成するか(12tick間隔で射撃する想定)
+ */
+struct ScenarioStep{
+    std::uint32_t duration_ticks;
+    std::uint32_t held_bits;
+    bool          want_shoot;
+};
+
+/**
+ * @brief Phase0 シナリオスクリプト (合計360tick = 6秒)
+ *
+ * PlayerWeaponConfig デフォルト値:
+ *   max_ammo=6, shot_cooldown_ticks=8, reload_duration_ticks=90
+ *
+ * 各ステップをインデックスで与え移動・射撃の組み合わせを網羅し，
+ * 衝突/撃破/リロード/再発射が1シナリオに含まれるようにしている
+ */
+static constexpr std::array<ScenarioStep, 6> phase0_script = {{
+    // ステップ0: 右移動 + 射撃(60tick)
+    //     初弾が20tick前後で敵に命中, 6発打ち切り後にリロード開始
+    {60u, ActionBit(zimovka::Action::MoveRight), true },
+    // ステップ1: 左移動 + 射撃(60tick)
+    //     リロード継続(90tick), 完了後に弾が再補充されて発射再開
+    {60u, ActionBit(zimovka::Action::MoveLeft),  true },
+    // ステップ2: 静止 + 射撃 (60tick)
+    {60u, 0u,                                    true },
+    // ステップ3: 右移動 + 低速(60tick, 射撃なし)
+    //     Shoftで低速移動, Shootなし → 弾数変化なし
+    {60u, ActionBit(zimovka::Action::MoveRight)
+        | ActionBit(zimovka::Action::Slow),      false},
+    // ステップ4: 左移動 + 射撃 (60tick)
+    {60u, ActionBit(zimovka::Action::MoveLeft),  true },
+    // ステップ5: 静止(60 tick, 射撃なし)
+    {60u, 0u,                                    false},
+}};
+```
+
+#### シナリオからの入力取得
+
+シナリオからの入力取り出しは`GenerateNextInput()`を使用する．内部的に進めた`current_step_`を基にスクリプトから対応するステップの入力を取り出す．12TickごとにShoot入力をする，押された入力の保持や状態を確認している．なお，このときの入力は全てheldである
+
+- pressed：今Tick押されている(helt) AND 前Tickで押されていない→このTickで押された
+- held：スクリプトから受け取る
+- released：前Tickで押された AND 今Tick押されていない
+
+```cpp
+/**
+ * @brief 1Tick分のInputStateを生成し内部Tickを進める
+ *
+ */
+[[nodiscard]]
+InputState GenerateNextInput(){
+    // 実施するスクリプト
+    const ScenarioStep& step = phase0_script[current_step_];
+    // 入力を作成
+    // 押し続ける入力を保持
+    std::uint32_t held = step.held_bits;
+
+    // 12Tickごとに1TickだけShootを入力(武器システムはIsPressed=just-pressed入力で発射)
+    if(step.want_shoot && tick_in_step_ % 12u == 0u){
+        held |= ActionBit(zimovka::Action::Shoot);
+    }
+
+    // 今のTickで押された & 前回押されていない(前回押されたの否定) = pressed
+    const std::uint32_t pressed = held & ~previous_held_;
+
+    // 前回のTickで押された & 今回押されていない(今回押されているの否定) = released
+    const std::uint32_t released = previous_held_ & ~held;
+
+    previous_held_ = held;
+
+    // 内部Tickを進める(スクリプトで定義した間隔を経過するまで，スクリプトのステップはそのまま)
+    if(++tick_in_step_ >= step.duration_ticks){
+        ++current_step_;
+        tick_in_step_ = 0;
+    }
+
+    return InputState::FromBits(held, pressed, released);
+}
+```
+
+#### release専用のテスト
+
+releaseは`phase0_script`ステップ変化時に発生するのみで，ゲームプレイに絡んでこない．そのため，別途テストを設けた：
+
+```cpp
+/**
+ * @brief released_bitsがラウンドトリップで保全されることを手動入力で検証
+ *
+ * Phase0InputScriptではreleasedの発生タイミングが不明瞭なため，
+ * 確実にpress → releaseが起きる手動シーケンスで専用検証する.
+ *
+ * 入力シーケンス:
+ *   tick0: MoveRight pressed  (held=R,      pressed=R,    released=0)
+ *   tick1: MoveLeft  pressed, MoveRight released
+ *                             (held=L,      pressed=L,    released=R)
+ *   tick2: 全リリース         (held=0,      pressed=0,    released=L)
+ *
+ * releasedが実際に非ゼロであることを記録前にASSERTしてから
+ * RunRecorder→RunPlaybackのラウンドトリップで完全一致を確認する.
+ */
+TEST(GameLikePhase0Test, RecordedInput_ReleasedBits_RoundTrip){
+    const std::uint32_t R = ActionBit(zimovka::Action::MoveRight);
+    const std::uint32_t L = ActionBit(zimovka::Action::MoveLeft);
+    // リリースが発生する入力
+    const std::array<InputState, 3> hand_inputs = {{
+        InputState::FromBits(R, R, 0u),     // tick0: press R
+        InputState::FromBits(L, L, R),      // tick1: press L / release R
+        InputState::FromBits(0u, 0u, L),    // tick2: release L
+    }};
+
+    // releasedが本当に非ゼロか事前確認(テストの前提条件の保証)
+    ASSERT_EQ(hand_inputs[0].GetReleasedBits(), 0u) << "tick0: released=0 想定";
+    ASSERT_EQ(hand_inputs[1].GetReleasedBits(), R)  << "tick1: MoveRight released 想定";
+    ASSERT_EQ(hand_inputs[2].GetReleasedBits(), L)  << "tick2: MoveLeft  released 想定";
+
+    // R押下→R離す，L押下→L離すを記録
+    RunRecorder recorder;
+    recorder.Start(0u);
+    for(const auto& inp : hand_inputs){
+        recorder.Record(inp);
+    }
+    recorder.Stop();
+
+    // 上記入力の記録を再現して検証
+    RunPlayback playback;
+    ASSERT_EQ(playback.Start(recorder.GetRecord()), PlaybackStartResult::Started);
+    // 上記の入力vector分ループ
+    for(std::size_t t = 0; t < hand_inputs.size(); ++t){
+        const auto opt = playback.ConsumeNextInput();
+        ASSERT_TRUE(opt.has_value()) << "t=" << t;
+        EXPECT_EQ(opt->GetHeldBits(),     hand_inputs[t].GetHeldBits())
+            << "held_bits 不一致 t=" << t;
+        EXPECT_EQ(opt->GetPressedBits(),  hand_inputs[t].GetPressedBits())
+            << "pressed_bits 不一致 t=" << t;
+        EXPECT_EQ(opt->GetReleasedBits(), hand_inputs[t].GetReleasedBits())
+            << "released_bits 不一致 t=" << t;
+    }
+    EXPECT_TRUE(playback.IsFinished());
+}
+```
+
+### 2026/08/15
+
+#### 偽陰性の排除
+
+ゲームプレイの再現をするため，敵を撃破した/していないであったり，弾を撃った/撃っていないなどの状況が発生する．このとき，例えば弾を発射していないから敵を撃破していないのか，弾を撃って敵に当たらなかった(撃破できなかった)のかわからないこと気づいた．
+
+→累積値を用いて全体の結果を検証する方針にした
+
+```cpp
+/**
+ * @brief シナリオ終了後に比較するための累積値
+ * 
+ * 両方ゼロ(Play/Replay)の場合で正常と誤判定されないように累積値を用いる
+ */
+struct GameLikeTotals{
+    std::uint32_t shots_fired = 0;
+    std::uint32_t reload_started = 0;
+    std::uint32_t reload_completed = 0;
+
+    std::uint32_t enemy_hits = 0;
+    std::uint32_t enemy_kills = 0;
+
+    std::uint32_t player_hits = 0;
+};
+```
+
+#### ソークテストの導入
+
+累積的なズレによるエラーが無いかを確認するために，ソークテスト用のクラス`SoakScenarioSystem`を追加した．これは規定のTick回数なんどもゲームプレイライクなテストを繰り返す．
+3600Tickで60秒相当の処理を実施する．また，スクリプトは使いまわすため，
+`phase0_script[current_step_ % phase0_script.size()];`で剰余を利用して3600Tick間まわすようにした．それ以外は基本的にゲームプレイ用のクラス`Phase0InputScript`と同じである．
+
+#### RecordProperty
+
+Google TestのAPIでRecordProperty()を導入した．これはテストのレポート生成で用いる．`--gtest_output=xml`というオプションをテスト実行時にコマンドラインで指定すると出る．
+ただ最終的にはcsvで処理時間の計測結果を出すことにした．
+
+#### 乱数の分離
+
+ゲームプレイテストの実施当初は入力は乱数を用いて，テストのたびに乱数によって結果が変わるようにしていたが，`Phase0InputScript`から乱数を排除した．
+
+### 2026/08/20
+
+#### 「異なるseedでゲーム状態が変わること」を確認するテスト
+
+RNGのシード値をhashに直接含めるとseed差異だけで即座にhashが変わることに気づいていなかった．常に成功するテスト担っていたので，解決策として include_rngフラグで2種類のhashを計算することにした：
+
+- state_hash（RNG含む）→ Play/Replayの決定論性確認用
+- world_hash（RNG除外）→ 異なるseedのゲームワールド状態比較用
+
+#### ベンチマーク計測
+
+ベンチマーク計測用に，TimingStats.cppとCSV出力を実装した．性能判断用のベンチマークとして，平均値/p95/p99/最大値を計測する．
+
+p95/p99とは，性能試験などでよく登場する指標でレイテンシ指標である．pXXの数字はパーセンタイルであり，p99がソートされた数字のうち，99%がこの値以内に収まるということである．例えばATMでの待機時間でp99が3分であれば，99%の人は3分以内の待機時間でATMを利用することができるということである．逆に言えば，1%の人間は3分以上待った，といえる．
+
+この統計値はTimingStats構造体で定義した．なお，ソートされていないと95%, 99%の場所が割り出せないことに留意する．
+
+```cpp
+struct TimingStats{
+    std::int64_t count  = 0;
+    std::int64_t avg_ns = 0;
+    std::int64_t p95_ns = 0;
+    std::int64_t p99_ns = 0;
+    std::int64_t max_ns = 0;
+
+    /**
+     * @brief サンプル列(ns単位)から統計を計算する
+     *
+     * samplesはコピーして内部でsortするため，呼び出し元の順序は保持される
+     *
+     * @param samples 処理時間サンプル列(ns)
+     * @return TimingStats
+     */
+    static TimingStats Compute(std::vector<std::int64_t> samples){
+        // 引数チェック
+        if(samples.empty()){
+            return {};
+        }
+        // サンプル群をソート
+        std::sort(samples.begin(), samples.end());
+        
+        TimingStats s;
+        s.count = static_cast<std::int64_t>(samples.size());
+        // 計算(sum, avg)
+        // [first, last)で畳み込み(デフォルトは加算+なので合計値が求まる), 初期値ゼロ
+        const std::int64_t sum = std::accumulate(
+            samples.begin(), samples.end(), std::int64_t{0}
+        );
+        s.avg_ns = sum / s.count;
+        
+        // パーセンタイル関数(samplesはソート済みである必要がある)
+        auto pct = [&](double p) -> std::int64_t {
+            // サンプリング用インデックスの計算
+            const std::size_t idx = static_cast<std::size_t>(
+                // (size - 1)が最大インデックス，size_tなので0.5を加算して四捨五入する
+                p / 100.0 * static_cast<double>(samples.size() - 1) + 0.5
+            );
+            // idxが範囲外にならないようにclampして確率pの位置にあるサンプルを返す
+            return samples[std::min(idx, samples.size() - 1u)];
+        };
+        s.p95_ns = pct(95.0);
+        s.p99_ns = pct(99.0);
+        s.max_ns = samples.back();  // ソート済みなので最大値
+
+        return s;
+    }
+};
+```
+
+CSV出力：
+
+`zimovka/bench_results/` に吐き出すようにしており，C++20環境なので`filesytem`を使用する．
+
+```cpp
+/**
+ * @brief タイミングの統計値をCSVファイルに追記する
+ *
+ * プロセス内で最初に呼ばれたときはファイルを新規作成してヘッダ行を書き込み，
+ * 以降の呼び出しは同じファイルに追記する．
+ * ディレクトリが存在しない場合は自動で作成する．
+ *
+ * p95, p99は上位X%の値→遅い処理のみなす境界値
+ * 
+ * CSV列: suite,test,count,avg_us,p95_us,p99_us,max_us
+ *        テストスイート，テスト名，Tick数，p95の値，p99の値，最大値
+ * 
+ * @param path      出力ファイルパス (例: "bench_results/timing.csv")
+ * @param suite     テストスイート名
+ * @param test_name テスト(またはサブ項目)の名前
+ * @param s         書き込む統計値
+ */
+inline void AppendTimingCSV(
+    const std::string& path,
+    const std::string& suite,
+    const std::string& test_name,
+    const TimingStats& s
+){
+    namespace fs = std::filesystem;
+
+    // 初回呼び出し時はtrunc(上書き)でヘッダ行を書き，以降はappend
+    static bool header_written = false;
+    // 親ディレクトリbench_resultsの存在チェック
+    const auto parent = fs::path(path).parent_path();
+    if(!parent.empty()){
+        fs::create_directories(parent);
+    }
+    // trunc/appendの切り替え
+    // 書き込み用openフラグoutとモード(trunc/app)をビット演算で指定する
+    const auto mode = header_written
+        ? (std::ios::out | std::ios::app)       
+        : (std::ios::out | std::ios::trunc);
+
+    std::ofstream f(path, mode);
+    // ファイルオープンに失敗したら何もしない
+    if(!f){
+        return;
+    }
+
+    if(!header_written){
+        f << "suite,test,count,avg_us,p95_us,p99_us,max_us\n";
+        header_written = true;
+    }
+    f << suite     << ','
+      << test_name << ','
+      << s.count   << ','
+      << s.avg_ns / 1000 << ','
+      << s.p95_ns / 1000 << ','
+      << s.p99_ns / 1000 << ','
+      << s.max_ns / 1000 << '\n';
+}
+```
+
+#### ベンチマークの結果
+
+CSVのデータは次の通り：
+
+```csv
+suite,test,count,avg_us,p55_us,p99_us,max_us
+SteadyTest,ActiveCountsAndStatsAreStableFor600Ticks,600,168,155,268,375
+CollisionChurnTest,SpawnCollideRespawnIsStableFor1000Cycles,1000,3,3,3,8
+GameLikePhase0Test,PlayAndReplayProduceSameStateHash/play,360,15,15,20,30
+GameLikePhase0Test,PlayAndReplayProduceSameStateHash/replay,360,15,15,20,24
+GameLikePhase0Test,SoakTest_3600Ticks,3600,15,15,20,41
+```
+
+全体として，フェーズゼロの実装地点では全体的な処理に余裕がある：
+
+- SteadyTest：(1200敵弾+100自機弾+10敵 × 衝突2種)
+  - avg≈108µs, p99≈224µs
+- ChurnTest(10体spawn+衝突×1000cycle)
+  - avg≈4µs, p99≈5µs, max≈15µs
+- Game-like 1tick(ゲームロジック全体)
+  - avg≈6〜10µs, p99≈8〜23µs
+
+**総評**：
+
+60FPSの予算である16,667µs(16.67ms)に対して，最重テストでもp99が約1.3%であり，余裕である．
+Release(-O2)のオプションをつけるため，5〜10倍程度の改善が見込まれる．
+p99/avg ≈ 2倍以上はOSのスケジューリングジッタ(ばらつき)，
+max/p99 ≈ 3倍以上はキャッシュウォームアップによるスパイクが主因と思われる．

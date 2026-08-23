@@ -41,9 +41,9 @@ constexpr float DT      = zimovka::SimulationConfig::FIXED_DELTA_SECONDS;
 /**
  * @brief シナリオの1ステップ
  *
- * duration_ticks : このステップが継続するTick数
- * held_bits      : 押し続けるキー(移動方向など)
- * want_shoot     : このstepで12tick間隔のShoot入力を生成するか
+ * duration_ticks: このステップが継続するTick数
+ * held_bits     : 押し続けるキー(移動方向など)
+ * want_shoot    : このstepでShoot入力を生成するか(12tick間隔で射撃する想定)
  */
 struct ScenarioStep{
     std::uint32_t duration_ticks;
@@ -86,16 +86,13 @@ static constexpr std::array<ScenarioStep, 6> phase0_script = {{
  * UpdatePipelineを汚染しないよう外部クラスとして定義している．
  * UpdatePipeline::UpdateTick()へ渡すInputStateのみを生成する．
  *
- *
- * これによって，ステップ切り替えやwant_shootフラグの値が変わっても
- * 「毎tick N+k回目の消費が行われる」という乱数の消費が固定で保たれる.
- * → 同一Seedでは必ず同一の入力列が再現される.
+ * 同一の入力列を再現する.
  */
 class Phase0InputScript{
 private:
-    std::size_t   current_step_  = 0;
-    std::uint32_t tick_in_step_  = 0;
-    std::uint32_t previous_held_ = 0;
+    std::size_t   current_step_  = 0;   // 現在のシナリオスクリプトのステップ
+    std::uint32_t tick_in_step_  = 0;   // 実行中のシナリオスクリプトの経過Tick
+    std::uint32_t previous_held_ = 0;   // 1つ前のTickでのボタン押下(held状態)判定用
 public:
     explicit Phase0InputScript() = default;
 
@@ -111,15 +108,14 @@ public:
     }
 
     /**
-     * @brief 1tick分のInputStateを生成し内部Tickを進める
+     * @brief 1Tick分のInputStateを生成し内部Tickを進める
      *
-     * RNG消費: want_shootに関わらずUnitFloat()を必ず1回消費する
      */
     [[nodiscard]]
     InputState GenerateNextInput(){
         // 実施するスクリプト
         const ScenarioStep& step = phase0_script[current_step_];
-
+        // 入力を作成
         // 押し続ける入力を保持
         std::uint32_t held = step.held_bits;
 
@@ -136,7 +132,7 @@ public:
 
         previous_held_ = held;
 
-        // 内部Tickを進める(スクリプトで定義した間隔をすぎるまで，スクリプトのステップはそのまま)
+        // 内部Tickを進める(スクリプトで定義した間隔を経過するまで，スクリプトのステップはそのまま)
         if(++tick_in_step_ >= step.duration_ticks){
             ++current_step_;
             tick_in_step_ = 0;
@@ -145,6 +141,7 @@ public:
         return InputState::FromBits(held, pressed, released);
     }
 
+    // スクリプトを完遂したか
     bool IsFinished() const noexcept{
         return current_step_ >= phase0_script.size();
     }
@@ -167,7 +164,7 @@ public:
 /**
  * @brief シナリオ終了後に比較するための累積値
  * 
- * 両方ゼロ(Play/Replay)の場合で正常と判定されないように累積値を用いる
+ * 両方ゼロ(Play/Replay)の場合で正常と誤判定されないように累積値を用いる
  */
 struct GameLikeTotals{
     std::uint32_t shots_fired = 0;
@@ -182,7 +179,7 @@ struct GameLikeTotals{
 
 // ── Phase0TickSnapshot ─────────────────────────────────────
 /**
- * @brief 1tick の観測可能な状態のスナップショット
+ * @brief 1Tickの観測可能な状態のスナップショット
  *
  * UpdatePipelineの公開APIから取得できるフィールドのみで構成する.
  * state_hashは全フィールドの複合ハッシュ.
@@ -210,7 +207,7 @@ struct Phase0TickSnapshot{
     std::int64_t  update_ns           = 0;
 };
 
-// ── State Hash ─────────────────────────────────────────────
+// ── テストデータ検証用ヘルパ関数 ─────────────────────────────────────────────
 /**
  * @brief Replay決定性比較用の簡易64bit state hash※32ビット値をFNV-1a風に混合する
  * 
@@ -228,6 +225,8 @@ static std::uint64_t HashMix(std::uint64_t h, std::uint32_t v) noexcept{
 
 /**
  * @brief floatをbit-castしてHashMixに渡す
+ * 
+ * NOTE: ※memcpyを使っているが，C++20なのでstd::bit_castでも可
  * 
  * @param h: 累積ハッシュ値
  * @param f: float値※memcpyでビットをコピーするのでビットの暗黙的な変換は発生しない 
@@ -252,14 +251,14 @@ static std::uint64_t HashMixFloat(std::uint64_t h, float f) noexcept{
  *   - Tickイベント: player_hit/enemy_hit/kill/shot_fired等
  *   - 衝突判定カウント
  *   - RNG状態: seed/draw_count_
- */
-/**
- * @brief ゲーム状態のFNV-1a 64bit風の複合ハッシュを計算する
- *
+ * 
+ * @param pipeline 
+ * @param events 
  * @param include_rng trueのとき gameplay_rng_のseed/draw_count_もハッシュに含める.
- *   - true  → state_hash: RNGを含む完全な状態ハッシュ(Play/Replayの決定論性検証に使用)
- *   - false → world_hash: RNG除外のゲームワールド状態ハッシュ(異Seed時に世界が実際に
- *              異なることを検証するために使用. RNG値を直接含まないため trivial な成功を防ぐ)
+ *   - true  → state_hash: RNGを含む完全な状態ハッシュ値(Play/Replayの決定論性検証に使用)
+ *   - false → world_hash: RNG除外のゲームワールド状態ハッシュ値
+ * 異Seed時に世界が実際に異なることを検証するために使用. RNG値を直接含まないためtrivial(自明)な成功を防ぐ
+ * @return * std::uint64_t 
  */
 static std::uint64_t ComputeStateHash(
     const UpdatePipeline&     pipeline,
@@ -267,12 +266,13 @@ static std::uint64_t ComputeStateHash(
     bool                      include_rng = true
 ) noexcept {
     // 累積ハッシュ値
-    std::uint64_t h = 0xcbf29ce484222325ULL;
+    std::uint64_t h = 0xcbf29ce484222325ULL;    // 64bit FNVのハッシュ値初期化用の定数offset_basis(偏りが少ない効用がある)
 
     // ── Pipeline: tick_index_ ───────────────────────────────
     const std::uint64_t tick = pipeline.GetTickIndex();
-    h = HashMix(h, static_cast<std::uint32_t>(tick));
-    h = HashMix(h, static_cast<std::uint32_t>(tick >> 32));
+    // uint64_t → uint32_tなので，分割して混ぜ込む
+    h = HashMix(h, static_cast<std::uint32_t>(tick));       // 64bitの下位32ビットを混ぜる
+    h = HashMix(h, static_cast<std::uint32_t>(tick >> 32)); // 64bitの上位32ビットを混ぜる
 
     // ── Player ──────────────────────────────────────────────
     const auto& player = pipeline.GetPlayerSystem().GetPlayer();
@@ -293,7 +293,7 @@ static std::uint64_t ComputeStateHash(
         h = HashMixFloat(h, e.hurtbox_radius);
     }
     // ── EnemySystem システムレベルの状態 ─────────────────────
-    // next_spawn_index_: 次スポーンで使うスロット番号(将来の状態に影響)
+    // next_spawn_index_: 次スポーンで使うスロット番号(将来の状態に影響するためハッシュ値に混ぜる)
     // active_count_    : スロットループ外からの一括チェック用
     h = HashMix(h, static_cast<std::uint32_t>(pipeline.GetEnemySystem().CountActive()));
     h = HashMix(h, static_cast<std::uint32_t>(pipeline.GetEnemySystem().GetNextSpawnIndex()));
@@ -369,6 +369,11 @@ static std::uint64_t ComputeStateHash(
 /**
  * @brief UpdateTick()後の状態からPhase0TickSnapshotを構築する
  * 
+ * @param tick 
+ * @param pipeline 
+ * @param events 
+ * @param update_ns 
+ * @return * Phase0TickSnapshot 
  */
 static Phase0TickSnapshot ComputeSnapshot(
     std::uint64_t             tick,
@@ -413,7 +418,6 @@ static void AccumulateTick(GameLikeTotals& t, const GameplayTickEvents& events) 
     // 敵の被弾
     t.enemy_hits  += static_cast<std::uint32_t>(events.enemy_hit.hit_count);
     t.enemy_kills += static_cast<std::uint32_t>(events.enemy_hit.kill_count);
-    
     // 被弾回数
     if(events.player_hit)              ++t.player_hits;
 }
@@ -421,11 +425,11 @@ static void AccumulateTick(GameLikeTotals& t, const GameplayTickEvents& events) 
 /**
  * @brief プレイフェーズ: シナリオを1回実行してスナップショットを収集する
  *
- * @tparam ScenarioT  IsFinished()/GenerateNextInput() を持つシナリオ型
+ * @tparam ScenarioT  IsFinished()/GenerateNextInput()を持つシナリオ型
  * @param pipeline    StartRun()済みのUpdatePipeline
  * @param scenario    実行するシナリオ
- * @param recorder    Start()済みのRunRecorder (nullptr可 → 記録しない)
- * @param totals_out  累積値の出力先 (nullptr可 → 集計しない)
+ * @param recorder    Start()済みのRunRecorder(nullptr可 → 記録しない)
+ * @param totals_out  累積値の出力先(nullptr可 → 集計しない)
  */
 template<typename ScenarioT>
 static std::vector<Phase0TickSnapshot> RunPlayPhase(
@@ -438,6 +442,7 @@ static std::vector<Phase0TickSnapshot> RunPlayPhase(
     std::vector<Phase0TickSnapshot> snaps;
     // スクリプトの規定Tick回数ループ
     for(std::uint64_t tick = 0; !scenario.IsFinished(); ++tick){
+        // input取得
         const InputState input = scenario.GenerateNextInput();
         if(recorder){
             recorder->Record(input);
@@ -446,10 +451,10 @@ static std::vector<Phase0TickSnapshot> RunPlayPhase(
         const auto t0     = std::chrono::steady_clock::now();
         const auto events = pipeline.UpdateTick(DT, input);
         const auto t1     = std::chrono::steady_clock::now();
-        // t1-t0の結果がnanosecondとは限らないのでキャスト
+        // t1-t0の結果がnanosecondとは限らないので要キャスト
         const auto update_ns =
             std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
-
+        // GameLikeTotalsが引数で渡されたら集計
         if(totals_out){
             AccumulateTick(*totals_out, events);
         }
@@ -463,7 +468,7 @@ static std::vector<Phase0TickSnapshot> RunPlayPhase(
  *
  * @param pipeline   StartRun()済みのUpdatePipeline
  * @param playback   Start()済みのRunPlayback
- * @param totals_out 累積値の出力先 (nullptr可 → 集計しない)
+ * @param totals_out 累積値の出力先(nullptr可 → 集計しない)
  */
 static std::vector<Phase0TickSnapshot> RunReplayPhase(
     UpdatePipeline& pipeline,
@@ -473,6 +478,7 @@ static std::vector<Phase0TickSnapshot> RunReplayPhase(
     std::vector<Phase0TickSnapshot> snaps;
     // 記録したTick回ループ
     for(std::uint64_t tick = 0; !playback.IsFinished(); ++tick){
+        // 記録(RunRecorder)から入力を取得
         const auto opt = playback.ConsumeNextInput();
         EXPECT_TRUE(opt.has_value()) << "tick=" << tick << " ConsumeNextInput()失敗";
         if(!opt.has_value()){
@@ -481,10 +487,10 @@ static std::vector<Phase0TickSnapshot> RunReplayPhase(
         const auto t0     = std::chrono::steady_clock::now();
         const auto events = pipeline.UpdateTick(DT, *opt);
         const auto t1     = std::chrono::steady_clock::now();
-        // t1-t0の結果がnanosecondとは限らないのでキャスト
+        // t1-t0の結果がnanosecondとは限らないので要キャスト
         const auto update_ns =
             std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
-
+        // GameLikeTotalsが引数で渡されたら集計
         if(totals_out){
             AccumulateTick(*totals_out, events);
         }
@@ -497,33 +503,40 @@ static std::vector<Phase0TickSnapshot> RunReplayPhase(
 /**
  * @brief 3600Tick(60秒相当)のソークテスト用シナリオ
  *
- * phase0_scriptを上限なく循環させる.
- * reload完了/spawn/float更新/tick_index_の累積ズレを長時間で検出する.
+ * phase0_scriptを循環させる.
+ * reload完了/spawn/float更新/tick_index_の累積ズレを長時間実行で検証する.
  */
 class SoakScenarioSystem{
 private:
     std::size_t   current_step_  = 0;   // サイクリック(上限なし, mod参照)
     std::uint32_t tick_in_step_  = 0;
     std::uint32_t previous_held_ = 0;
-    std::uint32_t total_emitted_ = 0;
+    std::uint32_t total_emitted_ = 0;   // Tickカウント(TOTAL_TICKSとの比較で用いる)
 public:
-    static constexpr std::uint32_t TOTAL_TICKS = 3600u;    // 60秒相当
+    static constexpr std::uint32_t TOTAL_TICKS = 3600u;    // 60秒相当のTick
 
     explicit SoakScenarioSystem() = default;
 
+    /**
+     * @brief 1Tick分のInputStateを生成し内部Tickを進める
+     * 
+     */
     [[nodiscard]]
     InputState GenerateNextInput(){
         const ScenarioStep& step =
-            phase0_script[current_step_ % phase0_script.size()];
+            phase0_script[current_step_ % phase0_script.size()];    // 剰余を用いてスクリプトのインデックスを循環
 
         // 入力取得
         std::uint32_t held = step.held_bits;
-        // 12Tickごとに1TickだけShootを入力(武器システムはIsPressed=just-pressed入力で発射)
+        // 12Tickごとに1TickだけShootを入力(武器システムはIsPressed=入力されたTickでのみ発射する)
         if(step.want_shoot && tick_in_step_ % 12u == 0u){
             held |= ActionBit(zimovka::Action::Shoot);
         }
+        // 今のTickで押された & 前回押されていない(前回押されたの否定) = pressed
         const std::uint32_t pressed  = held & ~previous_held_;
+        // 前回のTickで押された & 今回押されていない(今回押されているの否定) = released
         const std::uint32_t released = previous_held_ & ~held;
+        // 前Tickの入力として保持
         previous_held_ = held;
         // シナリオを進めるか判定
         if(++tick_in_step_ >= step.duration_ticks){
@@ -568,13 +581,14 @@ TEST(GameLikePhase0Test, PlayAndReplayProduceSameStateHash){
     UpdatePipeline    play_pipeline;
     Phase0InputScript scenario{};
     RunRecorder       recorder;
-
+    // 初期化
     recorder.Start(SEED);
     play_pipeline.StartRun(WORLD_W, WORLD_H, SEED);
-
+    // 比較用のスナップショット
     GameLikeTotals play_totals{};
     const auto play_snaps = RunPlayPhase(play_pipeline, scenario, &recorder, &play_totals);
 
+    // RunRecorder停止
     recorder.Stop();
     ASSERT_FALSE(recorder.GetRecord().frames.empty())
         << "RunRecorderが空: 入力が記録されていない";
@@ -584,7 +598,7 @@ TEST(GameLikePhase0Test, PlayAndReplayProduceSameStateHash){
     // ── リプレイフェーズ ────────────────────────────────────
     // 記録したシード値を取得するためのrecord
     const auto& record = recorder.GetRecord();
-    // 記録したシードが違っていたら即終了
+    // 記録したシードが違っていたら終了
     ASSERT_EQ(record.random_seed, SEED);
     UpdatePipeline replay_pipeline;
     // ここでSEEDを使うのはNG
@@ -632,14 +646,14 @@ TEST(GameLikePhase0Test, PlayAndReplayProduceSameStateHash){
             << "shot_fired 不一致 tick=" << p.tick;
     }
 
-    // ── 累積値: 非ゼロ検証 (両方ゼロでの偽陰性を排除) ────────
+    // ── 累積値による非ゼロ検証(両方ゼロによる偽陰性を排除) ────────
     EXPECT_GT(play_totals.shots_fired,      0u) << "1発も発射されなかった(偽陰性の恐れ)";
     EXPECT_GT(play_totals.reload_started,   0u) << "一度もリロード開始しなかった";
     EXPECT_GT(play_totals.reload_completed, 0u) << "一度もリロード完了しなかった";
     // NOTE: enemy_kills は SpawnPhase0EnemyIfNeeded()の乱数依存で360tickでは保証困難
     //       → 撃破ゼロ検証は SoakTest_3600Ticks で実施する
 
-    // ── 累積値: Play == Replay ──────────────────────────────
+    // ── 累積値比較 ──────────────────────────────
     EXPECT_EQ(play_totals.shots_fired,      replay_totals.shots_fired)
         << "shots_fired 累積値が不一致";
     EXPECT_EQ(play_totals.reload_started,   replay_totals.reload_started)
@@ -656,25 +670,42 @@ TEST(GameLikePhase0Test, PlayAndReplayProduceSameStateHash){
     // ──── タイミング統計(処理時間は比較せず参考値として記録のみ) ────
     {
         std::vector<std::int64_t> play_ns, replay_ns;
+        // スナップショット分の容量取得
         play_ns.reserve(play_snaps.size());
         replay_ns.reserve(replay_snaps.size());
+        // スナップショットからupdate_nsの値を取り出して格納する
         for(const auto& s : play_snaps)   play_ns.push_back(s.update_ns);
         for(const auto& s : replay_snaps) replay_ns.push_back(s.update_ns);
-
+        // 統計値の計算
         const auto ps = test_util::TimingStats::Compute(play_ns);
         const auto rs = test_util::TimingStats::Compute(replay_ns);
 
+        // Play
         RecordProperty("gamelike_play_avg_us",    ps.avg_ns / 1000);
-        RecordProperty("gamelike_play_p55_us",    ps.p55_ns / 1000);
+        RecordProperty("gamelike_play_p95_us",    ps.p95_ns / 1000);
         RecordProperty("gamelike_play_p99_us",    ps.p99_ns / 1000);
         RecordProperty("gamelike_play_max_us",    ps.max_ns / 1000);
+        // Replay
         RecordProperty("gamelike_replay_avg_us",  rs.avg_ns / 1000);
-        RecordProperty("gamelike_replay_p55_us",  rs.p55_ns / 1000);
+        RecordProperty("gamelike_replay_p95_us",  rs.p95_ns / 1000);
         RecordProperty("gamelike_replay_p99_us",  rs.p99_ns / 1000);
         RecordProperty("gamelike_replay_max_us",  rs.max_ns / 1000);
+
         RecordProperty("play_shots_fired",     static_cast<int>(play_totals.shots_fired));
         RecordProperty("play_enemy_kills",     static_cast<int>(play_totals.enemy_kills));
         RecordProperty("play_reload_complete", static_cast<int>(play_totals.reload_completed));
+        test_util::AppendTimingCSV(
+            "bench_results/timing.csv",                 // path
+            "GameLikePhase0Test",                       // suite
+            "PlayAndReplayProduceSameStateHash/play",   // test_name
+            ps
+        );
+        test_util::AppendTimingCSV(
+            "bench_results/timing.csv",
+            "GameLikePhase0Test",
+            "PlayAndReplayProduceSameStateHash/replay",
+            rs
+        );
         // 1tick(全ゲームロジック)が2ms以内であること
         EXPECT_LT(ps.p99_ns, 2'000'000LL) << "play p99 > 2ms: Game-likeが重すぎる";
         EXPECT_LT(rs.p99_ns, 2'000'000LL) << "replay p99 > 2ms: Game-likeが重すぎる";
@@ -696,11 +727,12 @@ TEST(GameLikePhase0Test, SameSeedProducesSameStateHash){
         pipeline.StartRun(WORLD_W, WORLD_H, SEED);
         return RunPlayPhase(pipeline, scenario, nullptr);
     };
-    // 2回同一のseedでゲームプレイを実行
+    // 2回同一のseedで2Tick分ゲームプレイを実行
     const auto snaps1 = RunOnce();
     const auto snaps2 = RunOnce();
 
     ASSERT_EQ(snaps1.size(), snaps2.size());
+    // 1回目と2回目の累積ハッシュ値を比較
     for(std::size_t i = 0; i < snaps1.size(); ++i){
         EXPECT_EQ(snaps1[i].state_hash, snaps2[i].state_hash)
             << "2回目のstate_hash不一致 tick=" << snaps1[i].tick;
@@ -720,7 +752,7 @@ TEST(GameLikePhase0Test, ScenarioRunsExactly360Ticks){
     // TotalTicksと一致するか
     EXPECT_EQ(Phase0InputScript::TotalTicks(), 360u);
 
-    while (!scenario.IsFinished()){
+    while(!scenario.IsFinished()){
         // 入力生成のみ(UpdatePipelineは使わない)
         (void)scenario.GenerateNextInput();
         ++count;
@@ -736,21 +768,23 @@ TEST(GameLikePhase0Test, ScenarioRunsExactly360Ticks){
  */
 TEST(GameLikePhase0Test, RecordedInputRoundTrip){
     constexpr DeterministicRng::Seed SEED = 7u;
-    constexpr std::uint32_t TICKS = 30u; // 短縮版: 30 tick だけ確認
+    constexpr std::uint32_t TICKS = 30u; // 短縮版なので30Tickだけ確認
 
     Phase0InputScript scenario{};
     RunRecorder       recorder;
-
+    // RunRecorder開始
     recorder.Start(SEED);
 
     std::vector<InputState> recorded_inputs;
-    recorded_inputs.reserve(TICKS);
+    recorded_inputs.reserve(TICKS); // TICKS分領域確保
     // 30回ループして入力を記録する
     for(std::uint32_t t = 0; t < TICKS; ++t){
+        // シナリオスクリプトから入力を取得
         const InputState input = scenario.GenerateNextInput();
         recorded_inputs.push_back(input);
         recorder.Record(input);
     }
+    // RunRecorder停止
     recorder.Stop();
     // 上記ループで記録した入力を取り出して検証する
     RunPlayback playback;
@@ -758,15 +792,15 @@ TEST(GameLikePhase0Test, RecordedInputRoundTrip){
         playback.Start(recorder.GetRecord()),
         PlaybackStartResult::Started
     );
-
+    // Play/Replayで一致しているか検証
     for(std::uint32_t t = 0; t < TICKS; ++t){
         const auto opt = playback.ConsumeNextInput();
         ASSERT_TRUE(opt.has_value()) << "t=" << t;
 
         // RECORD_ACTION_MASKでマスクされるのでゲームプレイ用ビットのみ比較
-        EXPECT_EQ(opt->GetHeldBits(),    recorded_inputs[t].GetHeldBits())
+        EXPECT_EQ(opt->GetHeldBits(),     recorded_inputs[t].GetHeldBits())
             << "held_bits 不一致 t=" << t;
-        EXPECT_EQ(opt->GetPressedBits(), recorded_inputs[t].GetPressedBits())
+        EXPECT_EQ(opt->GetPressedBits(),  recorded_inputs[t].GetPressedBits())
             << "pressed_bits 不一致 t=" << t;
         EXPECT_EQ(opt->GetReleasedBits(), recorded_inputs[t].GetReleasedBits())
             << "released_bits 不一致 t=" << t;
@@ -792,7 +826,7 @@ TEST(GameLikePhase0Test, RecordedInputRoundTrip){
 TEST(GameLikePhase0Test, RecordedInput_ReleasedBits_RoundTrip){
     const std::uint32_t R = ActionBit(zimovka::Action::MoveRight);
     const std::uint32_t L = ActionBit(zimovka::Action::MoveLeft);
-
+    // リリースが発生する入力
     const std::array<InputState, 3> hand_inputs = {{
         InputState::FromBits(R, R, 0u),     // tick0: press R
         InputState::FromBits(L, L, R),      // tick1: press L / release R
@@ -804,7 +838,7 @@ TEST(GameLikePhase0Test, RecordedInput_ReleasedBits_RoundTrip){
     ASSERT_EQ(hand_inputs[1].GetReleasedBits(), R)  << "tick1: MoveRight released 想定";
     ASSERT_EQ(hand_inputs[2].GetReleasedBits(), L)  << "tick2: MoveLeft  released 想定";
 
-    // R押下→R離す，L押下→L離すを記録j
+    // R押下→R離す，L押下→L離すを記録
     RunRecorder recorder;
     recorder.Start(0u);
     for(const auto& inp : hand_inputs){
@@ -815,7 +849,7 @@ TEST(GameLikePhase0Test, RecordedInput_ReleasedBits_RoundTrip){
     // 上記入力の記録を再現して検証
     RunPlayback playback;
     ASSERT_EQ(playback.Start(recorder.GetRecord()), PlaybackStartResult::Started);
-
+    // 上記の入力vector分ループ
     for(std::size_t t = 0; t < hand_inputs.size(); ++t){
         const auto opt = playback.ConsumeNextInput();
         ASSERT_TRUE(opt.has_value()) << "t=" << t;
@@ -846,16 +880,17 @@ TEST(GameLikePhase0Test, SoakTest_3600Ticks){
     constexpr DeterministicRng::Seed SEED = 777u;
 
     // ── プレイフェーズ ──────────────────────────────────────
-    UpdatePipeline   play_pipeline;
+    UpdatePipeline     play_pipeline;
     SoakScenarioSystem scenario{};
-    RunRecorder      recorder;
-
+    RunRecorder        recorder;
+    // RunRecorder開始
     recorder.Start(SEED);
     play_pipeline.StartRun(WORLD_W, WORLD_H, SEED);
 
-    GameLikeTotals             play_totals{};
-    std::vector<Phase0TickSnapshot> play_snaps =
-        RunPlayPhase(play_pipeline, scenario, &recorder, &play_totals);
+    // スナップショット取得
+    GameLikeTotals play_totals{};
+    const auto play_snaps = RunPlayPhase(play_pipeline, scenario, &recorder, &play_totals);
+    // RunRecorder停止
     recorder.Stop();
 
     ASSERT_EQ(play_snaps.size(), SoakScenarioSystem::TOTAL_TICKS)
@@ -874,25 +909,27 @@ TEST(GameLikePhase0Test, SoakTest_3600Ticks){
     // 記録したシードが違っていたら即終了
     ASSERT_EQ(record.random_seed, SEED);
     
+    // リプレイ開始
     UpdatePipeline replay_pipeline;
     replay_pipeline.StartRun(WORLD_W, WORLD_H, record.random_seed);
-
+    // リプレイが開始しているか
     RunPlayback playback;
     ASSERT_EQ(playback.Start(recorder.GetRecord()), PlaybackStartResult::Started);
+    // リプレイのスナップショット取得
+    GameLikeTotals replay_totals{};
+    const auto replay_snaps = RunReplayPhase(replay_pipeline, playback, &replay_totals);
 
-    GameLikeTotals             replay_totals{};
-    std::vector<Phase0TickSnapshot> replay_snaps =
-        RunReplayPhase(replay_pipeline, playback, &replay_totals);
-
-    // ── 比較フェーズ ────────────────────────────────────────
+    // ── 比較フェーズ std::vector<Phase0TickSnapshot>───────────────────────
     ASSERT_EQ(play_snaps.size(), replay_snaps.size())
-        << "ソークPlay/ReplayでTick数が異なる";
-
+        << "ソークテストでのPlay/ReplayでTick数が異なる";
+    // スナップショット比較
     for(std::size_t i = 0; i < play_snaps.size(); ++i){
         EXPECT_EQ(play_snaps[i].state_hash, replay_snaps[i].state_hash)
             << "state_hash 不一致 tick=" << play_snaps[i].tick;
         // 最初の不一致で詳細を出して以降は省略
-        if(play_snaps[i].state_hash != replay_snaps[i].state_hash) break;
+        if(play_snaps[i].state_hash != replay_snaps[i].state_hash){
+            break;
+        }
     }
 
     // 累積値一致確認
@@ -911,18 +948,26 @@ TEST(GameLikePhase0Test, SoakTest_3600Ticks){
 
     // ──── タイミング統計(3600tick) ────
     {
+        // 処理時間記録用
         std::vector<std::int64_t> play_ns;
         play_ns.reserve(play_snaps.size());
+        // スナップショットから時刻を取得
         for(const auto& s : play_snaps) play_ns.push_back(s.update_ns);
-
+        // 統計値計算
         const auto ps = test_util::TimingStats::Compute(play_ns);
         RecordProperty("soak_avg_us",  ps.avg_ns / 1000);
-        RecordProperty("soak_p55_us",  ps.p55_ns / 1000);
+        RecordProperty("soak_p95_us",  ps.p95_ns / 1000);
         RecordProperty("soak_p99_us",  ps.p99_ns / 1000);
         RecordProperty("soak_max_us",  ps.max_ns / 1000);
         RecordProperty("soak_shots_fired",     static_cast<int>(play_totals.shots_fired));
         RecordProperty("soak_enemy_kills",     static_cast<int>(play_totals.enemy_kills));
         RecordProperty("soak_reload_complete", static_cast<int>(play_totals.reload_completed));
+        test_util::AppendTimingCSV(
+            "bench_results/timing.csv",
+            "GameLikePhase0Test",
+            "SoakTest_3600Ticks",
+            ps
+        );
         EXPECT_LT(ps.p99_ns, 2'000'000LL) << "soak p99 > 2ms: Game-likeが重すぎる";
     }
 }
@@ -943,6 +988,7 @@ TEST(GameLikePhase0Test, SoakTest_3600Ticks){
  *       (敵位置・プレイヤー位置など)がシードの違いで異なることを検証する
  */
 TEST(GameLikePhase0Test, SameInput_DifferentGameplaySeed_DifferentState){
+    // 異なるシード値を用意
     constexpr DeterministicRng::Seed SEED_A = 100u;
     constexpr DeterministicRng::Seed SEED_B = 200u;
 
@@ -951,6 +997,7 @@ TEST(GameLikePhase0Test, SameInput_DifferentGameplaySeed_DifferentState){
     Phase0InputScript scenario{};
     RunRecorder       recorder;
 
+    // SEED_Aでゲームプレイ
     recorder.Start(SEED_A);
     play_pipeline.StartRun(WORLD_W, WORLD_H, SEED_A);
     (void)RunPlayPhase(play_pipeline, scenario, &recorder);
@@ -958,20 +1005,23 @@ TEST(GameLikePhase0Test, SameInput_DifferentGameplaySeed_DifferentState){
 
     ASSERT_FALSE(recorder.GetRecord().frames.empty());
 
-    // ── リプレイ A: 同じシード ──────────────────────────────
+    // ── リプレイ A: 同じシードSEED_A ──────────────────────────────
+    // 上記のゲームプレイと同等になる想定
     UpdatePipeline replay_a;
     replay_a.StartRun(WORLD_W, WORLD_H, SEED_A);
     RunPlayback playback_a;
     ASSERT_EQ(playback_a.Start(recorder.GetRecord()), PlaybackStartResult::Started);
     const auto snaps_a = RunReplayPhase(replay_a, playback_a);
 
-    // ── リプレイ B: 異なるシード(同じ入力列) ────────────────
+    // ── リプレイ B: 異なるシードSEED_Bだが入力は同じ ────────────────
+    // 乱数によって結果が変わる想定
     UpdatePipeline replay_b;
     replay_b.StartRun(WORLD_W, WORLD_H, SEED_B);
     RunPlayback playback_b;
     ASSERT_EQ(playback_b.Start(recorder.GetRecord()), PlaybackStartResult::Started);
     const auto snaps_b = RunReplayPhase(replay_b, playback_b);
-
+    
+    // 乱数シードが異なるだけなので，サイズは同じはず
     ASSERT_EQ(snaps_a.size(), snaps_b.size());
 
     // world_hash(RNG除外)で比較: ゲームワールドが実際に異なることを検証

@@ -1,0 +1,37 @@
+==84675== Memcheck, a memory error detector
+==84675== Copyright (C) 2002-2022, and GNU GPL'd, by Julian Seward et al.
+==84675== Using Valgrind-3.22.0 and LibVEX; rerun with -h for copyright info
+==84675== Command: ./bin/zimovka
+==84675== Parent PID: 12838
+==84675== 
+==84675== 
+==84675== HEAP SUMMARY:
+==84675==     in use at exit: 322,814 bytes in 3,807 blocks
+==84675==   total heap usage: 161,005 allocs, 157,198 frees, 45,960,704 bytes allocated
+==84675== 
+==84675== 6,956 (232 direct, 6,724 indirect) bytes in 1 blocks are definitely lost in loss record 3,025 of 3,030
+==84675==    at 0x484D953: calloc (in /usr/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==84675==    by 0x5F9C232: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x5FA4587: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x5FA689D: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x5F96872: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x5F8228D: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x5F836F0: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x4A1E9D2: SDL_DBus_Init_Spinlocked (SDL_dbus.c:153)
+==84675==    by 0x4A1E9D2: SDL_DBus_Init (SDL_dbus.c:175)
+==84675==    by 0x48A3001: SDL_InitSubSystem_REAL.part.0 (SDL.c:225)
+==84675==    by 0x11181A: zimovka::SdlContext::Core::Core() (SdlContext.cpp:18)
+==84675==    by 0x110066: zimovka::SdlContext::SdlContext() (SdlContext.hpp:50)
+==84675==    by 0x10EE39: zimovka::Application::Run(int, char**) (Application.cpp:30)
+==84675== 
+==84675== LEAK SUMMARY:
+==84675==    definitely lost: 232 bytes in 1 blocks
+==84675==    indirectly lost: 6,724 bytes in 44 blocks
+==84675==      possibly lost: 0 bytes in 0 blocks
+==84675==    still reachable: 313,842 bytes in 3,741 blocks
+==84675==         suppressed: 0 bytes in 0 blocks
+==84675== Reachable blocks (those to which a pointer was found) are not shown.
+==84675== To see them, rerun with: --leak-check=full --show-leak-kinds=all
+==84675== 
+==84675== For lists of detected and suppressed errors, rerun with: -s
+==84675== ERROR SUMMARY: 1 errors from 1 contexts (suppressed: 0 from 0)

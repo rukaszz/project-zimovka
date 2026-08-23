@@ -27,7 +27,11 @@ using zimovka::SimulationConfig::FIXED_DELTA_SECONDS;
 using zimovka::Player;
 using zimovka::Vec2;
 
-namespace {
+/**
+ * @brief 定常試験
+ * 
+ */
+namespace{
 
 constexpr float  WORLD_WIDTH  = 960.0f;
 constexpr float  WORLD_HEIGHT = 720.0f;
@@ -35,7 +39,7 @@ constexpr float  WORLD_HEIGHT = 720.0f;
 /**
  * @brief 敵出現用ヘルパ関数
  * 
- * @param pos：指定できるように 
+ * @param pos
  * @param hp 
  * @return EnemySpawnParams 
  */
@@ -161,10 +165,11 @@ TEST(SteadyTest, ActiveCountsAndStatsAreStableFor600Ticks){
     const Enemy*  enemy_data         = enemies.GetEnemies().data();
 
     // ──── 600Tick定常負荷試験 ────
-    std::vector<std::int64_t> tick_ns;
-    tick_ns.reserve(600);
+    std::vector<std::int64_t> tick_ns;  // 時刻計測用vector
+    tick_ns.reserve(600);               // 600Tick分確保 → 600Tick分
 
     for(std::size_t tick = 0; tick < 600; ++tick){
+        // 計測開始
         const auto t0 = std::chrono::steady_clock::now();
 
         collision_system.InitializeStatsAtBeginTick();
@@ -181,8 +186,11 @@ TEST(SteadyTest, ActiveCountsAndStatsAreStableFor600Ticks){
         // 自機弾と敵の衝突解決
         const EnemyHitEvents hits =
             collision_system.ResolvePlayerBulletsVsEnemies(player_bullets, enemies);
-
+        
+        // 計測終了
         const auto t1 = std::chrono::steady_clock::now();
+
+        // 処理にかかった時刻をvectorへ格納
         tick_ns.push_back(
             std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count()
         );
@@ -222,10 +230,17 @@ TEST(SteadyTest, ActiveCountsAndStatsAreStableFor600Ticks){
 
     // ──── タイミング統計(600tick) ────
     const auto stats = test_util::TimingStats::Compute(tick_ns);
+    // ※RecordPropertyはテストレポート出力を記録するためのgtestメンバ関数
     RecordProperty("steady_avg_us",  stats.avg_ns / 1000);
-    RecordProperty("steady_p55_us",  stats.p55_ns / 1000);
+    RecordProperty("steady_p95_us",  stats.p95_ns / 1000);
     RecordProperty("steady_p99_us",  stats.p99_ns / 1000);
     RecordProperty("steady_max_us",  stats.max_ns / 1000);
+    test_util::AppendTimingCSV(
+        "bench_results/timing.csv",
+        "SteadyTest",
+        "ActiveCountsAndStatsAreStableFor600Ticks",
+        stats
+    );
     // 1tick(1200敵弾+100自機弾+10敵のUpdate+衝突2種)が5ms以内であること
     EXPECT_LT(stats.p99_ns, 5'000'000LL) << "p99 > 5ms: 定常負荷が重すぎる";
 
