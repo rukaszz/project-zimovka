@@ -2,6 +2,7 @@
 *.make
 /CMakeFiles/*
 /build/*
+/build_release/*
 /bin/*
 /_deps/*
 /lib/*

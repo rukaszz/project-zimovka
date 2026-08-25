@@ -28,7 +28,7 @@ struct RecordedInputFrame{
  */
 struct RunRecord{
     std::uint32_t format_version = RUN_RECORD_FORMAT_VERSION;   // フォーマットのバージョン(リプレイ時の判別用)
-    std::uint32_t simulation_hz  = zimovka::SimulationConfig::SIMULATION_HZ;   // 記録時のゲームの想定fps
+    std::uint32_t simulation_hz  = zimovka::SimulationConfig::SIMULATION_HZ;    // 固定simulation tick rate
     std::uint32_t rng_version    = GAMEPLAY_RNG_VERSION;
     std::uint32_t random_seed    = 0;
     bool frame_limit_reached     = false; // 記録の終了地点を示す

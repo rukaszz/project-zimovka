@@ -18,7 +18,6 @@ void RunRecorder::Start(std::uint32_t seed, std::size_t reserve_frames){
     record_.simulation_hz = zimovka::SimulationConfig::SIMULATION_HZ;
     record_.random_seed = seed;
 
-    record_.random_seed = seed;
     // キャパシティはMAX_RECORD_FRAMEを上限とする
     const std::size_t cap = std::min(
         reserve_frames,
@@ -69,9 +68,11 @@ void RunRecorder::Stop() noexcept{
  */
 void RunRecorder::Clear() noexcept{
     recording_ = false;
-    record_.format_version = RUN_RECORD_FORMAT_VERSION; // RunRecordで定義
-    record_.simulation_hz = zimovka::SimulationConfig::SIMULATION_HZ;
-    record_.random_seed = 0;
+
+    record_.rng_version         = GAMEPLAY_RNG_VERSION; // 契約として明示的に初期化
+    record_.format_version      = RUN_RECORD_FORMAT_VERSION; // RunRecordで定義
+    record_.simulation_hz       = zimovka::SimulationConfig::SIMULATION_HZ;
+    record_.random_seed         = 0;
     record_.frame_limit_reached = false;
     // capacityは維持して空にする
     record_.frames.clear();

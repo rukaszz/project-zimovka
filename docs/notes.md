@@ -1535,3 +1535,168 @@ GameLikePhase0Test,SoakTest_3600Ticks,3600,15,15,20,41
 Release(-O2)のオプションをつけるため，5〜10倍程度の改善が見込まれる．
 p99/avg ≈ 2倍以上はOSのスケジューリングジッタ(ばらつき)，
 max/p99 ≈ 3倍以上はキャッシュウォームアップによるスパイクが主因と思われる．
+
+### 2026/08/23
+
+#### Valgrindの実行
+
+phase 0クローズのためValgrindを実行した．実行結果は次の通り：
+
+```text
+==84675== 6,956 (232 direct, 6,724 indirect) bytes in 1 blocks are definitely lost in loss record 3,025 of 3,030
+==84675==    at 0x484D953: calloc (in /usr/libexec/valgrind/vgpreload_memcheck-amd64-linux.so)
+==84675==    by 0x5F9C232: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x5FA4587: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x5FA689D: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x5F96872: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x5F8228D: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x5F836F0: ??? (in /usr/lib/x86_64-linux-gnu/libdbus-1.so.3.32.4)
+==84675==    by 0x4A1E9D2: SDL_DBus_Init_Spinlocked (SDL_dbus.c:153)
+==84675==    by 0x4A1E9D2: SDL_DBus_Init (SDL_dbus.c:175)
+==84675==    by 0x48A3001: SDL_InitSubSystem_REAL.part.0 (SDL.c:225)
+==84675==    by 0x11181A: zimovka::SdlContext::Core::Core() (SdlContext.cpp:18)
+==84675==    by 0x110066: zimovka::SdlContext::SdlContext() (SdlContext.hpp:50)
+==84675==    by 0x10EE39: zimovka::Application::Run(int, char**) (Application.cpp:30)
+```
+
+簡単な流れとしては，calloc→libdbus-1.so→SDL_DBus_Initと続く．
+
+> ==84675== LEAK SUMMARY:
+> ==84675==    definitely lost: 232 bytes in 1 blocks
+> ==84675==    indirectly lost: 6,724 bytes in 44 blocks
+
+とあるように，完全にcleanではないがこれは前作のTheMysteriousForestでも発生した事象であり，SDL起因のメモリリークである．
+zimovkaで取り逃がしたメモリではないため，プロジェクトコード起因のリークではないとする．
+
+### 2026/08/26
+
+#### CMakeListsの整理
+
+現状のCMakeLists.txtは3箇所存在する→root/tests/integration_tests．
+フェーズ0の段階ではまだ問題ないが，今後TextureやAudioなどの要素が増えると管理や同期がどんどん煩雑になる．
+
+そのためcppファイルを各所に記述しなくて良いように，原則rootのCMakeLists.txtをまとめて変数化し，それをテスト用のCMakeLists.txtへ適用する．
+
+root/CMakeLists.txt：
+
+```cmake
+add_executable(${PROJECT_NAME}
+    src/main.cpp
+    src/app/Application.cpp
+    src/core/DeterministicRng.cpp
+    src/platform/SdlContext.cpp
+    src/platform/Window.cpp
+    src/rendering/Renderer.cpp
+    src/rendering/PrimitiveRenderer.cpp
+    src/rendering/TextTexture.cpp
+    src/input/InputState.cpp
+    src/input/InputSystem.cpp
+    src/systems/player/PlayerSystem.cpp
+    src/systems/player/PlayerWeaponSystem.cpp
+    src/systems/bullet/BulletSystem.cpp
+    src/systems/collision/CollisionSystem.cpp
+    src/systems/enemy/EnemySystem.cpp
+    src/engine/update/UpdatePipeline.cpp
+    src/debug/DebugOverlay.cpp
+    src/replay/RunRecorder.cpp
+)
+```
+
+これまでは`add_executable(${PROJECT_NAME}...`にソースファイルを列記していたが，それを修正してソースごとに変数化している．具体的には次の通り：
+
+- ZIMOVKA_CORE_SOURCES
+  - ゲームシステムの本体部分
+  - SDLに直接依存しないシステムが該当する
+- ZIMOVKA_ENGINE_SOURCES
+  - ゲームのエンジン部分
+  - ゲーム実行に関係する処理を行うファイルを記述する
+- ZIMOVKA_APP_SOURCES
+  - ゲームシステムと密接に結びつくロジック部分
+  - SDLの呼び出しなど密接に依存しているソースも対象
+
+```cmake
+# ──────────────────────────────────────────────────────
+# ソースファイルの分類
+# ──────────────────────────────────────────────────────
+
+# ── ゲームシステム本体(CORE) ──────────────────────────
+# SDL不要・テスト可能なゲームシステム群
+# 新しいシステムクラスを追加したらここに1行追記するだけでOK
+# unit tests/integration tests/zimovka本体のそれぞれに適用される
+set(ZIMOVKA_CORE_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/core/DeterministicRng.cpp
+    ${CMAKE_SOURCE_DIR}/src/input/InputState.cpp
+    ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/bullet/BulletSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerWeaponSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/enemy/EnemySystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/replay/RunRecorder.cpp
+)
+
+# ── エンジン層(ENGINE) ────────────────────────────────
+# UpdatePipeline + リプレイ系
+# unit testでは不要/複合試験・本体で使用する
+set(ZIMOVKA_ENGINE_SOURCES
+    ${CMAKE_SOURCE_DIR}/src/engine/update/UpdatePipeline.cpp
+)
+
+# ── 本体専用ソース(SDL依存・テスト対象外) ──────────────
+# InputSystem(SDL events), Platform/Rendering/App/Debug層
+# 原則zimovka本体で使う
+set(ZIMOVKA_APP_SOURCES
+    src/input/InputSystem.cpp
+    src/platform/SdlContext.cpp
+    src/platform/Window.cpp
+    src/rendering/Renderer.cpp
+    src/rendering/TextTexture.cpp
+    src/app/Application.cpp
+    src/debug/DebugOverlay.cpp
+)
+
+# ── 本体ビルド ────────────────────────────────────────
+add_executable(${PROJECT_NAME}
+    src/main.cpp
+    ${ZIMOVKA_CORE_SOURCES}
+    ${ZIMOVKA_ENGINE_SOURCES}
+    ${ZIMOVKA_APP_SOURCES}
+)
+```
+
+この定義した変数は，各テスト用のCMakeLists.txtへ記述する．
+
+tests/CMakeLists.txt
+
+```cmake
+# ビルドする実行ファイル設定
+add_executable(zimovka_tests
+    test_Vec2.cpp
+    test_InputState.cpp
+    test_InputSystem.cpp
+    test_BulletSystem.cpp
+    test_EnemySystem.cpp
+    test_PlayerSystem.cpp
+    test_Collision.cpp
+    test_DebugAccumulator.cpp
+    test_RunRecorder.cpp
+    test_PlayerWeaponSystem.cpp
+    test_DeterministicRng.cpp
+    ${ZIMOVKA_CORE_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/input/InputSystem.cpp
+)
+```
+
+integration_tests/CMakeLists.txt
+
+```cmake
+# 複合試験ソースの指定
+add_executable(zimovka_integration_tests
+    test_phase0_steady_integration.cpp
+    test_phase0_churn_integration.cpp
+    test_phase0_gamelike_integration.cpp
+    ${ZIMOVKA_CORE_SOURCES}
+    ${ZIMOVKA_ENGINE_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/replay/RunPlayback.cpp
+)
+```

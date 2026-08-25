@@ -23,7 +23,7 @@ class PrimitiveRenderer;
 class Application{
 public:
     // ターゲットFPSと1フレームの目標時間(ms)
-    static constexpr int   TARGET_FPS     = 60;
+    static constexpr int   TARGET_RENDER_FPS    = 60;
     static constexpr int   MAX_UPDATE_PER_FRAME = 5;
     // 画面サイズ
     static constexpr float WINDOW_WIDTH  = 960;

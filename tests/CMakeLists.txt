@@ -1,25 +1,13 @@
 # ──────────────────────────────────────────────────────
+# 単体試験(Unit Tests)
 # GoogleTestはルートCMakeLists.txtでFetchContent済み
 # ──────────────────────────────────────────────────────
-# テスト対象ソース
-# main.cpp/SdlContext/Window/Renderer/DebugOverlayなど
-# SDL初期化が必要なファイルは除外する
-# PrimitiveRenderer.cppのリンクは
-# BulletSystem.cppとPlayerSystem.cppがPrimitiveRenderer.hppを
-# インクルードするため含めている
+# ZIMOVKA_CORE_SOURCESはルートCMakeLists.txtで定義済み
+# (SDL不要なゲームシステム群は参照するだけ)
+#
+# InputSystem.cpp はSDL events依存でCOREに含めていないため
+# unit testターゲットのみに個別追加する
 # ──────────────────────────────────────────────────────
-set(ZIMOVKA_TEST_SOURCES
-    ${CMAKE_SOURCE_DIR}/src/input/InputState.cpp
-    ${CMAKE_SOURCE_DIR}/src/input/InputSystem.cpp
-    ${CMAKE_SOURCE_DIR}/src/systems/bullet/BulletSystem.cpp
-    ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
-    ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerWeaponSystem.cpp
-    ${CMAKE_SOURCE_DIR}/src/systems/enemy/EnemySystem.cpp
-    ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
-    ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
-    ${CMAKE_SOURCE_DIR}/src/replay/RunRecorder.cpp
-    ${CMAKE_SOURCE_DIR}/src/core/DeterministicRng.cpp
-)
 
 # ビルドする実行ファイル設定
 add_executable(zimovka_tests
@@ -34,7 +22,8 @@ add_executable(zimovka_tests
     test_RunRecorder.cpp
     test_PlayerWeaponSystem.cpp
     test_DeterministicRng.cpp
-    ${ZIMOVKA_TEST_SOURCES}
+    ${ZIMOVKA_CORE_SOURCES}
+    ${CMAKE_SOURCE_DIR}/src/input/InputSystem.cpp
 )
 
 # インクルードパス(親CMakeLists.txtでpkg_check_modulesが実行済みなので変数が使える)

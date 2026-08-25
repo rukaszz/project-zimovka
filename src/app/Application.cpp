@@ -5,12 +5,14 @@
 
 #include <SDL2/SDL.h>
 
+#include "zimovka/config/SimulationConfig.hpp"
 #include "zimovka/events/GameplayTickEvents.hpp"
+#include "zimovka/input/Action.hpp"
 #include "zimovka/platform/SdlContext.hpp"
 #include "zimovka/platform/Window.hpp"
 #include "zimovka/rendering/Renderer.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
-#include "zimovka/input/Action.hpp"
+
 #include "zimovka/debug/DebugOverlay.hpp"
 
 namespace zimovka{
@@ -54,11 +56,9 @@ int Application::Run(int argc, char* argv[]){
     using Clock = std::chrono::steady_clock;
 
     // float精度の1/60
-    const float fixed_delta = 1.0f / static_cast<float>(TARGET_FPS);
+    const float fixed_delta = 1.0f / static_cast<float>(SimulationConfig::FIXED_DELTA_SECONDS);
     // 精度を保証しつつナノ秒単位の1/60を取得
-    const auto fixed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::duration<float>(fixed_delta)
-    );
+    const auto fixed_ns = SimulationConfig::FIXED_STEP;
     // 1/60 * 5 を更新遅延時の最大更新数とする
     const auto max_acc = fixed_ns * MAX_UPDATE_PER_FRAME;
 
@@ -232,7 +232,7 @@ void Application::CapFrameRate(std::chrono::steady_clock::time_point frame_start
     using ms    = std::chrono::milliseconds;
 
     // 1フレームの目標時間をナノ秒で表現(整数演算なので精度劣化がない)
-    constexpr ns TARGET_NS{1'000'000'000LL / TARGET_FPS};   // 16,666,666 ns
+    constexpr ns TARGET_NS{1'000'000'000LL / TARGET_RENDER_FPS};   // 16,666,666 ns
 
     // ナノ秒単位の経過時間(現在時刻 - ループ開始時刻)
     const ns elapsed = Clock::now() - frame_start;

@@ -1,0 +1,6 @@
+suite,test,count,avg_us,p95_us,p99_us,max_us
+SteadyTest,ActiveCountsAndStatsAreStableFor600Ticks,600,10,12,13,29
+CollisionChurnTest,SpawnCollideRespawnIsStableFor1000Cycles,1000,0,0,0,1
+GameLikePhase0Test,PlayAndReplayProduceSameStateHash/play,360,2,4,4,12
+GameLikePhase0Test,PlayAndReplayProduceSameStateHash/replay,360,1,1,1,1
+GameLikePhase0Test,SoakTest_3600Ticks,3600,0,0,1,7
