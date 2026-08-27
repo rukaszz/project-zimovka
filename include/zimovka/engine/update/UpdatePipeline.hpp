@@ -8,6 +8,8 @@
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/collision/CollisionSystem.hpp"
 #include "zimovka/systems/enemy/EnemySystem.hpp"
+#include "zimovka/systems/pattern/PatternDefinition.hpp"
+#include "zimovka/systems/pattern/PatternSystem.hpp"
 #include "zimovka/systems/player/PlayerSystem.hpp"
 #include "zimovka/systems/player/PlayerWeaponSystem.hpp"
 
@@ -38,6 +40,8 @@ private:
     // 弾プール: enemy/playerを別プールで管理する
     BulletSystem enemy_bullets_{1200};
     BulletSystem player_bullets_{100};
+    // 弾幕パターン
+    PatternSystem pattern_system_;
     // 当たり判定
     CollisionSystem collision_system_;
 

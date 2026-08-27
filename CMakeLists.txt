@@ -36,6 +36,7 @@ set(ZIMOVKA_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/input/InputState.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/bullet/BulletSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/pattern/PatternSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerWeaponSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/enemy/EnemySystem.cpp
@@ -124,3 +125,37 @@ endif()
 if(BUILD_INTEGRATION_TESTING)
     add_subdirectory(integration_tests)
 endif()
+
+# ── ビルドコマンド ────────────────────────────────────────
+## 設定
+### 初回 or CMakeLists.txt変更時
+# cmake -B build
+### integration testsを含める場合
+# cmake -B build -DBUILD_INTEGRATION_TESTING=ON
+
+## ビルド
+### 本体
+# cmake --build build --target zimovka
+
+### unit tests
+# cmake --build build --target zimovka_tests
+
+### integration tests
+# cmake --build build --target zimovka_integration_tests
+
+### 全ターゲット
+# cmake --build build
+
+# デフォルトはDebugビルドなので， -G -O0
+# リリース(-g -O2)にしたい場合は
+# cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+## Ninjaを用いて高速でビルドする場合
+### 設定（-G Ninja を追加）
+# cmake -G Ninja -B build
+
+### ビルドはそのまま（cmake --build は自動でNinjaを使う）
+# cmake --build build --target zimovka_tests
+
+# -G Ninjaオプションを使う場合はbuildディレクトリがNinjaで設定される
+# Make⇔Ninjaの変更は，buildディレクトリの削除→再設定が必要

@@ -56,7 +56,7 @@ int Application::Run(int argc, char* argv[]){
     using Clock = std::chrono::steady_clock;
 
     // float精度の1/60
-    const float fixed_delta = 1.0f / static_cast<float>(SimulationConfig::FIXED_DELTA_SECONDS);
+    const float fixed_delta = SimulationConfig::FIXED_DELTA_SECONDS;
     // 精度を保証しつつナノ秒単位の1/60を取得
     const auto fixed_ns = SimulationConfig::FIXED_STEP;
     // 1/60 * 5 を更新遅延時の最大更新数とする

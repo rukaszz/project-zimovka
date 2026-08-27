@@ -49,6 +49,9 @@ public:
     EnemyDamageResult TakeDamage(std::size_t index, std::int32_t damage);
 
     // getter
+    std::span<Enemy> GetEnemies() noexcept{
+        return enemies_;
+    }
     std::span<const Enemy> GetEnemies() const noexcept{
         return enemies_;
     }

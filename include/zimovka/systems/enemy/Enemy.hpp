@@ -31,6 +31,10 @@ struct Enemy{
 
     std::int32_t hp = 1;
 
+    // 弾発射関係
+    std::uint32_t fire_timer_ticks    = 0;  // カウントダウン
+    std::uint32_t fire_interval_ticks = 120;// デフォルトは120Tick周期
+
     // 自機弾との当たり判定用円を返す
     Circle GetHurtboxCircle() const noexcept{
         return Circle{position + hurtbox_offset, hurtbox_radius};

@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <cstddef>
+#include <numbers>
 #include <stdexcept>
 
 #include "zimovka/core/Vec2.hpp"
@@ -104,6 +105,29 @@ void UpdatePipeline::UpdatePlayer(float dt, const InputState& input){
 void UpdatePipeline::UpdateEnemy(float dt){
     SpawnEnemyTest();
     enemy_system_.Update(dt, world_width_, world_height_);
+    // 発射処理
+    for(Enemy& e : enemy_system_.GetEnemies()){
+        // 非活性は無視
+        if(!e.active){
+            continue;
+        }
+        // インターバル消費
+        if(e.fire_timer_ticks > 0){
+            --e.fire_timer_ticks;
+            continue;
+        }
+        // パターン設定
+        PatternDefinition pattern{};
+        constexpr float pi = std::numbers::pi_v<float>;
+        pattern.origin = e.position;
+        pattern.base_angle_rad = pi * 0.5f;
+        pattern.bullet_count_ = 5;
+        pattern.spread_rad = pi * 0.25f;
+        // 発射
+        (void)pattern_system_.EmitSpread(pattern, enemy_bullets_);
+        // インターバル再設定
+        e.fire_timer_ticks = e.fire_interval_ticks;
+    }
 }
 
 /**
