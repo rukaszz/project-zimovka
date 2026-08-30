@@ -30,6 +30,9 @@ public:
     const Player& GetPlayer() const noexcept{
         return player_;
     }
+    const Vec2& GetPlayerPosition() const noexcept{
+        return player_.position;
+    }
 };
 
 }   // namespace zimovka

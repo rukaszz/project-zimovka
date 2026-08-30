@@ -49,6 +49,7 @@ public:
     EnemyDamageResult TakeDamage(std::size_t index, std::int32_t damage);
 
     // getter
+    // 非constなEnemy参照用
     std::span<Enemy> GetEnemies() noexcept{
         return enemies_;
     }

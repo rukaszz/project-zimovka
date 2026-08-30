@@ -8,7 +8,7 @@
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/collision/CollisionSystem.hpp"
 #include "zimovka/systems/enemy/EnemySystem.hpp"
-#include "zimovka/systems/pattern/PatternDefinition.hpp"
+#include "zimovka/systems/pattern/PatternEmitRequest.hpp"
 #include "zimovka/systems/pattern/PatternSystem.hpp"
 #include "zimovka/systems/player/PlayerSystem.hpp"
 #include "zimovka/systems/player/PlayerWeaponSystem.hpp"
@@ -93,7 +93,6 @@ public:
 
     // ── 実装・性能試験用 ───────────────────────────────────────
     // NOTE: 将来的にはEnemySystemに移行する
-    void InitializeBulletStressTest();
     void SpawnEnemyTest();
     void SpawnPhase0EnemyIfNeeded();
 };

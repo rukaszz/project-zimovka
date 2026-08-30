@@ -80,15 +80,17 @@ bool EnemySystem::Spawn(const EnemySpawnParams& params){
         const std::size_t idx = (next_spawn_index_ + i) % array_size;
         // inactiveなenemyを発見したらactiveに
         if(!enemies_[idx].active){
-            enemies_[idx].active         = true;
-            enemies_[idx].position       = params.position;
-            enemies_[idx].velocity       = params.velocity;
-            enemies_[idx].render_size    = params.render_size;
-            enemies_[idx].hurtbox_offset = params.hurtbox_offset;
-            enemies_[idx].hurtbox_radius = params.hurtbox_radius;
-            enemies_[idx].contact_offset = params.contact_offset;
-            enemies_[idx].contact_radius = params.contact_radius;
-            enemies_[idx].hp             = params.hp;
+            enemies_[idx].active              = true;
+            enemies_[idx].position            = params.position;
+            enemies_[idx].velocity            = params.velocity;
+            enemies_[idx].render_size         = params.render_size;
+            enemies_[idx].hurtbox_offset      = params.hurtbox_offset;
+            enemies_[idx].hurtbox_radius      = params.hurtbox_radius;
+            enemies_[idx].contact_offset      = params.contact_offset;
+            enemies_[idx].contact_radius      = params.contact_radius;
+            enemies_[idx].hp                  = params.hp;
+            enemies_[idx].fire_timer_ticks    = params.fire_interval_ticks;
+            enemies_[idx].fire_interval_ticks = params.fire_interval_ticks;
             // 次のSpawn()では見つけた非活性のenemies_インデックス+1から探す
             next_spawn_index_ = (idx +1) % array_size;
             ++active_count_;
@@ -106,7 +108,7 @@ bool EnemySystem::Spawn(const EnemySpawnParams& params){
 void EnemySystem::Clear() noexcept{
     // 全ての敵をinactive
     for (Enemy& enemy : enemies_) {
-        enemy.active = false;
+        enemy = Enemy{};
     }
     // count/indexもリセット
     active_count_ = 0;

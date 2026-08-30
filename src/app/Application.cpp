@@ -50,7 +50,6 @@ int Application::Run(int argc, char* argv[]){
 
     // パイプライン初期化(内部の全サブシステムを初期化する)
     update_pipeline_.StartRun(WINDOW_WIDTH, WINDOW_HEIGHT, seed);
-    update_pipeline_.InitializeBulletStressTest();
 
     // 固定タイムステップ用クロック(steady_clockはis_steadyが保証される)
     using Clock = std::chrono::steady_clock;
@@ -200,10 +199,6 @@ void Application::ProcessEvents(){
  * @param dt 固定タイムステップ(秒)
  */
 void Application::Update(float dt, const InputState& input){
-    // 敵弾が尽きたら再生成(仮の負荷試験ロジック)
-    if(update_pipeline_.GetEnemyBullets().CountActive() <= 0){
-        update_pipeline_.InitializeBulletStressTest();
-    }
     const GameplayTickEvents events = update_pipeline_.UpdateTick(dt, input);
     (void)events;   // NOTE: のちのちSE再生などで使用する
 }

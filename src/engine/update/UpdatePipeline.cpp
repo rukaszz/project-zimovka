@@ -69,10 +69,12 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     GameplayTickEvents events{};
     // Simulation pipeline:
     // 1. Player movement
-    // 2. Weapon and projectile spawning
-    // 3. Projectile movement
-    // 4. Collision detection
-    // 5. Gameplay state resolution
+    // 2. Player weapon
+    // 3. Enemy movement
+    // 4. Enemy fire
+    // 5. Projectile movement
+    // 6. Collision
+    // 7. State resolution
     // ── 実装・性能試験用 ───────────────────────────────────────
     SpawnPhase0EnemyIfNeeded();
     // ─────────────────────────────────────────
@@ -100,6 +102,8 @@ void UpdatePipeline::UpdatePlayer(float dt, const InputState& input){
 /**
  * @brief 敵の更新
  * 
+ * NOTE: 現状は発射タイマーを書き換えるためにEnemyを非constな参照をしているが，後々修正しないといけない
+ * 
  * @param dt 
  */
 void UpdatePipeline::UpdateEnemy(float dt){
@@ -111,17 +115,22 @@ void UpdatePipeline::UpdateEnemy(float dt){
         if(!e.active){
             continue;
         }
-        // インターバル消費
-        if(e.fire_timer_ticks > 0){
-            --e.fire_timer_ticks;
+        // インターバル消費(デクリメント後に評価されることに注意)
+        if(--e.fire_timer_ticks > 0){
             continue;
         }
         // パターン設定
-        PatternDefinition pattern{};
         constexpr float pi = std::numbers::pi_v<float>;
+        PatternEmitRequest pattern{};
+        // 自機狙い弾設定
+        const Vec2 to_player = 
+            player_system_.GetPlayerPosition() - e.position;
+        // 原点→対象の向きの角度を得る(atanでは象限を区別できない)
+        const float base_angle = std::atan2(to_player.y, to_player.x);
         pattern.origin = e.position;
-        pattern.base_angle_rad = pi * 0.5f;
-        pattern.bullet_count_ = 5;
+        // pattern.base_angle_rad = pi * 0.5f;  // 非自機狙い
+        pattern.base_angle_rad = base_angle;    // 自機狙い
+        pattern.bullet_count = 5;
         pattern.spread_rad = pi * 0.25f;
         // 発射
         (void)pattern_system_.EmitSpread(pattern, enemy_bullets_);
@@ -214,20 +223,6 @@ void UpdatePipeline::Render(PrimitiveRenderer& prim) const{
     enemy_bullets_.Render(prim);
     // プレイヤー更新
     player_system_.Render(prim);
-}
-
-/**
- * @brief 弾を瞬間的に大量生成する性能試験用関数
- *
- * 呼ばれると enemy_bullets_ を満杯まで生成する
- * NOTE: 将来的には性能試験用のビルドに移行する
- */
-void UpdatePipeline::InitializeBulletStressTest(){
-    for(std::size_t i = 0; i < enemy_bullets_.GetCapacity(); ++i){
-        const float x = static_cast<float>(i % 40) * 24.0f + 12.0f;
-        const float y = static_cast<float>(i / 40) * 16.0f;
-        (void)enemy_bullets_.Spawn(Vec2{x, y}, Vec2{0.0f, 60.0f}, 3.0f);
-    }
 }
 
 /**

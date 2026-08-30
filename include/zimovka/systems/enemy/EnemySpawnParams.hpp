@@ -26,6 +26,10 @@ struct EnemySpawnParams{
     float contact_radius = 10.0f;
 
     std::int32_t hp = 1;
+
+    // 弾発射関係
+    std::uint32_t initial_fire_delay_ticks = 60;
+    std::uint32_t fire_interval_ticks      = 120;
 };
 
 }   // namespace zimovka

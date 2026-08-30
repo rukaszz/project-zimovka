@@ -5,19 +5,20 @@
 
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
-#include "zimovka/systems/pattern/PatternDefinition.hpp"
+#include "zimovka/systems/pattern/PatternEmitRequest.hpp"
 
 namespace zimovka{
 /**
- * @brief 弾幕パターンを管理するシステム
+ * @brief 指定されたパターンで弾を生成するシステム
  * 
  */
 class PatternSystem{
 public:
+    // 扇状弾
     std::size_t EmitSpread(
-        const PatternDefinition& pattern, 
+        const PatternEmitRequest& pattern, 
         BulletSystem& bullets
-    );
+    ) const noexcept;
 };
 }   // namespace zimovka
 

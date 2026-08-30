@@ -1700,3 +1700,289 @@ add_executable(zimovka_integration_tests
     ${CMAKE_SOURCE_DIR}/src/replay/RunPlayback.cpp
 )
 ```
+
+### 2026/09/29
+
+#### PatternSystemの作成
+
+Phase1の取っ掛かりとして，5way弾を発射させる．そのために，弾の広がり(Emit)などを処理するPatternSystemを作成した．EnemyはPatternSystemを持たないが，PatternSystemはEnemyが持っている発射のクールダウンなどの変数を参照する．
+
+PatternEmitRequestは現状は扇状に広がる5way弾の定義を起点に定義している．これはパターンの定義ではなく，この設定で弾を発射させる要求(request)に近い．そのため，requestという語を含めている．
+
+PatternEmitRequest.hpp
+
+```cpp
+#ifndef ZIMOVKA_SYSTEMS_PATTERN_PATTERNEMITREQUEST_HPP_
+#define ZIMOVKA_SYSTEMS_PATTERN_PATTERNEMITREQUEST_HPP_
+
+#include <cstdint>
+
+#include "zimovka/core/Vec2.hpp"
+
+namespace zimovka{
+/**
+ * @brief 発射要求する弾の各種項目の定義
+ * 
+ */
+struct PatternEmitRequest{
+    Vec2 origin{};                      // 原点座標
+    float base_angle_rad        = 0.0f; // 基準の傾き
+    std::uint32_t bullet_count = 0;     // パターンが持つ弾数
+    // 弾のパラメータ
+    float spread_rad    = 0.50f;
+    float bullet_speed  = 180.0f;
+    float bullet_radius = 3.0f;
+};
+}   // namespace zimovka
+
+#endif  // ZIMOVKA_SYSTEMS_PATTERN_PATTERNEMITREQUEST_HPP_
+
+```
+
+PatternSystem.hpp
+
+```cpp
+
+#ifndef ZIMOVKA_SYSTEMS_PATTERN_PATTERNSYSTEM_HPP_
+#define ZIMOVKA_SYSTEMS_PATTERN_PATTERNSYSTEM_HPP_
+
+#include <cstddef>
+
+#include "zimovka/core/Vec2.hpp"
+#include "zimovka/systems/bullet/BulletSystem.hpp"
+#include "zimovka/systems/pattern/PatternEmitRequest.hpp"
+
+namespace zimovka{
+/**
+ * @brief 指定されたパターンで弾を生成するシステム
+ * 
+ */
+class PatternSystem{
+public:
+    std::size_t EmitSpread(
+        const PatternEmitRequest& pattern, 
+        BulletSystem& bullets
+    );
+};
+}   // namespace zimovka
+
+#endif  // ZIMOVKA_SYSTEMS_PATTERN_PATTERNSYSTEM_HPP_
+
+```
+
+#### Enemyとの接続
+
+PatternSystemとEnemyを接続して，敵から弾が発射されるようにする必要がある．そのため，Enemyに管理用の変数を追加する．ただし，EnemySystem内でPatternSystemを保持しない．Spawnなどで変数へ代入するくらいである：
+
+Enemy.hpp
+
+```cpp
+#ifndef ZIMOVKA_SYSTEMS_ENEMY_ENEMY_HPP_
+#define ZIMOVKA_SYSTEMS_ENEMY_ENEMY_HPP_
+
+#include <cstdint>
+
+#include "zimovka/core/Circle.hpp"
+#include "zimovka/core/Vec2.hpp"
+
+namespace zimovka{
+/**
+ * @brief 敵のデータ構造(コンポーネント)
+ * 
+ * 当たり判定(hurtbox)は円で管理し，大型の敵は円の組み合わせで表現する
+ */
+struct Enemy{
+    // 活性/非活性で管理
+    bool active = false;
+    // ゲーム上の中心座標/速度
+    Vec2 position{0, 0};
+    Vec2 velocity{0, 0};
+    // 描画用サイズ(描画時のみ左上座標で管理する)
+    Vec2 render_size{32.0f, 32.0f};
+
+    // 自機弾を受けるhurtbox
+    Vec2 hurtbox_offset{};
+    float hurtbox_radius = 13.0f;
+
+    // Playerとの接触判定用円
+    Vec2 contact_offset{};
+    float contact_radius = 10.0f;
+
+    std::int32_t hp = 1;
+
+    // 弾発射関係
+    std::uint32_t fire_timer_ticks    = 0;  // カウントダウン
+    std::uint32_t fire_interval_ticks = 120;// デフォルトは120Tick周期
+
+    // 自機弾との当たり判定用円を返す
+    Circle GetHurtboxCircle() const noexcept{
+        return Circle{position + hurtbox_offset, hurtbox_radius};
+    }
+    // プレイヤーとの接触判定用円を返す
+    Circle GetContactCircle() const noexcept{
+        return Circle{position + contact_offset, contact_radius};
+    }
+};
+
+}   // namespace zimovka
+
+#endif  // ZIMOVKA_SYSTEMS_ENEMY_ENEMY_HPP_
+
+```
+
+実際に敵から発射させる処理は`UpdatePipeline::UpdateEnemy()`が担っている：
+
+```cpp
+/**
+ * @brief 敵の更新
+ * 
+ * @param dt 
+ */
+void UpdatePipeline::UpdateEnemy(float dt){
+    SpawnEnemyTest();
+    enemy_system_.Update(dt, world_width_, world_height_);
+    // 発射処理
+    for(Enemy& e : enemy_system_.GetEnemies()){
+        // 非活性は無視
+        if(!e.active){
+            continue;
+        }
+        // インターバル消費(デクリメント後に評価されることに注意)
+        if(--e.fire_timer_ticks > 0){
+            continue;
+        }
+        // パターン設定
+        PatternEmitRequest pattern{};
+        constexpr float pi = std::numbers::pi_v<float>;
+        pattern.origin = e.position;
+        pattern.base_angle_rad = pi * 0.5f;
+        pattern.bullet_count = 5;
+        pattern.spread_rad = pi * 0.25f;
+        // 発射
+        (void)pattern_system_.EmitSpread(pattern, enemy_bullets_);
+        // インターバル再設定
+        e.fire_timer_ticks = e.fire_interval_ticks;
+    }
+}
+```
+
+なお，zimovkaは画面上に表示される弾の数の上限を現状は1200としているため，例えば5way弾を発射するときに画面上に弾が1197個存在していた場合，3way弾になってしまう．そのためチェックしなければならない：
+
+PatternSystem::EmitSpread():
+
+```cpp
+/**
+ * @brief 放射状に広がるパターン
+ * 
+ * @param pattern 
+ * @param bullets 
+ * @return std::size_t 
+ */
+std::size_t PatternSystem::EmitSpread(
+    const PatternEmitRequest& pattern, 
+    BulletSystem& bullets
+)
+{
+    // 引数のパターンチェック
+    if (!std::isfinite(pattern.origin.x)
+     || !std::isfinite(pattern.origin.y)
+     || !std::isfinite(pattern.base_angle_rad)
+     || !std::isfinite(pattern.spread_rad)
+     || !std::isfinite(pattern.bullet_speed)
+     || !std::isfinite(pattern.bullet_radius)
+     || pattern.bullet_count  == 0
+     || pattern.spread_rad    < 0.0f
+     || pattern.bullet_speed  <= 0.0f
+     || pattern.bullet_radius <= 0.0f)
+    {
+        return 0;
+    }
+    // 上限値に対して発射可能か
+    const std::size_t avaulable = bullets.GetCapacity() - bullets.CountActive();
+    if(avaulable < pattern.bullet_count){
+        return 0;
+    }
+    // 出現数
+    std::size_t spawned = 0;
+    // 開始地点の角度
+    const float begin_angle = 
+        pattern.base_angle_rad - pattern.spread_rad*0.5f;   // 90度を中心に対象的な5way
+    // パターンの進行度合い
+    const float step = pattern.bullet_count > 1 ? 
+        pattern.spread_rad / static_cast<float>(pattern.bullet_count - 1) : 0.0f;
+    // パターン開始
+    for(std::uint32_t i = 0; i < pattern.bullet_count; ++i){
+        // 拡散角度
+        const float angle = begin_angle + step * static_cast<float>(i);
+        // 速度
+        const Vec2 velocity{
+            std::cos(angle) * pattern.bullet_speed, // x軸
+            std::sin(angle) * pattern.bullet_speed  // y軸
+        };
+        // 上記で設定した角度・速度で弾を出現
+        if(bullets.Spawn(
+            pattern.origin, velocity, pattern.bullet_radius
+        ))
+        {
+            ++spawned;
+        }
+    }
+    return spawned;
+}
+```
+
+このパターンを用いると，敵が画面下へ5way弾を発射する．引数として渡されるbase_angleが`pattern.base_angle_rad = pi * 0.5f;`である．つまり$\frac{\pi}{2}$である．SDLは下方向がy軸の増加方向であるから，円に対して90度となるのは下向きであることに留意すること．この90度を起点に，spread_radをかけて角度をずらしている．
+
+#### PatternSystem::EmitSpread()の抽象化について
+
+EmitSpread()は引数で与えられた角度などのデータを基に，扇状に弾を発射する関数である．
+
+上記で記述したUpdatePipeline::UpdateEnemy()での呼び出しは次のとおりである：
+
+```cpp
+// パターン設定
+PatternEmitRequest pattern{};
+constexpr float pi = std::numbers::pi_v<float>;
+pattern.origin = e.position;
+pattern.base_angle_rad = pi * 0.5f;
+pattern.bullet_count = 5;
+pattern.spread_rad = pi * 0.25f;
+// 発射
+(void)pattern_system_.EmitSpread(pattern, enemy_bullets_);
+```
+
+この`PatternEmitRequest`の設定は非自機狙い弾である．しかし次のように計算した角度を渡すと，自機狙い弾になる：
+
+```cpp
+// パターン設定
+constexpr float pi = std::numbers::pi_v<float>;
+PatternEmitRequest pattern{};
+// 自機狙い弾設定
+const Vec2 to_player = 
+    player_system_.GetPlayerPosition() - e.position;
+// 原点→対象の向きの角度を得る(atanでは象限を区別できない)
+const float base_angle = std::atan2(to_player.y, to_player.x);
+pattern.origin = e.position;
+// pattern.base_angle_rad = pi * 0.5f;  // 非自機狙い
+pattern.base_angle_rad = base_angle;    // 自機狙い
+pattern.bullet_count = 5;
+pattern.spread_rad = pi * 0.25f;
+// 発射
+(void)pattern_system_.EmitSpread(pattern, enemy_bullets_);
+```
+
+`atan2`は2つの引数(y, x)を受け取り，原点→対象に対する向きを計算する関数である．ここでの原点とは，敵→自機であることから敵である．to_playerというVec2は，Player - Enemyで求めており，敵→自機の2次元ベクトルである．
+
+`atan`という関数もあるが，この関数は象限を区別できない．つまりatan(y/x)は(y, x) = (1, 1)であったら1，しかし(y, x) = (-1, -1)でも1となってしまう．実際には180度正反対であるため，引数の符号を見る`atan2`を使わなければならない．
+
+なお，引数は第一引数がy，第二引数がxである．これはおそらくFORTRANのATAN2が起源であることに由来していると思われる．
+
+自機狙い弾だけでなく，回転する5way弾もEmitSpreadに渡すbase_angle_radを調整すれば良い：
+
+```cpp
+pattern.base_angle_rad =
+    std::numbers::pi_v<float> * 0.5f
+    + enemy.fire_angle_offset_rad;  // Enemyが持っていると仮定する
+```
+
+と定めれば良い．APIとして，非自機狙い/自機狙い/回転と分離する必要はなく，扇状に弾を放つという部分を抽象化して実装している．
