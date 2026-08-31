@@ -8,6 +8,7 @@
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/collision/CollisionSystem.hpp"
 #include "zimovka/systems/enemy/EnemySystem.hpp"
+#include "zimovka/systems/bomb/PlayerBombSystem.hpp"
 #include "zimovka/systems/pattern/PatternEmitRequest.hpp"
 #include "zimovka/systems/pattern/PatternSystem.hpp"
 #include "zimovka/systems/player/PlayerSystem.hpp"
@@ -44,6 +45,8 @@ private:
     PatternSystem pattern_system_;
     // 当たり判定
     CollisionSystem collision_system_;
+    // ボム
+    PlayerBombSystem bomb_system_;
 
     // 各段階のUpdate(UpdateTick()から順番に呼ばれる)
     void UpdatePlayer(float dt, const InputState& input);
@@ -51,6 +54,7 @@ private:
     void UpdateEnemy(float dt);
     void UpdateProjectiles(float dt);
     void ResolveCollisions(bool& player_hit_out, EnemyHitEvents& enemy_hit_out);
+    PlayerBombEvents UpdateBomb(const InputState& input, bool player_hit);
 
 public:
     // 初期化
@@ -80,6 +84,9 @@ public:
     }
     const CollisionSystem& GetCollisionSystem() const noexcept{
         return collision_system_;
+    }
+    const PlayerBombSystem& GetBombSystem() const noexcept{
+        return bomb_system_;
     }
     std::uint64_t GetTickIndex() const noexcept{
         return tick_index_;

@@ -3,6 +3,7 @@
 
 #include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
+#include "zimovka/systems/bomb/PlayerBombEvents.hpp"
 
 namespace zimovka{
 /**
@@ -10,9 +11,10 @@ namespace zimovka{
  *
  */
 struct GameplayTickEvents{
-    bool               player_hit = false;
+    bool               player_hit = false;  // 被弾確定フラグ(ボム解決後)
     EnemyHitEvents     enemy_hit{};
     PlayerWeaponEvents weapon{};
+    PlayerBombEvents   bomb{};
 };
 
 }   // namespace zimovka

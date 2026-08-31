@@ -8,6 +8,7 @@
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
+#include "zimovka/systems/bomb/PlayerBombEvents.hpp"
 #include "zimovka/systems/enemy/EnemySpawnParams.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 
@@ -35,6 +36,7 @@ void UpdatePipeline::Initialize(float width, float height){
     // Player関係初期化
     player_system_.Initialize(width, height);
     player_weapon_system_.Reset();
+    bomb_system_.Reset();
     // 敵初期化
     enemy_system_.Clear();
     // BulletSystem初期化
@@ -82,7 +84,17 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     events.weapon = UpdateWeapons(input);
     UpdateEnemy(dt);
     UpdateProjectiles(dt);
-    ResolveCollisions(events.player_hit, events.enemy_hit);
+    bool raw_player_hit = false;
+    ResolveCollisions(raw_player_hit, events.enemy_hit);
+    events.bomb = UpdateBomb(input, raw_player_hit);
+    // 被弾確定時の後処理
+    if(events.bomb.hit_applied){
+        player_system_.Initialize(world_width_, world_height_);
+        enemy_bullets_.Clear();
+        player_bullets_.Clear();
+        player_weapon_system_.Reset();
+        events.player_hit = true;
+    }
 
     // 最後に伝搬したイベントを返す
     ++tick_index_;
@@ -176,19 +188,16 @@ void UpdatePipeline::UpdateProjectiles(float dt){
 }
 
 /**
- * @brief 当たり判定の処理
- * 現状はGameplayTickEventsのplayer_hitを返す
- * 
- * @return true 
- * @return false 
+ * @brief 当たり判定の検出処理
+ * 被弾の解決はUpdateBombへ委譲するため，ここでは検出のみを行う
+ *
  */
 void UpdatePipeline::ResolveCollisions(bool& player_hit_out, EnemyHitEvents& enemy_hit_out){
     // Collision判定回数の初期化
     collision_system_.InitializeStatsAtBeginTick();
-    // 先に衝突処理
-    // Player vs EnemyBullet
-    const bool player_hit = collision_system_.CheckPlayerHitByBullets(
-        player_system_.GetPlayer(), 
+    // Player vs EnemyBullet(検出のみ，解決はUpdateBombで行う)
+    player_hit_out = collision_system_.CheckPlayerHitByBullets(
+        player_system_.GetPlayer(),
         enemy_bullets_
     );
     // PlayerBullet vs Enemy
@@ -196,18 +205,18 @@ void UpdatePipeline::ResolveCollisions(bool& player_hit_out, EnemyHitEvents& ene
         player_bullets_,
         enemy_system_
     );
-    // 最後にプレイヤーの衝突の解決
-    if(player_hit){
-        // 衝突した場合はプレイヤーの位置を初期化(仮)
-        player_system_.Initialize(
-            world_width_, 
-            world_height_
-        );
-        enemy_bullets_.Clear();
-        player_bullets_.Clear();
-        player_weapon_system_.Reset();
-        player_hit_out = true;
-    }
+}
+
+/**
+ * @brief ボムシステムの更新
+ * ResolveCollisionsで検出した被弾をボムでキャンセル or 確定させる
+ *
+ * @param input
+ * @param player_hit ResolveCollisionsの生の検出結果
+ * @return PlayerBombEvents
+ */
+PlayerBombEvents UpdatePipeline::UpdateBomb(const InputState& input, bool player_hit){
+    return bomb_system_.UpdateTick(input, player_hit, enemy_bullets_, enemy_system_);
 }
 
 /**

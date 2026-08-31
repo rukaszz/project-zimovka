@@ -42,6 +42,7 @@
   - PatternSystemの実装
 - week11(8/31)
   - PatternSystemの実装
+  - BombSystem実装
   - TextureSystem
   - 仮立ち絵等の実装
 - week12(9/7)
@@ -81,3 +82,18 @@
 12. StageScriptSystem
 13. PatternSystem
 14. Boss prototype
+
+### phase1
+
+1. PatternSystemの作成
+2. BombSystemの作成
+   - ここで初期構想段階の基本的なプレイヤー操作が揃う(コア要素の完成)
+3. Texture/Spriteの描画
+   - 最終的な絵ではなく，あくまでもモック
+4. BackgroundSystemの構築
+5. HUD(UI)の構築
+6. EnemySpawnerSystemの作成
+   - 敵をステージ構成に応じて順々に出現させるシステム
+7. 敵と弾のパターンを拡充
+8. Bossの作成
+9. ステージ1を作成する

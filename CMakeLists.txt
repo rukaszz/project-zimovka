@@ -35,6 +35,7 @@ set(ZIMOVKA_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/core/DeterministicRng.cpp
     ${CMAKE_SOURCE_DIR}/src/input/InputState.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/bomb/PlayerBombSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/bullet/BulletSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/pattern/PatternSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
