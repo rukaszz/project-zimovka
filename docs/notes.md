@@ -1701,7 +1701,7 @@ add_executable(zimovka_integration_tests
 )
 ```
 
-### 2026/09/29
+### 2026/08/29
 
 #### PatternSystemの作成
 
@@ -1986,3 +1986,209 @@ pattern.base_angle_rad =
 ```
 
 と定めれば良い．APIとして，非自機狙い/自機狙い/回転と分離する必要はなく，扇状に弾を放つという部分を抽象化して実装している．
+
+### 2026/09/01
+
+#### ボムの実装
+
+シューティングゲームおなじみのボムを実装した．
+よくあるボムの特徴としては次のものが挙げられる：
+
+- 画面の大部分へのダメージ
+- 画面上の弾の打ち消し
+- プレイヤーの無敵
+
+zimovkaでもひとまずこちらの仕様をベースとして実装し，以降のフェーズで調整していく．また，ボムは入力後に数秒の無敵時間を持つため，被弾ギリギリで入力をする，あるいは被弾した瞬間に入力する「食らいボム」がある．
+
+つまり被弾に対して，僅かな時間入力を受け付ける時間がある．これはコヨーテジャンプと同じように，システム上の判定に対してわずかに猶予を持たせるようにしている．
+そのため，ボムに関係する状態(State)として次のものを管理する：
+
+```cpp
+#ifndef ZIMOVKA_SYSTEMS_BOMB_PLAYERBOMBSTATE_HPP_
+#define ZIMOVKA_SYSTEMS_BOMB_PLAYERBOMBSTATE_HPP_
+
+#include <cstdint>
+
+namespace zimovka{
+/**
+ * @brief プレイヤーのボムに関する状態管理用構造体
+ * 
+ */
+struct PlayerBombState{
+    std::uint32_t stock = 3;
+    std::uint32_t invincible_ticks_remaining = 0;       // ボム発動中の無敵
+    std::uint32_t grace_ticks_remaining      = 0;       // 食らいボム受け付け時間
+    bool          has_pending_hit            = false;   // 解決待ちの被弾
+
+    // getter
+    bool IsInvincible() const noexcept{
+        return invincible_ticks_remaining;
+    }
+    bool HasPendingHit() const noexcept{
+        return has_pending_hit;
+    }
+};
+
+}   // namespace zimovka
+
+#endif  // ZIMOVKA_SYSTEMS_BOMB_PLAYERBOMBSTATE_HPP_
+
+```
+
+#### UpdatePipelineへの接続
+
+メインとなる`UpdateTick()`処理にボムの処理を導入した．これによって戻り値を伝搬させることで**実際の当たり判定処理をBombSystemへ移譲している**．
+
+つまり，CollisionSystemによる当たり判定は，あくまでも当たった事実を検出するだけである．実際の被弾処理はBombSystemへ移譲し，「被弾を確定させるか」を決めている．
+
+```cpp
+/**
+ * @brief ここで固定更新順序を実装する
+ * 各サブシステムから伝搬されるイベントを受け取り上位へ伝搬させる
+ * 
+ * @param dt 
+ * @param input 
+ * @return * GameplayTickEvents 
+ */
+GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input){
+    // イベント受け取り用
+    GameplayTickEvents events{};
+    // Simulation pipeline:
+    // 1. Player movement
+    // 2. Player weapon
+    // 3. Enemy movement
+    // 4. Enemy fire
+    // 5. Projectile movement
+    // 6. Collision
+    // 7. State resolution
+    // ── 実装・性能試験用 ───────────────────────────────────────
+    SpawnPhase0EnemyIfNeeded();
+    // ─────────────────────────────────────────
+    UpdatePlayer(dt, input);
+    events.weapon = UpdateWeapons(input);
+    UpdateEnemy(dt);
+    UpdateProjectiles(dt);
+    bool raw_player_hit = false;
+    // 被弾したかどうかのみを見る
+    ResolveCollisions(raw_player_hit, events.enemy_hit);
+    // ボム処理開始
+    events.bomb = UpdateBomb(input, raw_player_hit);
+    // 被弾確定時の後処理
+    if(events.bomb.hit_applied){
+        player_system_.Initialize(world_width_, world_height_);
+        enemy_bullets_.Clear();
+        player_bullets_.Clear();
+        player_weapon_system_.Reset();
+        events.player_hit = true;
+    }
+
+    // 最後に伝搬したイベントを返す
+    ++tick_index_;
+    return events;
+}
+```
+
+### 2026/09/03
+
+#### 非constなGetEnemyに戻す
+
+PatternSystemとEnemySystemの接続において，Enemyが持っている発射管理用の変数をUpdatePipelineで減算する必要があった．そのため，非constなgetterを定義し直している．しかし当然ながら，なるべく非constな参照は抑えるべきである．
+
+また，EnemySystemはEnemyのactive数を管理するactive_count_を持っており，外部に非constなgetterを公開していると，カウントの整合性が崩れる可能性がある．
+そのため修正を行った．
+
+```diff
+/**
+ * @brief 敵の更新
+ * 
+ * NOTE: 現状は発射タイマーを書き換えるためにEnemyを非constな参照をしているが，後々修正しないといけない
+ * 
+ * @param dt 
+ */
+void UpdatePipeline::UpdateEnemy(float dt){
+    enemy_system_.Update(dt, world_width_, world_height_);
++    enemy_system_.UpdateFire(
++        pattern_system_,
++        enemy_bullets_,
++        player_system_.GetPlayerPosition()
++    );
+-    // 発射処理
+-    for(Enemy& e : enemy_system_.GetEnemies()){
+-        // 非活性は無視
+-        if(!e.active){
+-            continue;
+-        }
+-        // インターバル消費→判定
+-        // 1つのif文にまとめると==0のときに1回continueしてしまう
+-        if (e.fire_timer_ticks > 0) {
+-            --e.fire_timer_ticks;
+-        }
+-        if (e.fire_timer_ticks > 0) {
+-            continue;
+-        }
+-        // パターン設定
+-        constexpr float pi = std::numbers::pi_v<float>;
+-        PatternEmitRequest pattern{};
+-        // 自機狙い弾設定
+-        const Vec2 to_player = 
+-            player_system_.GetPlayerPosition() - e.position;
+-        // 原点→対象の向きの角度を得る(atanでは象限を区別できない)
+-        const float base_angle = std::atan2(to_player.y, to_player.x);
+-        pattern.origin = e.position;
+-        // pattern.base_angle_rad = pi * 0.5f;  // 非自機狙い
+-        pattern.base_angle_rad = base_angle;    // 自機狙い
+-        pattern.bullet_count = 5;
+-        pattern.spread_rad = pi * 0.25f;
+-        // 発射
+-        (void)pattern_system_.EmitSpread(pattern, enemy_bullets_);
+-        // インターバル再設定
+-        e.fire_timer_ticks = e.fire_interval_ticks;
+-    }
+}
+```
+
+UpdatePipeline::UpdateEnemy()に書いていた更新処理をEnemySystem::EnemyFire()へ移管した：
+
+```cpp
+/**
+ * @brief 発射タイマーを管理し，タイムアップした敵のパターン発射を行う
+ * EnemySystemが内部でenemy.fire_timer_ticksを操作する
+ *
+ * @param pattern       パターンシステム
+ * @param enemy_bullets 敵弾プール
+ * @param player_pos    自機座標(自機狙い弾の角度計算に使用)
+ */
+void EnemySystem::UpdateFire(
+    PatternSystem& pattern,
+    BulletSystem& enemy_bullets,
+    const Vec2& player_pos
+){
+    // PI
+    constexpr float pi = std::numbers::pi_v<float>;
+    for(auto& e : enemies_){
+        if(!e.active){
+            continue;
+        }
+        // インターバル消費→判定
+        // 1つのif文にまとめると==0のときに1回continueしてしまうので二段にしている
+        if(e.fire_timer_ticks > 0){
+            --e.fire_timer_ticks;
+        }
+        if(e.fire_timer_ticks > 0){
+            continue;
+        }
+        // 自機狙い角度の計算
+        const Vec2 to_player = player_pos - e.position;
+        const float base_angle = std::atan2(to_player.y, to_player.x);
+        // パターン設定
+        PatternEmitRequest req{};
+        req.origin         = e.position;
+        req.base_angle_rad = base_angle;
+        req.bullet_count   = 5;
+        req.spread_rad     = pi * 0.25f;
+        (void)pattern.EmitSpread(req, enemy_bullets);
+        // タイマーリセット
+        e.fire_timer_ticks = e.fire_interval_ticks;
+    }
+}
+```

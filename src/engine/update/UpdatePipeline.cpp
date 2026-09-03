@@ -2,7 +2,6 @@
 
 #include <cmath>
 #include <cstddef>
-#include <numbers>
 #include <stdexcept>
 
 #include "zimovka/core/Vec2.hpp"
@@ -78,14 +77,16 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     // 6. Collision
     // 7. State resolution
     // ── 実装・性能試験用 ───────────────────────────────────────
-    SpawnPhase0EnemyIfNeeded();
+    SpawnPhase1PrototypeEnemy();
     // ─────────────────────────────────────────
     UpdatePlayer(dt, input);
     events.weapon = UpdateWeapons(input);
     UpdateEnemy(dt);
     UpdateProjectiles(dt);
     bool raw_player_hit = false;
+    // 被弾したかどうかのみを見る
     ResolveCollisions(raw_player_hit, events.enemy_hit);
+    // ボム処理開始
     events.bomb = UpdateBomb(input, raw_player_hit);
     // 被弾確定時の後処理
     if(events.bomb.hit_applied){
@@ -113,42 +114,17 @@ void UpdatePipeline::UpdatePlayer(float dt, const InputState& input){
 
 /**
  * @brief 敵の更新
- * 
- * NOTE: 現状は発射タイマーを書き換えるためにEnemyを非constな参照をしているが，後々修正しないといけない
- * 
- * @param dt 
+ * 移動・画面外除去はEnemySystem::Update，発射タイマーと弾生成はEnemySystem::UpdateFireへ委譲
+ *
+ * @param dt
  */
 void UpdatePipeline::UpdateEnemy(float dt){
-    SpawnEnemyTest();
     enemy_system_.Update(dt, world_width_, world_height_);
-    // 発射処理
-    for(Enemy& e : enemy_system_.GetEnemies()){
-        // 非活性は無視
-        if(!e.active){
-            continue;
-        }
-        // インターバル消費(デクリメント後に評価されることに注意)
-        if(--e.fire_timer_ticks > 0){
-            continue;
-        }
-        // パターン設定
-        constexpr float pi = std::numbers::pi_v<float>;
-        PatternEmitRequest pattern{};
-        // 自機狙い弾設定
-        const Vec2 to_player = 
-            player_system_.GetPlayerPosition() - e.position;
-        // 原点→対象の向きの角度を得る(atanでは象限を区別できない)
-        const float base_angle = std::atan2(to_player.y, to_player.x);
-        pattern.origin = e.position;
-        // pattern.base_angle_rad = pi * 0.5f;  // 非自機狙い
-        pattern.base_angle_rad = base_angle;    // 自機狙い
-        pattern.bullet_count = 5;
-        pattern.spread_rad = pi * 0.25f;
-        // 発射
-        (void)pattern_system_.EmitSpread(pattern, enemy_bullets_);
-        // インターバル再設定
-        e.fire_timer_ticks = e.fire_interval_ticks;
-    }
+    enemy_system_.UpdateFire(
+        pattern_system_,
+        enemy_bullets_,
+        player_system_.GetPlayerPosition()
+    );
 }
 
 /**
@@ -235,34 +211,13 @@ void UpdatePipeline::Render(PrimitiveRenderer& prim) const{
 }
 
 /**
- * @brief 敵を1体出現させる関数
- * 
- * NOTE: 仮の実装
- */
-void UpdatePipeline::SpawnEnemyTest(){
-    const EnemySpawnParams params{
-        .position = {world_width_*0.5f, world_height_*0.5f},
-        .velocity = {10.0f, 10.0f}, 
-        .render_size = {32.0f, 32.0f}, 
-        .hurtbox_offset = {0.0f, 0.0f}, 
-        .hurtbox_radius = 13.0f, 
-        .contact_offset = {0.0f, 0.0f}, 
-        .contact_radius = 10.0f, 
-        .hp = 2
-    };
-    if(enemy_system_.CountActive() == 0){
-        (void)enemy_system_.Spawn(params);
-    }
-}
-
-/**
  * @brief 実際に乱数を消費して敵を生成する
  * 
  * NOTE: 仮の実装
  */
-void UpdatePipeline::SpawnPhase0EnemyIfNeeded(){
-    // 120Tick周期で生成する
-    if(tick_index_ % 120u != 0u){
+void UpdatePipeline::SpawnPhase1PrototypeEnemy(){
+    // 約10秒周期で生成する
+    if(tick_index_ % 625u != 0u){
         return;
     }
 

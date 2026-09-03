@@ -9,7 +9,6 @@
 #include "zimovka/systems/collision/CollisionSystem.hpp"
 #include "zimovka/systems/enemy/EnemySystem.hpp"
 #include "zimovka/systems/bomb/PlayerBombSystem.hpp"
-#include "zimovka/systems/pattern/PatternEmitRequest.hpp"
 #include "zimovka/systems/pattern/PatternSystem.hpp"
 #include "zimovka/systems/player/PlayerSystem.hpp"
 #include "zimovka/systems/player/PlayerWeaponSystem.hpp"
@@ -100,8 +99,7 @@ public:
 
     // ── 実装・性能試験用 ───────────────────────────────────────
     // NOTE: 将来的にはEnemySystemに移行する
-    void SpawnEnemyTest();
-    void SpawnPhase0EnemyIfNeeded();
+    void SpawnPhase1PrototypeEnemy();
 };
 
 }   // namespace zimovka

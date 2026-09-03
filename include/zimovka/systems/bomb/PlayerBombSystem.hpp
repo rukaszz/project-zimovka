@@ -1,6 +1,8 @@
 #ifndef ZIMOVKA_SYSTEMS_BOMB_PLAYERBOMBSYSTEM_HPP_
 #define ZIMOVKA_SYSTEMS_BOMB_PLAYERBOMBSYSTEM_HPP_
 
+#include <cstddef>
+
 #include "zimovka/input/InputState.hpp"
 #include "zimovka/systems/bomb/PlayerBombEvents.hpp"
 #include "zimovka/systems/bomb/PlayerBombState.hpp"
@@ -17,7 +19,7 @@ private:
     PlayerBombState state_;
 
     // ボム発動の共通処理
-    void Activate(BulletSystem& enemy_bullets, EnemySystem& enemy_system) noexcept;
+    std::size_t Activate(BulletSystem& enemy_bullets, EnemySystem& enemy_system) noexcept;
 
 public:
     // 状態のリセット
@@ -28,7 +30,7 @@ public:
         bool              player_hit,
         BulletSystem&     enemy_bullets,
         EnemySystem&      enemy_system
-    ) noexcept;
+    );
     // getter
     const PlayerBombState& GetState() const noexcept{
         return state_;

@@ -14,32 +14,32 @@ namespace zimovka{
 std::size_t PatternSystem::EmitSpread(
     const PatternEmitRequest& pattern, 
     BulletSystem& bullets
-) const noexcept
+) const
 {
     // 引数のパターンチェック
-    if (!std::isfinite(pattern.origin.x)
-     || !std::isfinite(pattern.origin.y)
-     || !std::isfinite(pattern.base_angle_rad)
-     || !std::isfinite(pattern.spread_rad)
-     || !std::isfinite(pattern.bullet_speed)
-     || !std::isfinite(pattern.bullet_radius)
-     || pattern.bullet_count  == 0
-     || pattern.spread_rad    < 0.0f
-     || pattern.bullet_speed  <= 0.0f
-     || pattern.bullet_radius <= 0.0f)
+    if(!std::isfinite(pattern.origin.x)
+    || !std::isfinite(pattern.origin.y)
+    || !std::isfinite(pattern.base_angle_rad)
+    || !std::isfinite(pattern.spread_rad)
+    || !std::isfinite(pattern.bullet_speed)
+    || !std::isfinite(pattern.bullet_radius)
+    || pattern.bullet_count  == 0
+    || pattern.spread_rad    < 0.0f
+    || pattern.bullet_speed  <= 0.0f
+    || pattern.bullet_radius <= 0.0f)
     {
         return 0;
     }
     // 上限値に対して発射可能か
-    const std::size_t avaulable = bullets.GetCapacity() - bullets.CountActive();
-    if(avaulable < pattern.bullet_count){
+    const std::size_t available = bullets.GetCapacity() - bullets.CountActive();
+    if(available < pattern.bullet_count){
         return 0;
     }
     // 出現数
     std::size_t spawned = 0;
     // 開始地点の角度
     const float begin_angle = 
-        pattern.base_angle_rad - pattern.spread_rad*0.5f;   // 90度を中心に対象的な5way
+        pattern.base_angle_rad - pattern.spread_rad*0.5f;   // base_angle_radを中心に対象的な5way
     // パターンの進行度合い
     const float step = pattern.bullet_count > 1 ? 
         pattern.spread_rad / static_cast<float>(pattern.bullet_count - 1) : 0.0f;

@@ -1,5 +1,7 @@
 #include "zimovka/systems/bomb/PlayerBombSystem.hpp"
 
+#include <cassert>
+
 #include "zimovka/input/Action.hpp"
 #include "zimovka/systems/bomb/PlayerBombConfig.hpp"
 
@@ -19,11 +21,15 @@ void PlayerBombSystem::Reset() noexcept{
  * @param enemy_bullets
  * @param enemy_system
  */
-void PlayerBombSystem::Activate(
+std::size_t PlayerBombSystem::Activate(
     BulletSystem& enemy_bullets,
-    EnemySystem& enemy_system
+    EnemySystem&  enemy_system
 ) noexcept
 {
+    // 入力チェック(stock>0はチェックしているが契約としてチェック)
+    assert(state_.stock > 0);
+    // 敵の撃破数計測用
+    std::size_t kill_count = 0;
     // ボム消費
     --state_.stock;
     // 無敵時間開始
@@ -34,9 +40,15 @@ void PlayerBombSystem::Activate(
     const auto enemies = enemy_system.GetEnemies();
     for(std::size_t i = 0; i < enemies.size(); ++i){
         if(enemies[i].active){
-            (void)enemy_system.TakeDamage(i, PlayerBombConfig::BOMB_DAMAGE);
+            // ダメージを与えた結果を取得
+            const auto result = 
+                enemy_system.TakeDamage(i, PlayerBombConfig::BOMB_DAMAGE);
+            if(result == EnemyDamageResult::Destroyed){
+                ++kill_count;
+            }
         }
     }
+    return kill_count;
 }
 
 /**
@@ -59,7 +71,7 @@ PlayerBombEvents PlayerBombSystem::UpdateTick(
     bool player_hit,
     BulletSystem& enemy_bullets,
     EnemySystem& enemy_system
-) noexcept
+)
 {
     PlayerBombEvents events{};
     
@@ -73,10 +85,13 @@ PlayerBombEvents PlayerBombSystem::UpdateTick(
     }
 
     // B. 食らいボム受付中
-    if(state_.InGrace()){
+    if(state_.HasPendingHit()){
         // ボム入力あり かつ ボムあり → 被弾キャンセル
         if(bomb_pressed && state_.stock > 0){
-            Activate(enemy_bullets, enemy_system);
+            // ボム実行直前のactive数を取得
+            events.cleared_bullet_count = enemy_bullets.CountActive();
+            // ボムによる一掃
+            events.enemy_kill_count = Activate(enemy_bullets, enemy_system);
             state_.has_pending_hit       = false;
             state_.grace_ticks_remaining = 0;
             events.activated             = true;
@@ -98,7 +113,10 @@ PlayerBombEvents PlayerBombSystem::UpdateTick(
         // ボム入力あり かつ ボム残あり
         if(bomb_pressed && state_.stock > 0){
             // 同Tick中なら即時被弾をキャンセル
-            Activate(enemy_bullets, enemy_system);
+            // ボム実行直前のactive数を取得
+            events.cleared_bullet_count = enemy_bullets.CountActive();
+            // ボムによる一掃
+            events.enemy_kill_count = Activate(enemy_bullets, enemy_system);
             events.activated     = true;
             events.hit_cancelled = true;
         } else {
@@ -109,7 +127,10 @@ PlayerBombEvents PlayerBombSystem::UpdateTick(
     // プレイヤー被弾中ではない通常のボム入力
     }else if(bomb_pressed && state_.stock > 0){
         // 通常ボム発動
-        Activate(enemy_bullets, enemy_system);
+        // ボム実行直前のactive数を取得
+        events.cleared_bullet_count = enemy_bullets.CountActive();
+        // ボムによる一掃
+        events.enemy_kill_count = Activate(enemy_bullets, enemy_system);
         events.activated = true;
     }
 

@@ -18,7 +18,7 @@ public:
     std::size_t EmitSpread(
         const PatternEmitRequest& pattern, 
         BulletSystem& bullets
-    ) const noexcept;
+    ) const;
 };
 }   // namespace zimovka
 

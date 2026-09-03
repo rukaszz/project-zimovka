@@ -16,9 +16,9 @@ struct PlayerBombState{
 
     // getter
     bool IsInvincible() const noexcept{
-        return invincible_ticks_remaining;
+        return invincible_ticks_remaining > 0;
     }
-    bool InGrace() const noexcept{
+    bool HasPendingHit() const noexcept{
         return has_pending_hit;
     }
 };

@@ -2,10 +2,14 @@
 
 #include <cassert>
 #include <cmath>
+#include <numbers>
 #include <stdexcept>
 
 #include "zimovka/rendering/Color.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
+#include "zimovka/systems/bullet/BulletSystem.hpp"
+#include "zimovka/systems/pattern/PatternEmitRequest.hpp"
+#include "zimovka/systems/pattern/PatternSystem.hpp"
 
 namespace zimovka{
 
@@ -61,12 +65,15 @@ bool EnemySystem::Spawn(const EnemySpawnParams& params){
                            && params.contact_radius > 0.0f
                            && std::isfinite(params.hurtbox_radius)
                            && std::isfinite(params.contact_radius);
-    
     if(!valid_size || !valid_radius){
         return false;
     }
     if(params.hp <= 0){
         return false;
+    }
+    // 発射のインターバルが無いのは不許可
+    if (params.fire_interval_ticks == 0) {
+       return false;
     }
     // 配列サイズ取得
     const std::size_t array_size = enemies_.size();
@@ -89,7 +96,7 @@ bool EnemySystem::Spawn(const EnemySpawnParams& params){
             enemies_[idx].contact_offset      = params.contact_offset;
             enemies_[idx].contact_radius      = params.contact_radius;
             enemies_[idx].hp                  = params.hp;
-            enemies_[idx].fire_timer_ticks    = params.fire_interval_ticks;
+            enemies_[idx].fire_timer_ticks    = params.initial_fire_delay_ticks;
             enemies_[idx].fire_interval_ticks = params.fire_interval_ticks;
             // 次のSpawn()では見つけた非活性のenemies_インデックス+1から探す
             next_spawn_index_ = (idx +1) % array_size;
@@ -244,6 +251,48 @@ void EnemySystem::Deactivate(Enemy& enemy) noexcept{
     enemy.active = false;
     assert(active_count_ > 0);  // 加減算で不整合が発生したらアウト
     --active_count_;
+}
+
+/**
+ * @brief 発射タイマーを管理し，タイムアップした敵のパターン発射を行う
+ * EnemySystemが内部でenemy.fire_timer_ticksを操作する
+ * 
+ * @param pattern      パターンシステム
+ * @param enemy_bullets 敵弾プール
+ * @param player_pos   自機座標(自機狙い弾の角度計算に使用)
+ */
+void EnemySystem::UpdateFire(
+    PatternSystem& pattern,
+    BulletSystem& enemy_bullets,
+    const Vec2& player_pos
+){
+    // PI
+    constexpr float pi = std::numbers::pi_v<float>;
+    for(auto& e : enemies_){
+        if(!e.active){
+            continue;
+        }
+        // インターバル消費→判定
+        // 1つのif文にまとめると==0のときに1回continueしてしまうのでifを二段にしている
+        if(e.fire_timer_ticks > 0){
+            --e.fire_timer_ticks;
+        }
+        if(e.fire_timer_ticks > 0){
+            continue;
+        }
+        // 自機狙い角度の計算
+        const Vec2 to_player = player_pos - e.position;
+        const float base_angle = std::atan2(to_player.y, to_player.x);
+        // パターン設定
+        PatternEmitRequest req{};
+        req.origin         = e.position;
+        req.base_angle_rad = base_angle;
+        req.bullet_count   = 5;
+        req.spread_rad     = pi * 0.25f;
+        (void)pattern.EmitSpread(req, enemy_bullets);
+        // タイマーリセット
+        e.fire_timer_ticks = e.fire_interval_ticks;
+    }
 }
 
 }   // namespace zimovka

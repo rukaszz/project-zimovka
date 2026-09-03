@@ -14,6 +14,8 @@ namespace zimovka{
 
 // 前方宣言
 class PrimitiveRenderer;
+class PatternSystem;
+class BulletSystem;
 
 /**
  * @brief AoSに基づいて敵を連続メモリで管理するシステム
@@ -41,18 +43,17 @@ public:
     bool Spawn(const EnemySpawnParams& params);
     // 初期化
     void Clear() noexcept;
-    // 更新
+    // 更新(移動・画面外除去)
     void Update(float dt, float world_width, float world_height);
+    // 発射タイマー更新 + パターン発射
+    void UpdateFire(PatternSystem& pattern, BulletSystem& enemy_bullets, const Vec2& player_pos);
     // 描画
     void Render(PrimitiveRenderer& renderer) const;
     // ダメージを受ける
     EnemyDamageResult TakeDamage(std::size_t index, std::int32_t damage);
 
     // getter
-    // 非constなEnemy参照用
-    std::span<Enemy> GetEnemies() noexcept{
-        return enemies_;
-    }
+    // active_count_の整合性担保のため非constで公開しない
     std::span<const Enemy> GetEnemies() const noexcept{
         return enemies_;
     }
