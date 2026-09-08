@@ -24,7 +24,7 @@ void PlayerBombSystem::Reset() noexcept{
 std::size_t PlayerBombSystem::Activate(
     BulletSystem& enemy_bullets,
     EnemySystem&  enemy_system
-) noexcept
+)
 {
     // 入力チェック(stock>0はチェックしているが契約としてチェック)
     assert(state_.stock > 0);

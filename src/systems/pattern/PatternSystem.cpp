@@ -24,7 +24,7 @@ std::size_t PatternSystem::EmitSpread(
     || !std::isfinite(pattern.bullet_speed)
     || !std::isfinite(pattern.bullet_radius)
     || pattern.bullet_count  == 0
-    || pattern.spread_rad    < 0.0f
+    || pattern.spread_rad    <  0.0f
     || pattern.bullet_speed  <= 0.0f
     || pattern.bullet_radius <= 0.0f)
     {
@@ -39,7 +39,7 @@ std::size_t PatternSystem::EmitSpread(
     std::size_t spawned = 0;
     // 開始地点の角度
     const float begin_angle = 
-        pattern.base_angle_rad - pattern.spread_rad*0.5f;   // base_angle_radを中心に対象的な5way
+        pattern.base_angle_rad - pattern.spread_rad*0.5f;   // base_angle_radを中心に対称的な5way
     // パターンの進行度合い
     const float step = pattern.bullet_count > 1 ? 
         pattern.spread_rad / static_cast<float>(pattern.bullet_count - 1) : 0.0f;

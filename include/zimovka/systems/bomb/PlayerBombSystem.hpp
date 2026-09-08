@@ -19,7 +19,7 @@ private:
     PlayerBombState state_;
 
     // ボム発動の共通処理
-    std::size_t Activate(BulletSystem& enemy_bullets, EnemySystem& enemy_system) noexcept;
+    std::size_t Activate(BulletSystem& enemy_bullets, EnemySystem& enemy_system);
 
 public:
     // 状態のリセット

@@ -12,6 +12,8 @@
 #include "zimovka/platform/Window.hpp"
 #include "zimovka/rendering/Renderer.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
+#include "zimovka/rendering/SpriteRenderer.hpp"
+#include "zimovka/rendering/TextureStore.hpp"
 
 #include "zimovka/debug/DebugOverlay.hpp"
 
@@ -32,7 +34,12 @@ int Application::Run(int argc, char* argv[]){
     SdlContext sdl;
     Window window("Zimovka", WINDOW_WIDTH, WINDOW_HEIGHT);
     Renderer renderer(window.Get());
+    
+    // 描画処理関係
     PrimitiveRenderer prim(renderer.Get());
+    SpriteRenderer sprite_renderer(renderer.Get());
+    TextureStore texture_store;
+    texture_store.LoadAll(renderer.Get(), "./assets_stab/");
 
     const auto seed = INITIAL_SEED;
     run_recorder_.Start(seed);
@@ -138,7 +145,7 @@ int Application::Run(int argc, char* argv[]){
         // ────────────────────────────────
         auto render_start = Clock::now();
         renderer.Clear();
-        Render(prim);
+        Render(sprite_renderer, prim, texture_store);
         const float raw_render_ms = to_ms(Clock::now() - render_start);
 
         // ────────────────────────────────
@@ -207,9 +214,24 @@ void Application::Update(float dt, const InputState& input){
  * @brief 描画処理
  *
  */
-void Application::Render(PrimitiveRenderer& prim){
-    // NOTE: Rendering処理は別クラス(RenderPipelineなど)に移管予定
-    update_pipeline_.Render(prim);
+// void Application::Render(PrimitiveRenderer& prim){
+//     // NOTE: Rendering処理は別クラス(RenderPipelineなど)に移管予定
+//     update_pipeline_.Render(prim);
+// }
+
+void Application::Render(
+    SpriteRenderer& sprites, 
+    PrimitiveRenderer& primitives,
+    const TextureStore& textures
+)
+{
+    render_pipeline_.RenderTick(
+        update_pipeline_, 
+        sprites,
+        primitives, 
+        textures, 
+        true
+    );
 }
 
 /**

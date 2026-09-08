@@ -56,9 +56,13 @@ set(ZIMOVKA_ENGINE_SOURCES
 # InputSystem(SDL events), Platform/Rendering/App/Debug層
 # 原則zimovka本体で使う
 set(ZIMOVKA_APP_SOURCES
+    src/engine/rendering/RenderPipeline.cpp
     src/input/InputSystem.cpp
     src/platform/SdlContext.cpp
     src/platform/Window.cpp
+    src/rendering/Texture.cpp
+    src/rendering/TextureStore.cpp
+    src/rendering/SpriteRenderer.cpp
     src/rendering/Renderer.cpp
     src/rendering/TextTexture.cpp
     src/app/Application.cpp

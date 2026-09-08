@@ -2192,3 +2192,41 @@ void EnemySystem::UpdateFire(
     }
 }
 ```
+
+### 2026/09/08
+
+#### Texture描画処理の実装
+
+#### モック用画像について
+
+あくまでTextureの実装の検証のために単色矩形を作成した(ImageMagick)：
+
+```bash
+convert -size 32x32 xc:"#4488ff" player.png && \
+convert -size 32x32 xc:"#ff4444" enemy_prototype.png && \
+convert -size 8x8  xc:"#ffff44" player_bullet.png && \
+convert -size 8x8  xc:"#ff88ff" enemy_bullet.png && \
+convert -size 480x640 xc:"#223344" stage1_background.png
+```
+
+ただし，単色矩形で制作を進めると，当たり判定やゲーム難易度の調整に支障が出る．
+
+- 透明部分の確認
+- 中心
+- シルエットの間隔
+- **当たり判定と見た目の差分**
+- 弾の見た目
+
+そのため，シルエットがわかるようにした検証用スプライトシートを作成する．
+
+各アセットは次のようなサイズ感で作成を進めていく：
+
+| Asset             | 仮の表示サイズ | モック内容                             |
+| ----------------- | -------------: | -------------------------------------- |
+| Player            | 48×48         | 人形                                   |
+| Small Enemy       | 40～48×40～48 | 円形・砲塔・小型機などPlayerと形を区別できるもの |
+| Player Bullet     |      8×16程度 | 細長い明るい弾                         |
+| Enemy Bullet      | 12～16×12～16 | 円形、明るい中心＋明確な外周           |
+| Stage1 background |   960×720程度 | 低コントラストの工業都市/雪原blockout  |
+
+この時点で当たり判定と見た目をずらして確認していく(当たり判定が見た目より小さめ)．

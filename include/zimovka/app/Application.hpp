@@ -4,17 +4,19 @@
 #include <chrono>
 #include <cstddef>
 
-#include "zimovka/input/InputSystem.hpp"
+#include "zimovka/engine/rendering/RenderPipeline.hpp"
 #include "zimovka/engine/update/UpdatePipeline.hpp"
+#include "zimovka/input/InputSystem.hpp"
 #include "zimovka/replay/RunRecorder.hpp"
+#include "zimovka/rendering/PrimitiveRenderer.hpp"
+#include "zimovka/rendering/SpriteDrawParams.hpp"
+#include "zimovka/rendering/SpriteRenderer.hpp"
+#include "zimovka/rendering/TextureStore.hpp"
 
 #include "zimovka/debug/DebugStats.hpp"
 #include "zimovka/debug/DebugAccumulator.hpp"
 
 namespace zimovka{
-
-// 前方宣言
-class PrimitiveRenderer;
 
 /**
  * @brief ゲームのメインループを管理するクラス
@@ -41,6 +43,8 @@ private:
     bool running_ = true;
     // 更新順序管理(サブシステムを所有する)
     UpdatePipeline update_pipeline_;
+    // 描画順序管理
+    RenderPipeline render_pipeline_;
     // 入力
     InputSystem input_system_;
     // 入力記録
@@ -55,7 +59,12 @@ private:
     // ゲームの更新
     void Update(float dt, const InputState& input);
     // 描画処理
-    void Render(PrimitiveRenderer& prim);
+    // void Render(PrimitiveRenderer& prim);
+    void Render(
+        SpriteRenderer& sprites, 
+        PrimitiveRenderer& primitives,
+        const TextureStore& textures
+    );
     // fpsキャップ
     void CapFrameRate(std::chrono::steady_clock::time_point frame_start_ms);
     // デバッグ情報をdebug_acc_からdebug_stats_へ書き出す
