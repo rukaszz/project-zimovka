@@ -8,12 +8,12 @@
 
 namespace zimovka{
 /**
- * @brief 1固定Tickあたりの更新順序を管理し各システムの描画関数を呼び出す
+ * @brief 1描画フレームの描画順序を管理する
  * 
  */
 class RenderPipeline{
 public:
-    void RenderTick(
+    void RenderFrame(
         const UpdatePipeline& gameplay, 
         SpriteRenderer&       sprites, 
         PrimitiveRenderer&    primitives, 

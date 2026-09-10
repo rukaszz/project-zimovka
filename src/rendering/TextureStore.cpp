@@ -14,13 +14,17 @@ constexpr std::size_t TEXTURE_COUNT =
 
 // TextureId → サブディレクトリ付きの相対パス
 // ルートはLoadAll()で受け取る asset_root (assets_stab/ or assets/)
-constexpr std::array<std::string_view, TEXTURE_COUNT> FILE_NAMES = {{
+constexpr auto FILE_NAMES = std::to_array<std::string_view>({
     "img/player/player.png",                // TextureId::Player
     "img/enemy/enemy_prototype.png",        // TextureId::EnemyPrototype
     "img/bullet/player_bullet.png",         // TextureId::PlayerBullet
     "img/bullet/enemy_bullet.png",          // TextureId::EnemyBullet
     "img/background/stage1_background.png", // TextureId::Stage1Background
-}};
+});
+// ファイル追加忘れ防止用のassert
+static_assert(
+    FILE_NAMES.size() == static_cast<std::size_t>(TextureId::Count)
+);
 } // anonymous namespace
 
 /**
@@ -46,7 +50,7 @@ void TextureStore::LoadAll(
  */
 const Texture& TextureStore::GetTexture(TextureId id) const{
     const auto index = static_cast<std::size_t>(id);
-    // 引数のインデックスがtexturesより大きい or テクスチャの読み込みができていない
+    // 引数のidがtexturesより大きい or テクスチャの読み込みができていない
     if(index >= textures_.size() || !textures_[index].IsValid()){
         throw std::runtime_error("Requested texture is not loaded. ");
     }

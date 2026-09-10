@@ -48,7 +48,7 @@ public:
     void Reset() noexcept;
     
     // getter
-    SDL_Texture* GetTexture() const noexcept{
+    SDL_Texture* Get() const noexcept{
         return texture_;
     }
     int Width() const noexcept{

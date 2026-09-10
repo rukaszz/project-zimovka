@@ -2197,6 +2197,130 @@ void EnemySystem::UpdateFire(
 
 #### Texture描画処理の実装
 
+TheMysteriousForestではPlayerやEnemyがTextureを保持するPer-Object形式だったが，zimovkaではTextureStoreによる中央管理方式を採用する．Per-Object方式は実装が直感的で依存を局所化できるが，メモリ上でテクスチャが重複したり，オブジェクトの解放タイミング，管理が難しくなる．
+
+中央管理方式はIDによる管理と参照が可能でメモリ使用量が抑えられ，一元管理が可能である．もちろん依存がTextureStoreに集中してしまうデメリットがあるが，本作ではパフォーマンス面も考慮し中央管理方式を採用する．
+
+Textureクラスの実装はシンプルなものとなり，ムーブの実装とテクスチャを持つクラスである．
+
+```cpp
+#ifndef ZIMOVKA_RENDERING_TEXTURE_HPP_
+#define ZIMOVKA_RENDERING_TEXTURE_HPP_
+
+#include <filesystem>
+#include <utility>
+
+#include <SDL2/SDL.h>
+
+namespace zimovka{
+/**
+ * @brief SDL_TextureのRAIIラッパクラス
+ * 
+ */
+class Texture{
+private:
+    SDL_Texture* texture_ = nullptr;
+    int width_  = 0;
+    int height_ = 0;
+
+public:
+    // デフォルトコンストラクタ
+    Texture() = default;
+    // SDL_Texture*を受け取るコンストラクタ
+    Texture(SDL_Texture* texture, int width, int height) noexcept
+        : texture_(texture), width_(width), height_(height){}
+    ~Texture();
+    // コピー禁止
+    Texture(const Texture&) = delete;
+    Texture& operator=(const Texture&) = delete;
+    // ムーブは許可
+    Texture(Texture&& other) noexcept{
+        Swap(other);   // 所有権を奪われたので無効化
+    }
+    Texture& operator=(Texture&& other) noexcept{
+        // 異なるtexture_への=演算子によるムーブ
+        if(this != &other){
+            Reset();    // 左辺のtexture終了処理
+            Swap(other);
+        }
+        return *this;   // ムーブされたメンバを返却
+    }
+
+    // 画像ファイル読み込み
+    void Load(
+        SDL_Renderer* renderer, 
+        const std::filesystem::path& path
+    );
+    void Reset() noexcept;
+    
+    // getter
+    SDL_Texture* Get() const noexcept{
+        return texture_;
+    }
+    int Width() const noexcept{
+        return width_;
+    }
+    int Height() const noexcept{
+        return height_;
+    }
+    bool IsValid() const noexcept{
+        return texture_ != nullptr;
+    }
+private:
+    void Swap(Texture& other) noexcept{
+        std::swap(texture_, other.texture_);
+        std::swap(width_,   other.width_);
+        std::swap(height_,  other.height_);
+    }
+};
+}   // namespace zimovka
+
+#endif  // ZIMOVKA_RENDERING_TEXTURE_HPP_
+
+```
+
+TextureStoreクラスもシンプルに，IDによってテクスチャを参照できるような機能のみを積んでいる：
+
+```cpp
+#ifndef ZIMOVKA_RENDERING_TEXTURESTORE_HPP_
+#define ZIMOVKA_RENDERING_TEXTURESTORE_HPP_
+
+#include <array>
+#include <cstddef>
+#include <filesystem>
+
+#include <SDL2/SDL.h>
+
+#include "zimovka/rendering/Texture.hpp"
+#include "zimovka/rendering/TextureId.hpp"
+
+namespace zimovka{
+/**
+ * @brief 各テクスチャを管理するクラス
+ * 
+ * 全Textureはゲーム開始前にすべてする読み込む
+ */
+class TextureStore{
+private:
+    static constexpr std::size_t COUNT = 
+        static_cast<std::size_t>(TextureId::Count);
+    // 現状は固定なのでHash Map(unordered_map)ではなくarray
+    std::array<Texture, COUNT> textures_{};
+
+public:
+    // 全assetsの読み込み
+    void LoadAll(
+        SDL_Renderer* renderer, 
+        const std::filesystem::path& asset_root
+    );
+    const Texture& GetTexture(TextureId id) const;
+};
+}
+
+#endif  // ZIMOVKA_RENDERING_TEXTURESTORE_HPP_
+
+```
+
 #### モック用画像について
 
 あくまでTextureの実装の検証のために単色矩形を作成した(ImageMagick)：
@@ -2230,3 +2354,103 @@ convert -size 480x640 xc:"#223344" stage1_background.png
 | Stage1 background |   960×720程度 | 低コントラストの工業都市/雪原blockout  |
 
 この時点で当たり判定と見た目をずらして確認していく(当たり判定が見た目より小さめ)．
+
+### 2026/09/10
+
+#### Textureの改修
+
+初期Textureの実装はメモリリークの可能性があった．単純に`texture_`を破棄する構成であったため，新しいテクスチャを同一のTextureで読み込むと，過去の分がメモリ上に残ってしまう．内部的にも`Reset()`を読んでいないので，`SDL_Texture`が破棄されないことがわかる．
+そこで，仮の受け皿としてローカル変数で一度受けた後，コミットする方式を採用した．
+
+また，ZimovkaはLinux/Windows対応を目標に掲げているため，`IMG_Load(path.c_str())`もNGである．つまり，`std::filesystem::path::value_type`がLinux/Windowsで異なるのである．そのため，path.string()でASCIIで取得することで差分を吸収する．
+
+```cpp
+/**
+ * @brief 画像からtextureを作成する
+ * 
+ * @param renderer 
+ * @param path 
+ */
+void Texture::Load(
+    SDL_Renderer* renderer, 
+    const std::filesystem::path& path
+)
+{
+    // 引数チェック
+    if(!renderer){
+        throw std::invalid_argument(
+            "Texture::Load renderer is null. "
+        );
+    }
+    // Linux/Windows双方で対応できるようにpath_stringで受ける
+    const std::string path_string = path.string();
+    // Surface: RAMに保存されたピクセルデータ管理用構造体
+    SDL_Surface* surf = IMG_Load(path_string.c_str());
+    // 読み込みできなければ終了
+    if(!surf){
+        throw std::runtime_error(std::string("IMG_Load failed: ") + path.string() + " | " + IMG_GetError());
+    }
+    // surface→texureを構成
+    // まず変数で受け取る(再Loadでのリーク防止用)
+    SDL_Texture* new_texture = SDL_CreateTextureFromSurface(renderer, surf);
+    // texture_ = SDL_CreateTextureFromSurface(renderer, surf);
+    if(!new_texture){
+        SDL_FreeSurface(surf);  // surfaceを解放しておく
+        throw std::runtime_error(std::string("Texture creation failed. ") + SDL_GetError());
+    }
+    // メンバ変数設定(リーク防止用の仮)
+    const int new_width  = surf->w;
+    const int new_height = surf->h;
+    SDL_FreeSurface(surf);
+
+    // ここまで処理が成功してから旧Textureを破棄
+    Reset();
+    // 新Textureをセット
+    texture_ = new_texture;
+    width_   = new_width;
+    height_  = new_height;
+}
+```
+
+#### SpriteRendererの諸注意
+
+スプライト描画用のクラスのSpriteRenderer::Draw()は，これまでの経験でSDL_Rectを使用していたが，SDL_Rectはint型であるため，描画座標が整数に丸められてしまう．そのため，低速移動時に1px単位でブレる可能性がある．そのため，float型対応の`SDL_FRect`を使用した．
+
+```cpp
+/**
+ * @brief テクスチャをスプライトとして描画する
+ *
+ * 中心座標を基準にsize分の矩形を描画
+ * SDL_RenderCopyExを利用するため回転・反転が可能
+ *
+ * ※Playerなどと同様に座標は中心(center)で管理
+ * @param texture  描画するテクスチャ
+ * @param params   描画パラメータ(中心座標・サイズ・回転・反転)
+ */
+void SpriteRenderer::Draw(
+    const Texture& texture,
+    const SpriteDrawParams& params
+)
+{
+    // 描画用矩形の構成※FRectはfloat
+    const SDL_FRect dst{
+        params.center.x - params.size.x * 0.5f,
+        params.center.y - params.size.y * 0.5f,
+        params.size.x,
+        params.size.y,
+    };
+    // flip_xがtrueで反転
+    const SDL_RendererFlip flip =
+        params.flip_x ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    // dstがfloatなのでFを仕様
+    SDL_RenderCopyExF(
+        renderer_,
+        texture.Get(),
+        nullptr,        // src rect: nullptr = テクスチャ全体
+        &dst,
+        params.angle_deg,
+        nullptr,        // center: nullptr = dst矩形の中心
+        flip
+    );
+}
+```

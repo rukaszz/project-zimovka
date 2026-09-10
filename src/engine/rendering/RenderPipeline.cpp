@@ -3,8 +3,28 @@
 #include "zimovka/rendering/TextureId.hpp"
 
 namespace zimovka{
+// 仮定数
+namespace{
+    constexpr Vec2 PLAYER_BULLET_SIZE{
+        8.0f, 16.0f
+    };
+    constexpr Vec2 ENEMY_BULLET_SIZE{
+        14.0f, 14.0f
+    };
+}   // anonymous namespace
+
 /**
- * @brief 規定の順序で各種の描画処理ｗｐ行う
+ * @brief 規定の順序で各種の描画処理を行う
+ * 
+ * 処理順序は
+ * Background
+ * Enemy
+ * Player Bullet
+ * Enemy Bullet
+ * Player
+ * Effects
+ * Debug collision
+ * HUD
  * 
  * @param gameplay: const取得用
  * @param sprites 
@@ -12,7 +32,7 @@ namespace zimovka{
  * @param texutures 
  * @param draw_debug_collision 
  */
-void RenderPipeline::RenderTick(
+void RenderPipeline::RenderFrame(
     const UpdatePipeline& gameplay, 
     SpriteRenderer&       sprites, 
     PrimitiveRenderer&    primitives, 
@@ -20,16 +40,6 @@ void RenderPipeline::RenderTick(
     bool draw_debug_collision
 ) const
 {
-    // player描画
-    const auto& player = gameplay.GetPlayerSystem().GetPlayer();
-    sprites.Draw(
-        texutures.GetTexture(TextureId::Player), 
-        {   // SpriteDrawParams
-            .center = player.position, 
-            .size   = {48.0f, 48.0f}, 
-        }
-    );
-
     // Enemy描画
     for(const Enemy& enemy : gameplay.GetEnemySystem().GetEnemies()){
         // 非active除外
@@ -64,7 +74,7 @@ void RenderPipeline::RenderTick(
             texutures.GetTexture(TextureId::PlayerBullet), 
             {   // SpriteDrawParams
                 .center = pb.position, 
-                .size   = {pb.radius, pb.radius}
+                .size   = PLAYER_BULLET_SIZE
             }
         );
     }
@@ -78,10 +88,19 @@ void RenderPipeline::RenderTick(
             texutures.GetTexture(TextureId::EnemyBullet), 
             {   // SpriteDrawParams
                 .center = eb.position, 
-                .size   = {eb.radius, eb.radius}
+                .size   = ENEMY_BULLET_SIZE
             }
         );
     }
+    // Player描画
+    const auto& player = gameplay.GetPlayerSystem().GetPlayer();
+    sprites.Draw(
+        texutures.GetTexture(TextureId::Player), 
+        {   // SpriteDrawParams
+            .center = player.position, 
+            .size   = {48.0f, 48.0f}, 
+        }
+    );
 }
 } // namespace zimovka
 

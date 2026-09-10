@@ -39,7 +39,7 @@ int Application::Run(int argc, char* argv[]){
     PrimitiveRenderer prim(renderer.Get());
     SpriteRenderer sprite_renderer(renderer.Get());
     TextureStore texture_store;
-    texture_store.LoadAll(renderer.Get(), "./assets_stab/");
+    texture_store.LoadAll(renderer.Get(), "./assets_stub/");
 
     const auto seed = INITIAL_SEED;
     run_recorder_.Start(seed);
@@ -225,7 +225,7 @@ void Application::Render(
     const TextureStore& textures
 )
 {
-    render_pipeline_.RenderTick(
+    render_pipeline_.RenderFrame(
         update_pipeline_, 
         sprites,
         primitives, 

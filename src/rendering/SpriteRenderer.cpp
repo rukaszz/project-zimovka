@@ -17,20 +17,20 @@ void SpriteRenderer::Draw(
     const SpriteDrawParams& params
 )
 {
-    // 描画用矩形の構成
-    const SDL_Rect dst{
-        static_cast<int>(params.center.x - params.size.x * 0.5f),
-        static_cast<int>(params.center.y - params.size.y * 0.5f),
-        static_cast<int>(params.size.x),
-        static_cast<int>(params.size.y),
+    // 描画用矩形の構成※FRectはfloat
+    const SDL_FRect dst{
+        params.center.x - params.size.x * 0.5f,
+        params.center.y - params.size.y * 0.5f,
+        params.size.x,
+        params.size.y,
     };
     // flip_xがtrueで反転
     const SDL_RendererFlip flip =
         params.flip_x ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-
-    SDL_RenderCopyEx(
+    // dstがfloatなのでFを仕様
+    SDL_RenderCopyExF(
         renderer_,
-        texture.GetTexture(),
+        texture.Get(),
         nullptr,        // src rect: nullptr = テクスチャ全体
         &dst,
         params.angle_deg,
