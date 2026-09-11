@@ -9,9 +9,9 @@
 #include "zimovka/input/InputSystem.hpp"
 #include "zimovka/replay/RunRecorder.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
-#include "zimovka/rendering/SpriteDrawParams.hpp"
-#include "zimovka/rendering/SpriteRenderer.hpp"
-#include "zimovka/rendering/TextureStore.hpp"
+#include "zimovka/rendering/sprite/SpriteDrawParams.hpp"
+#include "zimovka/rendering/sprite/SpriteRenderer.hpp"
+#include "zimovka/rendering/texture/TextureStore.hpp"
 
 #include "zimovka/debug/DebugStats.hpp"
 #include "zimovka/debug/DebugAccumulator.hpp"

@@ -1,4 +1,4 @@
-#include "zimovka/rendering/TextTexture.hpp"
+#include "zimovka/rendering/texture/TextTexture.hpp"
 
 #include <stdexcept>
 #include <utility>

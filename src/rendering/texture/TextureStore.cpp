@@ -1,4 +1,4 @@
-#include "zimovka/rendering/TextureStore.hpp"
+#include "zimovka/rendering/texture/TextureStore.hpp"
 
 #include <stdexcept>
 #include <string_view>

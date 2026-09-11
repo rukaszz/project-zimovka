@@ -1,6 +1,6 @@
 #include "zimovka/engine/rendering/RenderPipeline.hpp"
 
-#include "zimovka/rendering/TextureId.hpp"
+#include "zimovka/rendering/texture/TextureId.hpp"
 
 namespace zimovka{
 // 仮定数

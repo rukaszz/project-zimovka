@@ -7,8 +7,8 @@
 
 #include <SDL2/SDL.h>
 
-#include "zimovka/rendering/Texture.hpp"
-#include "zimovka/rendering/TextureId.hpp"
+#include "zimovka/rendering/texture/Texture.hpp"
+#include "zimovka/rendering/texture/TextureId.hpp"
 
 namespace zimovka{
 /**

@@ -1,4 +1,4 @@
-#include "zimovka/rendering/Texture.hpp"
+#include "zimovka/rendering/texture/Texture.hpp"
 
 #include <stdexcept>
 #include <string>

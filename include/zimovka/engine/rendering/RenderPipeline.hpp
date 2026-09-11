@@ -3,8 +3,8 @@
 
 #include "zimovka/engine/update/UpdatePipeline.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
-#include "zimovka/rendering/SpriteRenderer.hpp"
-#include "zimovka/rendering/TextureStore.hpp"
+#include "zimovka/rendering/sprite/SpriteRenderer.hpp"
+#include "zimovka/rendering/texture/TextureStore.hpp"
 
 namespace zimovka{
 /**

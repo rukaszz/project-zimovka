@@ -1,4 +1,4 @@
-#include "zimovka/rendering/SpriteRenderer.hpp"
+#include "zimovka/rendering/sprite/SpriteRenderer.hpp"
 
 namespace zimovka{
 

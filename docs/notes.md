@@ -2454,3 +2454,34 @@ void SpriteRenderer::Draw(
     );
 }
 ```
+
+### 2026/09/11
+
+#### renderingディレクトリの整理
+
+renderingディレクトリ直下に描画処理関係のファイルが多くあり，保守性が低下していることを踏まえてサブディレクトリを作成し整理する．
+構造としては次の通り：
+
+```text
+include/zimovka/
+├── engine/
+│   ├── update/
+│   │   └── UpdatePipeline.hpp
+│   └── rendering/
+│       └── RenderPipeline.hpp
+│
+└── rendering/
+    ├── texture/
+    │   ├── TextTexture.hpp
+    │   ├── Texture.hpp
+    │   ├── TextureId.hpp
+    │   └── TextureStore.hpp
+    │
+    ├── sprite/
+    │   ├── SpriteDrawParams.hpp
+    │   └── SpriteRenderer.hpp
+    │
+    ├── PrimitiveRenderer.hpp
+    ├── Renderer.hpp
+    └── Color.hpp
+```

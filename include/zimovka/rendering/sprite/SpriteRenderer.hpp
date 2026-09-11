@@ -1,10 +1,10 @@
-#ifndef ZIMOVKA_RENDERING_SPRITERENDERER_HPP_
-#define ZIMOVKA_RENDERING_SPRITERENDERER_HPP_
+#ifndef ZIMOVKA_RENDERING_SPRITE_SPRITERENDERER_HPP_
+#define ZIMOVKA_RENDERING_SPRITE_SPRITERENDERER_HPP_
 
 #include <SDL2/SDL.h>
 
-#include "zimovka/rendering/SpriteDrawParams.hpp"
-#include "zimovka/rendering/Texture.hpp"
+#include "zimovka/rendering/sprite/SpriteDrawParams.hpp"
+#include "zimovka/rendering/texture/Texture.hpp"
 
 namespace zimovka{
 /**
@@ -29,4 +29,4 @@ public:
 };
 } // namespace zimovka
 
-#endif  // ZIMOVKA_RENDERING_SPRITERENDERER_HPP_
+#endif  // ZIMOVKA_RENDERING_SPRITE_SPRITERENDERER_HPP_

@@ -12,8 +12,8 @@
 #include "zimovka/platform/Window.hpp"
 #include "zimovka/rendering/Renderer.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
-#include "zimovka/rendering/SpriteRenderer.hpp"
-#include "zimovka/rendering/TextureStore.hpp"
+#include "zimovka/rendering/sprite/SpriteRenderer.hpp"
+#include "zimovka/rendering/texture/TextureStore.hpp"
 
 #include "zimovka/debug/DebugOverlay.hpp"
 

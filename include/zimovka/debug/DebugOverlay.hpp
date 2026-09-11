@@ -8,7 +8,7 @@
 #include <SDL2/SDL_ttf.h>
 
 #include "zimovka/debug/DebugStats.hpp"
-#include "zimovka/rendering/TextTexture.hpp"
+#include "zimovka/rendering/texture/TextTexture.hpp"
 
 namespace zimovka{
 

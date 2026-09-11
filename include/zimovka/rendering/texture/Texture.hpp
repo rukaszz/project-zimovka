@@ -1,5 +1,5 @@
-#ifndef ZIMOVKA_RENDERING_TEXTURE_HPP_
-#define ZIMOVKA_RENDERING_TEXTURE_HPP_
+#ifndef ZIMOVKA_RENDERING_TEXTURE_TEXTURE_HPP_
+#define ZIMOVKA_RENDERING_TEXTURE_TEXTURE_HPP_
 
 #include <filesystem>
 #include <utility>
@@ -68,4 +68,4 @@ private:
 };
 }   // namespace zimovka
 
-#endif  // ZIMOVKA_RENDERING_TEXTURE_HPP_
+#endif  // ZIMOVKA_RENDERING_TEXTURE_TEXTURE_HPP_

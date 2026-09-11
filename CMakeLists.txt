@@ -60,11 +60,11 @@ set(ZIMOVKA_APP_SOURCES
     src/input/InputSystem.cpp
     src/platform/SdlContext.cpp
     src/platform/Window.cpp
-    src/rendering/Texture.cpp
-    src/rendering/TextureStore.cpp
-    src/rendering/SpriteRenderer.cpp
+    src/rendering/texture/Texture.cpp
+    src/rendering/texture/TextureStore.cpp
+    src/rendering/sprite/SpriteRenderer.cpp
     src/rendering/Renderer.cpp
-    src/rendering/TextTexture.cpp
+    src/rendering/texture/TextTexture.cpp
     src/app/Application.cpp
     src/debug/DebugOverlay.cpp
 )
