@@ -20,9 +20,7 @@ private:
 public:
     // デフォルトコンストラクタ
     Texture() = default;
-    // SDL_Texture*を受け取るコンストラクタ
-    Texture(SDL_Texture* texture, int width, int height) noexcept
-        : texture_(texture), width_(width), height_(height){}
+    // デストラクタはリソース解放のため定義する
     ~Texture();
     // コピー禁止
     Texture(const Texture&) = delete;
@@ -61,6 +59,7 @@ public:
         return texture_ != nullptr;
     }
 private:
+    // ムーブ用に左辺と右辺の値を入れ替える関数
     void Swap(Texture& other) noexcept{
         std::swap(texture_, other.texture_);
         std::swap(width_,   other.width_);
