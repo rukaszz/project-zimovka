@@ -7,6 +7,7 @@
 
 #include "zimovka/rendering/Color.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
+#include "zimovka/math/GameplayMath.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/pattern/PatternEmitRequest.hpp"
 #include "zimovka/systems/pattern/PatternSystem.hpp"
@@ -281,8 +282,7 @@ void EnemySystem::UpdateFire(
             continue;
         }
         // 自機狙い角度の計算
-        const Vec2 to_player = player_pos - e.position;
-        const float base_angle = std::atan2(to_player.y, to_player.x);
+        const float base_angle = GameplayMath::AimAngleRad(e.position, player_pos);
         // パターン設定
         PatternEmitRequest req{};
         req.origin         = e.position;

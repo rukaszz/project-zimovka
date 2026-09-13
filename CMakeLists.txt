@@ -34,6 +34,7 @@ pkg_check_modules(SDL2MIXER  REQUIRED SDL2_mixer)
 set(ZIMOVKA_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/core/DeterministicRng.cpp
     ${CMAKE_SOURCE_DIR}/src/input/InputState.cpp
+    ${CMAKE_SOURCE_DIR}/src/math/GameplayMath.cpp
     ${CMAKE_SOURCE_DIR}/src/rendering/PrimitiveRenderer.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/bomb/PlayerBombSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/bullet/BulletSystem.cpp

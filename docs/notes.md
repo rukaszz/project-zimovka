@@ -2485,3 +2485,95 @@ include/zimovka/
     ├── Renderer.hpp
     └── Color.hpp
 ```
+
+### 2026/09/12
+
+#### glibcとMSVCの差異
+
+glibc(Linux)とMSVC(Windows)は三角関数などの計算で実装に差異があることが判明した．ざっくりと調べた限り，例えばfloat(単精度浮動小数点)の計算を行う際，glibcは内部の計算でも単精度浮動小数点で計算しているが，MSVCの場合は内部では倍精度浮動小数点で計算した後単精度浮動小数点で返しているため，1ULP(Unit in Last Place)という仮数部の最小単位で誤差が発生する．つまり，LinuxとWindows間でリプレイを共有した場合，誤差の蓄積でリプレイ結果が変わる可能性がある．
+
+こんな感じの誤差が蓄積する可能性がある：
+
+```text
+Linux:
+atan2 → 1.23456776...
+cos   → 0.329929...
+
+Windows:
+atan2 → 1.23456764...
+cos   → 0.329930...
+```
+
+すると誤差蓄積で次のような結果になり，リプレイの再現性が失われる：
+
+```text
+velocity
+↓
+position += velocity * dt
+↓
+数百tick蓄積
+↓
+collision境界を跨ぐ
+↓
+Enemy撃破/Player被弾の有無が変化
+↓
+以降のsimulation全体が分岐
+```
+
+#### リプレイの互換性は優先度を下げる
+
+この誤差への対応をする場合は，自作の数学ライブラリを作成する必要がありコストが高いので，ひとまずはLinux/Windows間のリプレイ互換性をオミットし，次のような契約を定義する．
+
+Zimovkaでは，同ゲームバージョン・同プラットフォームでのみリプレイ互換性を保証する．(厳密には同一のビルドのみ)
+
+ただし，ユーザからリプレイ互換性について要望があがるなど，将来的に対応に迫られる可能性はもちろんあるため，切り替えられるようなラッパを準備して起きて，数学ライブラリの実装時に交換を用意にする境界を作成しておく方針で進める：
+
+GameplayMath.hpp
+
+```cpp
+#ifndef ZIMOVKA_MATH_GAMEPLAYMATH_HPP_
+#define ZIMOVKA_MATH_GAMEPLAYMATH_HPP_
+
+#include "zimovka/core/Vec2.hpp"
+
+namespace zimovka::GameplayMath {
+
+inline constexpr std::uint32_t VERSION = 1;
+
+[[nodiscard]]
+float AimAngleRad(
+    const Vec2& origin,
+    const Vec2& target
+) noexcept;
+
+[[nodiscard]]
+Vec2 VelocityFromAngle(
+    float angle_rad,
+    float speed
+) noexcept;
+
+}
+
+#endif
+```
+
+#### コンパイラ設定
+
+数学ライブラリと同じような理由でコンパイラのフラグに注意が必要である．原則次のコンパイラフラグは使用しない．
+これらコンパイラフラグはFMA演算(浮動小数点数融合積和演算命令)と呼ばれる演算を行う．FMAとは積和演算を1回で行うことで，精度や速度が向上する．しかし順序変更がなされるため，計算結果が変化する可能性がある．
+
+GCC/Clang：
+
+- -ffast-math
+  - IEEE/ISO規定のルールに従わない変換
+  - 演算時の精度の変化(excess precision)がある
+- -Ofast
+  - パフォーマンスのため`-O3`と同等かそれ以上に高速化を優先する演算処理をする
+  - -ffp-contract=off を必要なら使う
+
+MSVC：
+
+- /fp:precise
+  - 演算時の精度の変化(excess precision)がある
+- /fp:fast
+  - 浮動小数点演算の順序変更などパフォーマンス最優先の最適化をする

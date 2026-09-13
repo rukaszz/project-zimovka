@@ -16,14 +16,21 @@ add_executable(zimovka_tests
     test_InputSystem.cpp
     test_BulletSystem.cpp
     test_EnemySystem.cpp
+    test_PatternSystem.cpp
+    test_PlayerBombSystem.cpp
     test_PlayerSystem.cpp
     test_Collision.cpp
     test_DebugAccumulator.cpp
     test_RunRecorder.cpp
     test_PlayerWeaponSystem.cpp
     test_DeterministicRng.cpp
+    test_Texture.cpp
+    test_GameplayMath.cpp
     ${ZIMOVKA_CORE_SOURCES}
     ${CMAKE_SOURCE_DIR}/src/input/InputSystem.cpp
+    # Texture は APP_SOURCES だが，Load()の引数チェック(null renderer)をテストするために追加
+    # リンクに SDL2IMAGE が必要
+    ${CMAKE_SOURCE_DIR}/src/rendering/texture/Texture.cpp
 )
 
 # インクルードパス(親CMakeLists.txtでpkg_check_modulesが実行済みなので変数が使える)
@@ -32,10 +39,11 @@ target_include_directories(zimovka_tests PRIVATE
     ${SDL2_INCLUDE_DIRS}
 )
 
-# リンク: GTest + SDL2(PrimitiveRenderer.cppとInputSystem.cppで使用する)
+# リンク: GTest + SDL2(PrimitiveRenderer.cpp/InputSystem.cpp) + SDL2IMAGE(Texture.cpp)
 target_link_libraries(zimovka_tests PRIVATE
     GTest::gtest_main
     ${SDL2_LIBRARIES}
+    ${SDL2IMAGE_LIBRARIES}
 )
 
 target_compile_options(zimovka_tests PRIVATE

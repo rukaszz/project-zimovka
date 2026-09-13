@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <cmath>
 
+#include "zimovka/math/GameplayMath.hpp"
+
 namespace zimovka{
 /**
  * @brief 放射状に広がるパターン
@@ -48,10 +50,7 @@ std::size_t PatternSystem::EmitSpread(
         // 拡散角度
         const float angle = begin_angle + step * static_cast<float>(i);
         // 速度
-        const Vec2 velocity{
-            std::cos(angle) * pattern.bullet_speed, // x軸
-            std::sin(angle) * pattern.bullet_speed  // y軸
-        };
+        const Vec2 velocity = GameplayMath::VelocityFromAngle(angle, pattern.bullet_speed);
         // 上記で設定した角度・速度で弾を出現
         if(bullets.Spawn(
             pattern.origin, velocity, pattern.bullet_radius

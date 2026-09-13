@@ -12,7 +12,7 @@ namespace zimovka{
  */
 struct PatternEmitRequest{
     Vec2 origin{};                      // 原点座標
-    float base_angle_rad        = 0.0f; // 基準の傾き
+    float base_angle_rad       = 0.0f;  // 基準の傾き
     std::uint32_t bullet_count = 0;     // パターンが持つ弾数
     // 弾のパラメータ
     float spread_rad    = 0.50f;
