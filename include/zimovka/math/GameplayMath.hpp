@@ -7,8 +7,11 @@
 
 namespace zimovka{
 /**
- * @brief Linux/Windows間での数学ライブラリ計算誤差吸収用の境界ラッパ
- * 
+ * @brief Gameplayで使用する数学関数の境界API
+ *
+ * 現在は標準数学ライブラリを使用する。
+ * 将来的にリプレイなどでクロスプラットホーム対応が必要になった場合に
+ * LUT / fixed-point等へ実装を置換するための境界
  */
 namespace GameplayMath{
 // GameplayMathのバージョン管理用

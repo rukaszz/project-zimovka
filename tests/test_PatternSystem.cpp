@@ -233,3 +233,18 @@ TEST(PatternSystemTest, PoolExact_AllSpawned){
     EXPECT_EQ(ps.EmitSpread(MakeRequest(5), bs), 5u);
     EXPECT_EQ(bs.CountActive(), 5u);
 }
+
+/**
+ * @brief 異なるシステムから発射された弾によってプールの空き容量がなくなった
+ * 
+ */
+TEST(PatternSystemTest, PartiallyUsedPoolInsufficient_EmitNothing){
+    BulletSystem bs{5};
+    // ここで1発発射される
+    ASSERT_TRUE(bs.Spawn({0.0f, 0.0f}, {1.0f, 0.0f}, 3.0f));
+    ASSERT_EQ(bs.CountActive(), 1u);
+    // capacity=5だが空き容量が4なので5wayは拒否される
+    PatternSystem ps;
+    EXPECT_EQ(ps.EmitSpread(MakeRequest(5), bs), 0u);
+    EXPECT_EQ(bs.CountActive(), 1u);
+}

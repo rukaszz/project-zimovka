@@ -53,8 +53,9 @@ TEST(GameplayMathTest, AimAngleRad_NonZeroOrigin){
     EXPECT_NEAR(GM::AimAngleRad({100.0f, 200.0f}, {101.0f, 200.0f}), 0.0f, 1e-5f);
 }
 /**
- * @brief origin == targetのときatan2(0, 0) = 0(C標準で定義済み)
+ * @brief origin == targetのときatan2(0, 0) = 0であることを確認
  * 
+ * ZimovkaのGameplayMathは同一点を0 radと定義する
  */
 TEST(GameplayMathTest, AimAngleRad_SamePoint_ReturnsZero){
     EXPECT_NEAR(GM::AimAngleRad({5.0f, 5.0f}, {5.0f, 5.0f}), 0.0f, 1e-5f);
@@ -79,11 +80,11 @@ TEST(GameplayMathTest, VelocityFromAngle_Rightward){
  * 
  * angle=0 → {0, speed}
  */
-TEST(GameplayMathTest, VelocityFromAngle_Rightward){
+TEST(GameplayMathTest, VelocityFromAngle_Leftward){
     const float pi = std::numbers::pi_v<float>;
     const Vec2 v = GM::VelocityFromAngle(pi, 100.0f);
-    EXPECT_NEAR(v.x,   0.0f, 1e-4f);
-    EXPECT_NEAR(v.y, 100.0f, 1e-4f);
+    EXPECT_NEAR(v.x, -100.0f, 1e-4f);
+    EXPECT_NEAR(v.y,    0.0f, 1e-4f);
 }
 /**
  * @brief 下方向への弾速計算

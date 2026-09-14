@@ -177,7 +177,7 @@ TEST(PlayerBombSystemTest, NormalBomb_KillsActiveEnemies){
     p.hp                   = 1;
     p.fire_interval_ticks  = 120;
     // 敵弾生成
-    (void)es.Spawn(p);
+    ASSERT_TRUE(es.Spawn(p));
     ASSERT_EQ(es.CountActive(), 1u);
 
     const auto ev = sys.UpdateTick(BombPressed(), false, eb, es);
@@ -313,6 +313,31 @@ TEST(PlayerBombSystemTest, GracePeriod_BombInput_CancelsHit){
     sys.UpdateTick(NoInput(), true, eb, es);        // grace開始
     EXPECT_TRUE(sys.GetState().HasPendingHit());    // 受付中
 
+    const auto ev = sys.UpdateTick(BombPressed(), false, eb, es);
+    EXPECT_TRUE(ev.activated);      // ボム有効化
+    EXPECT_TRUE(ev.hit_cancelled);  // 被弾キャンセル
+    EXPECT_FALSE(ev.hit_applied);
+    EXPECT_FALSE(sys.GetState().HasPendingHit());   // 食らいボム入力受け付け無効
+}
+
+/**
+ * @brief 食らいボム入力受け付け中の最終Tickでボム入力あり
+ * 
+ */
+TEST(PlayerBombSystemTest, GracePeriod_BombOnLastAllowedTick_CancelsHit){
+    PlayerBombSystem sys;
+    BulletSystem eb(100);
+    EnemySystem  es(10);
+
+    sys.UpdateTick(NoInput(), true, eb, es);        // grace開始
+    EXPECT_TRUE(sys.GetState().HasPendingHit());    // 受付中
+
+    // GRACE_TICKS - 1までTick消費
+    for(std::uint32_t i = 0; i < PC::GRACE_TICKS - 1; ++i){
+        const auto ev = sys.UpdateTick(NoInput(), false, eb, es);
+        EXPECT_FALSE(ev.hit_applied) << "Tick " << i;
+    }
+    // 最終Tickでボム入力
     const auto ev = sys.UpdateTick(BombPressed(), false, eb, es);
     EXPECT_TRUE(ev.activated);      // ボム有効化
     EXPECT_TRUE(ev.hit_cancelled);  // 被弾キャンセル

@@ -23,9 +23,10 @@ namespace zimovka{
  */
 enum class PlaybackStartResult{
     Started,                // 正常に開始
-    UnsupportedFormat,       // フォーマットの不一致
+    UnsupportedFormat,      // フォーマットの不一致
     SimulationHzMismatch,   // 再現用FPS設定値の不一致
     RngVersionMismatch,     // 乱数バージョン不一致
+    MathVersionMismatch,    // 数学ライブラリ仕様の不一致
     IncompleteRecord,       // 記録不完全
     EmptyRecord             // リプレイが空
 };

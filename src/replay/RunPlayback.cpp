@@ -1,5 +1,6 @@
 #include "zimovka/replay/RunPlayback.hpp"
 
+#include "zimovka/math/GameplayMath.hpp"
 #include "zimovka/replay/ReplayInputCodec.hpp"
 
 namespace zimovka{
@@ -21,6 +22,9 @@ PlaybackStartResult RunPlayback::Start(const RunRecord& record) noexcept{
     }
     if(record.rng_version != GAMEPLAY_RNG_VERSION){
         return PlaybackStartResult::RngVersionMismatch;
+    }
+    if(record.math_version != GameplayMath::VERSION){
+        return PlaybackStartResult::MathVersionMismatch;
     }
     if(record.frame_limit_reached){
         return PlaybackStartResult::IncompleteRecord;
