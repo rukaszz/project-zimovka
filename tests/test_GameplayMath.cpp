@@ -64,7 +64,6 @@ TEST(GameplayMathTest, AimAngleRad_SamePoint_ReturnsZero){
 // ──────────────────────────────────────────────────────
 // VelocityFromAngle: 基本4方向
 // ──────────────────────────────────────────────────────
-// 
 /**
  * @brief 右方向への弾速計算
  * 
@@ -78,7 +77,7 @@ TEST(GameplayMathTest, VelocityFromAngle_Rightward){
 /**
  * @brief 左方向への弾速計算
  * 
- * angle=0 → {0, speed}
+ * angle=0 → {-speed, 0}
  */
 TEST(GameplayMathTest, VelocityFromAngle_Leftward){
     const float pi = std::numbers::pi_v<float>;

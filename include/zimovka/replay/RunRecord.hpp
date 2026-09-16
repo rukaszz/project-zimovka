@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "zimovka/config/SimulationConfig.hpp"
+#include "zimovka/math/GameplayMath.hpp"
 
 namespace zimovka{
 // 現在のリプレイフォーマットバージョン

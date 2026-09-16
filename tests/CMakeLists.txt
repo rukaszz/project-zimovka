@@ -52,6 +52,11 @@ target_compile_options(zimovka_tests PRIVATE
     $<$<CONFIG:Release>:-O2>
 )
 
+# テスト用一時画像の生成・削除先ディレクトリをコンパイル定義として渡す
+target_compile_definitions(zimovka_tests PRIVATE
+    ZIMOVKA_TEST_IMAGE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests_image"
+)
+
 # CTestへ自動登録
 include(GoogleTest)
 gtest_discover_tests(zimovka_tests)

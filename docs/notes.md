@@ -2604,3 +2604,93 @@ float AimAngleRad(const Vec2& origin, const Vec2& target) noexcept{
     return std::atan2(delta.y, delta.x);
 }
 ```
+
+### 2026/09/16
+
+#### Textureクラスのテストについて
+
+TextureはどうしてもSDLが絡み，かつ画像の読み込みも必要になる．Load()は重要な関数であるためテストの実施は必要である．そのため，フィクスチャを準備して`tests_image`ディレクトリを作成→テスト用画像の読み込み→テスト完了後削除，という流れでテストを追加した．
+
+```cpp
+// ──────────────────────────────────────────────────────
+// 実画像ファイルを使ったロードテスト
+//
+// SetUpTestSuiteでSDLを一度だけ初期化し，4×4 BMPをZIMOVKA_TEST_IMAGE_DIRに生成する
+// TearDownTestSuiteで画像ディレクトリごと削除しSDLを終了することで，テスト完了前後の状態は一致する
+// ──────────────────────────────────────────────────────
+namespace {
+
+class TextureLoadTest : public ::testing::Test {
+protected:
+    static SDL_Window*           window_;
+    static SDL_Renderer*         renderer_;
+    static std::filesystem::path valid_image_path_;
+    static bool                  sdl_ready_;
+
+    static void SetUpTestSuite() {
+        // ヘッドレス環境対応: オフスクリーンドライバを使用
+        SDL_setenv("SDL_VIDEODRIVER", "offscreen", /*overwrite=*/1);
+        if (SDL_Init(SDL_INIT_VIDEO) != 0) { return; }
+
+        window_ = SDL_CreateWindow("test", 0, 0, 4, 4, SDL_WINDOW_HIDDEN);
+        if (!window_) { SDL_Quit(); return; }
+
+        renderer_ = SDL_CreateRenderer(window_, -1, SDL_RENDERER_SOFTWARE);
+        if (!renderer_) {
+            SDL_DestroyWindow(window_);
+            window_ = nullptr;
+            SDL_Quit();
+            return;
+        }
+
+        // テスト用 4×4 BMP を生成
+        namespace fs = std::filesystem;
+        const fs::path dir = fs::path(ZIMOVKA_TEST_IMAGE_DIR);
+        fs::create_directories(dir);
+        valid_image_path_ = dir / "test_4x4.bmp";
+
+        SDL_Surface* surf = SDL_CreateRGBSurface(0, 4, 4, 24, 0, 0, 0, 0);
+        if (surf) {
+            SDL_SaveBMP(surf, valid_image_path_.string().c_str());
+            SDL_FreeSurface(surf);
+        }
+
+        sdl_ready_ = (renderer_ != nullptr) && fs::exists(valid_image_path_);
+    }
+
+    static void TearDownTestSuite() {
+        namespace fs = std::filesystem;
+        const fs::path dir = fs::path(ZIMOVKA_TEST_IMAGE_DIR);
+        if (fs::exists(dir)) { fs::remove_all(dir); }
+
+        if (renderer_) { SDL_DestroyRenderer(renderer_); renderer_ = nullptr; }
+        if (window_)   { SDL_DestroyWindow(window_);     window_   = nullptr; }
+        SDL_Quit();
+    }
+
+    void SetUp() override {
+        if (!sdl_ready_) {
+            GTEST_SKIP() << "SDL renderer not available";
+        }
+    }
+};
+
+SDL_Window*           TextureLoadTest::window_           = nullptr;
+SDL_Renderer*         TextureLoadTest::renderer_         = nullptr;
+std::filesystem::path TextureLoadTest::valid_image_path_;
+bool                  TextureLoadTest::sdl_ready_        = false;
+
+} // namespace
+```
+
+### 2026/09/17
+
+#### NOLINT(bugprone-use-after-move)
+
+コンパイラに伝えるためのメタコメント．通常は，ムーブされて所有権を放棄したオブジェクトを参照するとエラーになる．そのチェックを行単位でチェックを無効化できる機能．clang-tidyというツールが警告を発さないようにするが，バグを握りつぶすことになりかねない．
+
+テストなど意図した箇所でのみ使用するべきである．
+
+#### 画面レイアウト
+
+
