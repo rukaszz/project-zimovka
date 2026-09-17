@@ -221,9 +221,10 @@ void UpdatePipeline::SpawnPhase1PrototypeEnemy(){
         return;
     }
 
-    // x座標はランダム
+    // x座標はランダム(プレイフィールド幅に収める: margin 100px を両側に確保)
+    const auto field_w = static_cast<std::uint32_t>(world_width_);
     const float spawn_x = static_cast<float>(
-        gameplay_rng_.UniformU32(100u, 860u)    // 100〜860
+        gameplay_rng_.UniformU32(100u, field_w - 100u)
     );
     // スピードでも乱数を消費
     const float speed = static_cast<float>(

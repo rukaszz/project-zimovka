@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstddef>
 
+#include "zimovka/config/ScreenLayout.hpp"
 #include "zimovka/engine/rendering/RenderPipeline.hpp"
 #include "zimovka/engine/update/UpdatePipeline.hpp"
 #include "zimovka/input/InputSystem.hpp"

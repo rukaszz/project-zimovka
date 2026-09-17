@@ -1,5 +1,7 @@
 #include "zimovka/engine/rendering/RenderPipeline.hpp"
 
+#include "zimovka/rendering/hud/HudRenderer.hpp"
+#include "zimovka/rendering/hud/HudViewModel.hpp"
 #include "zimovka/rendering/texture/TextureId.hpp"
 
 namespace zimovka{
@@ -95,12 +97,29 @@ void RenderPipeline::RenderFrame(
     // Player描画
     const auto& player = gameplay.GetPlayerSystem().GetPlayer();
     sprites.Draw(
-        texutures.GetTexture(TextureId::Player), 
+        texutures.GetTexture(TextureId::Player),
         {   // SpriteDrawParams
-            .center = player.position, 
-            .size   = {48.0f, 48.0f}, 
+            .center = player.position,
+            .size   = {48.0f, 48.0f},
         }
     );
+
+    // ── HUD描画 ──────────────────────────────────────────
+    // UpdatePipeline から表示用データのスナップショットを構築する
+    const auto& weapon_state  = gameplay.GetPlayerWeaponSystem().GetState();
+    const auto& weapon_config = gameplay.GetPlayerWeaponSystem().GetConfig();
+    const auto& bomb_state    = gameplay.GetBombSystem().GetState();
+
+    HudViewModel hud_model;
+    hud_model.ammo                    = weapon_state.ammo;
+    hud_model.max_ammo                = weapon_config.max_ammo;
+    hud_model.reloading               = weapon_state.IsReloading();
+    hud_model.reload_ticks_remaining  = weapon_state.reload_ticks_remaining;
+    hud_model.reload_duration_ticks   = weapon_config.reload_duration_ticks;
+    hud_model.bomb_stock              = bomb_state.stock;
+
+    HudRenderer hud_renderer;
+    hud_renderer.Render(hud_model, primitives);
 }
 } // namespace zimovka
 

@@ -32,7 +32,11 @@ int Application::Run(int argc, char* argv[]){
 
     // SDLの初期化
     SdlContext sdl;
-    Window window("Zimovka", WINDOW_WIDTH, WINDOW_HEIGHT);
+    Window window(
+        "Zimovka", 
+        ScreenLayout::LOGICAL_WIDTH, 
+        ScreenLayout::LOGICAL_HEIGHT
+    );
     Renderer renderer(window.Get());
     
     // 描画処理関係
@@ -56,7 +60,11 @@ int Application::Run(int argc, char* argv[]){
     };
 
     // パイプライン初期化(内部の全サブシステムを初期化する)
-    update_pipeline_.StartRun(WINDOW_WIDTH, WINDOW_HEIGHT, seed);
+    update_pipeline_.StartRun(
+        ScreenLayout::PLAYFIELD_WIDTH, 
+        ScreenLayout::PLAYFIELD_HEIGHT, 
+        seed
+    );
 
     // 固定タイムステップ用クロック(steady_clockはis_steadyが保証される)
     using Clock = std::chrono::steady_clock;
