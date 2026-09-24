@@ -2710,3 +2710,168 @@ bool                  TextureLoadTest::sdl_ready_        = false;
 └─────────────┴───────┘
          640 px                 320 px
 ```
+
+### 2026/09/22
+
+#### コンパイル時のチェック
+
+画面構成が定まったので`ScreenLayout.hpp`に定義している．この定義が変化しないことを保証するために，static_assertを設ける：
+
+```cpp
+#ifndef ZIMOVKA_CONFIG_SCREENLAYOUT_HPP_
+#define ZIMOVKA_CONFIG_SCREENLAYOUT_HPP_
+
+namespace zimovka{
+namespace ScreenLayout{
+    
+inline constexpr float LOGICAL_WIDTH  = 960.0f;      // 画面全体の幅
+inline constexpr float LOGICAL_HEIGHT = 720.0f;      // 画面全体の高さ
+
+inline constexpr float PLAYFIELD_X      = 0.0f;      // ゲームプレイ領域左端
+inline constexpr float PLAYFIELD_Y      = 0.0f;      // ゲームプレイ領域上端
+inline constexpr float PLAYFIELD_WIDTH  = 640.0f;    // ゲームプレイ画面幅
+inline constexpr float PLAYFIELD_HEIGHT = 720.0f;    // ゲームプレイ画面高さ
+
+inline constexpr float HUD_X      = 640.0f;   // HUD左端
+inline constexpr float HUD_Y      = 0.0f;     // HUD上端
+inline constexpr float HUD_WIDTH  = 320.0f;   // HUD幅
+inline constexpr float HUD_HEIGHT = 720.0f;   // HUD高さ
+
+inline constexpr float HUD_MARGIN = 24.0f;    // HUD隙間
+
+// 画面上の定義であり広範囲に影響するので，コンパイル時にチェックする
+static_assert(PLAYFIELD_X + PLAYFIELD_WIDTH  == HUD_X         );
+static_assert(PLAYFIELD_Y + PLAYFIELD_HEIGHT == HUD_HEIGHT    );
+static_assert(HUD_X       + HUD_WIDTH        == LOGICAL_WIDTH );
+static_assert(HUD_Y       + PLAYFIELD_HEIGHT == LOGICAL_HEIGHT);
+static_assert(HUD_X            == PLAYFIELD_WIDTH);
+static_assert(PLAYFIELD_HEIGHT == LOGICAL_HEIGHT );
+static_assert(HUD_HEIGHT       == LOGICAL_HEIGHT );
+
+} // namespace ScreenLayout
+} // namespace zimovka
+
+#endif  // ZIMOVKA_CONFIG_SCREENLAYOUT_HPP_
+
+```
+
+このコンパイル時に値が意図した通りであるかをチェックすることを，compile-time check/validation/invariantなどという．
+なお，浮動小数の定数ではあるが，今回は事実上整数値であるため単純な比較で問題ない認識である．
+
+#### HudViewのリロード進捗
+
+Hudのリロード進捗はHudRenderer側でclamp処理をしていたが，Hudは完全にスナップショットを受け取って描画するだけの役割なので，RenderPipeline側でclamp処理をするように修正．当該clamp処理は次のもの：
+
+```cpp
+// リロード進捗: [0.0, 1.0]にclampしてViewModelに渡す
+    // ※リロード中でない場合やduration=0の場合は0.0のまま
+    float reload_progress = 0.0f;
+    if(weapon_state.IsReloading() && weapon_config.reload_duration_ticks > 0){
+        reload_progress = std::clamp(
+            1.0f - static_cast<float>(weapon_state.reload_ticks_remaining)
+                 / static_cast<float>(weapon_config.reload_duration_ticks),
+            0.0f, 
+            1.0f
+        );
+    }
+```
+
+#### RenderPipelineにclip処理を追加
+
+clip処理とは，SDLの関数である`SDL_RenderSetClipRect`を用いた描画領域制限処理のこと．こちらの関数を用いることで，指定した矩形の範囲外に出た描画対象のテクスチャなどは，切り取り(clip)される．現状はRenderPipelineの描画順序によって，描画を上書きすることでプレイ領域とHUD領域を区別しているが，これは少々強引であるため，SDLの`SDL_RenderSetClipRect`を用いる：
+
+```cpp
+/**
+ * @brief プレイ領域外に出た部分をクリップ(カット)する矩形を設定する
+ * 
+ * SDL_RenderSetClipRectで描画領域を制限する
+ * 
+ * @param x 
+ * @param y 
+ * @param w 
+ * @param h 
+ */
+void Renderer::SetClipRect(int x, int y, int w, int h){
+    // SDL_Rectへ変換
+    const SDL_Rect rect{x, y, w, h};
+    // 描画領域制限矩形設定(rectはポインタで渡す)
+    if(SDL_RenderSetClipRect(renderer_, &rect) != 0){
+        throw std::runtime_error(std::string("SDL_RenderSetClipRect failed. ") + SDL_GetError());
+    }
+}
+
+/**
+ * @brief 描画領域制限用clip矩形の削除処理
+ * 
+ * SDL_RenderSetClipRectを解除する
+ */
+void Renderer::ClearClipRect(){
+    if(SDL_RenderSetClipRect(renderer_, nullptr) != 0){
+        throw std::runtime_error(std::string("SDL_RenderSetClipRect failed. ") + SDL_GetError());
+    }
+}
+```
+
+この関数を導入した都合上，RenderPipelineにRenderを追加している．使い方はこんな感じになる：
+
+```cpp
+/**
+ * @brief 規定の順序で各種の描画処理を行う
+ *
+ * 処理順序は
+ * Background
+ * Enemy
+ * Player Bullet
+ * Enemy Bullet
+ * Player
+ * Effects
+ * Debug collision
+ * HUD
+ *
+ * @param gameplay: const取得用
+ * @param renderer
+ * @param sprites
+ * @param primitives
+ * @param texutures
+ * @param draw_debug_collision
+ */
+void RenderPipeline::RenderFrame(
+    const UpdatePipeline& gameplay,
+    Renderer&             renderer,
+    SpriteRenderer&       sprites,
+    PrimitiveRenderer&    primitives,
+    const TextureStore&   texutures,
+    bool draw_debug_collision
+) const
+{
+    using namespace ScreenLayout;
+
+    // ── ゲームプレイ領域描画 ─────────────────────────────────
+    // HUD領域へゲームオブジェクトがはみ出さないようにクリップする
+    renderer.SetClipRect(
+        static_cast<int>(PLAYFIELD_X),
+        static_cast<int>(PLAYFIELD_Y),
+        static_cast<int>(PLAYFIELD_WIDTH),
+        static_cast<int>(PLAYFIELD_HEIGHT)
+    );
+
+    // Enemy描画
+    ...
+
+    // ── HUD描画 ──────────────────────────────────────────────
+    // HUD領域にクリップを切り替え
+    renderer.SetClipRect(
+        static_cast<int>(HUD_X),
+        static_cast<int>(HUD_Y),
+        static_cast<int>(HUD_WIDTH),
+        static_cast<int>(HUD_HEIGHT)
+    );
+
+    // UpdatePipelineから表示用データのスナップショットを構築する
+    ...
+    hud_renderer.Render(hud_model, primitives);
+
+    // すべての描画が終わったらクリップを解除する
+    renderer.ClearClipRect();
+}
+```

@@ -12,12 +12,9 @@
 #include "zimovka/systems/pattern/PatternSystem.hpp"
 #include "zimovka/systems/player/PlayerSystem.hpp"
 #include "zimovka/systems/player/PlayerWeaponSystem.hpp"
+#include "zimovka/rendering/PrimitiveRenderer.hpp"
 
 namespace zimovka{
-
-// 前方宣言
-class PrimitiveRenderer;
-
 /**
  * @brief 1固定Tickあたりの更新順序を管理し各システムのUpdate()を呼び出す
  *

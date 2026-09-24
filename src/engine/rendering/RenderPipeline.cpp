@@ -1,5 +1,9 @@
 #include "zimovka/engine/rendering/RenderPipeline.hpp"
 
+#include <algorithm>
+
+#include "zimovka/config/ScreenLayout.hpp"
+#include "zimovka/rendering/Renderer.hpp"
 #include "zimovka/rendering/hud/HudRenderer.hpp"
 #include "zimovka/rendering/hud/HudViewModel.hpp"
 #include "zimovka/rendering/texture/TextureId.hpp"
@@ -17,7 +21,7 @@ namespace{
 
 /**
  * @brief 規定の順序で各種の描画処理を行う
- * 
+ *
  * 処理順序は
  * Background
  * Enemy
@@ -27,69 +31,79 @@ namespace{
  * Effects
  * Debug collision
  * HUD
- * 
+ *
  * @param gameplay: const取得用
- * @param sprites 
- * @param primitives 
- * @param texutures 
- * @param draw_debug_collision 
+ * @param renderer
+ * @param sprites
+ * @param primitives
+ * @param texutures
+ * @param draw_debug_collision
  */
 void RenderPipeline::RenderFrame(
-    const UpdatePipeline& gameplay, 
-    SpriteRenderer&       sprites, 
-    PrimitiveRenderer&    primitives, 
-    const TextureStore&   texutures, 
+    const UpdatePipeline& gameplay,
+    Renderer&             renderer,
+    SpriteRenderer&       sprites,
+    PrimitiveRenderer&    primitives,
+    const TextureStore&   texutures,
     bool draw_debug_collision
 ) const
 {
+    using namespace ScreenLayout;
+
+    // ── ゲームプレイ領域描画 ─────────────────────────────────
+    // HUD領域へゲームオブジェクトがはみ出さないようにクリップする
+    renderer.SetClipRect(
+        static_cast<int>(PLAYFIELD_X),
+        static_cast<int>(PLAYFIELD_Y),
+        static_cast<int>(PLAYFIELD_WIDTH),
+        static_cast<int>(PLAYFIELD_HEIGHT)
+    );
+
     // Enemy描画
     for(const Enemy& enemy : gameplay.GetEnemySystem().GetEnemies()){
-        // 非active除外
         if(!enemy.active){
             continue;
         }
         sprites.Draw(
-            texutures.GetTexture(TextureId::EnemyPrototype), 
+            texutures.GetTexture(TextureId::EnemyPrototype),
             {   // SpriteDrawParams
                 .center = enemy.position,
-                .size   = enemy.render_size, 
+                .size   = enemy.render_size,
             }
         );
         // デバッグ時は当たり判定円を描画
         if(draw_debug_collision){
             const Circle hurtbox = enemy.GetHurtboxCircle();
             primitives.DrawFilledCircle(
-                hurtbox.center.x, 
-                hurtbox.center.y, 
-                hurtbox.radius, 
+                hurtbox.center.x,
+                hurtbox.center.y,
+                hurtbox.radius,
                 {128, 32, 32, 255}
             );
         }
     }
     // Player Bullets
     for(const Bullet& pb : gameplay.GetPlayerBullets().GetBullets()){
-        // 非activeは除外
         if(!pb.active){
             continue;
         }
         sprites.Draw(
-            texutures.GetTexture(TextureId::PlayerBullet), 
+            texutures.GetTexture(TextureId::PlayerBullet),
             {   // SpriteDrawParams
-                .center = pb.position, 
+                .center = pb.position,
                 .size   = PLAYER_BULLET_SIZE
             }
         );
     }
     // Enemy Bullets
     for(const Bullet& eb : gameplay.GetEnemyBullets().GetBullets()){
-        // 非activeは除外
         if(!eb.active){
             continue;
         }
         sprites.Draw(
-            texutures.GetTexture(TextureId::EnemyBullet), 
+            texutures.GetTexture(TextureId::EnemyBullet),
             {   // SpriteDrawParams
-                .center = eb.position, 
+                .center = eb.position,
                 .size   = ENEMY_BULLET_SIZE
             }
         );
@@ -104,22 +118,43 @@ void RenderPipeline::RenderFrame(
         }
     );
 
-    // ── HUD描画 ──────────────────────────────────────────
-    // UpdatePipeline から表示用データのスナップショットを構築する
+    // ── HUD描画 ──────────────────────────────────────────────
+    // HUD領域にクリップを切り替え
+    renderer.SetClipRect(
+        static_cast<int>(HUD_X),
+        static_cast<int>(HUD_Y),
+        static_cast<int>(HUD_WIDTH),
+        static_cast<int>(HUD_HEIGHT)
+    );
+
+    // UpdatePipelineから表示用データのスナップショットを構築する
     const auto& weapon_state  = gameplay.GetPlayerWeaponSystem().GetState();
     const auto& weapon_config = gameplay.GetPlayerWeaponSystem().GetConfig();
     const auto& bomb_state    = gameplay.GetBombSystem().GetState();
 
+    // リロード進捗: [0.0, 1.0]にclampしてViewModelに渡す
+    // ※リロード中でない場合やduration=0の場合は0.0のまま
+    float reload_progress = 0.0f;
+    if(weapon_state.IsReloading() && weapon_config.reload_duration_ticks > 0){
+        reload_progress = std::clamp(
+            1.0f - static_cast<float>(weapon_state.reload_ticks_remaining)
+                 / static_cast<float>(weapon_config.reload_duration_ticks),
+            0.0f, 
+            1.0f
+        );
+    }
+    // HudRendererへ渡すviewを作成
     HudViewModel hud_model;
-    hud_model.ammo                    = weapon_state.ammo;
-    hud_model.max_ammo                = weapon_config.max_ammo;
-    hud_model.reloading               = weapon_state.IsReloading();
-    hud_model.reload_ticks_remaining  = weapon_state.reload_ticks_remaining;
-    hud_model.reload_duration_ticks   = weapon_config.reload_duration_ticks;
-    hud_model.bomb_stock              = bomb_state.stock;
+    hud_model.ammo            = weapon_state.ammo;
+    hud_model.max_ammo        = weapon_config.max_ammo;
+    hud_model.reloading       = weapon_state.IsReloading();
+    hud_model.reload_progress = reload_progress;
+    hud_model.bomb_stock      = bomb_state.stock;
 
     HudRenderer hud_renderer;
     hud_renderer.Render(hud_model, primitives);
+
+    // すべての描画が終わったらクリップを解除する
+    renderer.ClearClipRect();
 }
 } // namespace zimovka
-

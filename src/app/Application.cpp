@@ -153,7 +153,7 @@ int Application::Run(int argc, char* argv[]){
         // ────────────────────────────────
         auto render_start = Clock::now();
         renderer.Clear();
-        Render(sprite_renderer, prim, texture_store);
+        Render(renderer, sprite_renderer, prim, texture_store);
         const float raw_render_ms = to_ms(Clock::now() - render_start);
 
         // ────────────────────────────────
@@ -228,16 +228,18 @@ void Application::Update(float dt, const InputState& input){
 // }
 
 void Application::Render(
-    SpriteRenderer& sprites, 
-    PrimitiveRenderer& primitives,
+    Renderer&           renderer,
+    SpriteRenderer&     sprites,
+    PrimitiveRenderer&  primitives,
     const TextureStore& textures
 )
 {
     render_pipeline_.RenderFrame(
-        update_pipeline_, 
+        update_pipeline_,
+        renderer,
         sprites,
-        primitives, 
-        textures, 
+        primitives,
+        textures,
         true
     );
 }

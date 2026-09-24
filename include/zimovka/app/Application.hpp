@@ -29,8 +29,8 @@ public:
     static constexpr int   TARGET_RENDER_FPS    = 60;
     static constexpr int   MAX_UPDATE_PER_FRAME = 5;
     // 画面サイズ
-    static constexpr float WINDOW_WIDTH  = 960;
-    static constexpr float WINDOW_HEIGHT = 720;
+    static constexpr float WINDOW_WIDTH  = ScreenLayout::LOGICAL_WIDTH;
+    static constexpr float WINDOW_HEIGHT = ScreenLayout::LOGICAL_HEIGHT;
     // 固定ランダムシード
     static constexpr std::uint32_t INITIAL_SEED = 0x12345678u;
     // デバッグ情報の更新間隔(0.25sで描画更新)
@@ -60,10 +60,10 @@ private:
     // ゲームの更新
     void Update(float dt, const InputState& input);
     // 描画処理
-    // void Render(PrimitiveRenderer& prim);
     void Render(
-        SpriteRenderer& sprites, 
-        PrimitiveRenderer& primitives,
+        Renderer&           renderer,
+        SpriteRenderer&     sprites,
+        PrimitiveRenderer&  primitives,
         const TextureStore& textures
     );
     // fpsキャップ

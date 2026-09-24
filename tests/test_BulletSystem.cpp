@@ -78,8 +78,8 @@ TEST(BulletSystemTest, SpawnFillsPool){
  */
 TEST(BulletSystemTest, SpawnFailsWhenPoolFull){
     BulletSystem bs(2);
-    bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
-    bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);   // プール満杯
+    (void)bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
+    (void)bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);   // プール満杯
     // もう生成できない
     EXPECT_FALSE(bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f));
 }
@@ -94,8 +94,8 @@ TEST(BulletSystemTest, SpawnFailsWhenPoolFull){
 TEST(BulletSystemTest, ClearResetsActiveCount){
     BulletSystem bs(10);
     // 弾が2つ活性状態
-    bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
-    bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
+    (void)bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
+    (void)bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
     // 全て非活性になる
     bs.Clear();
     EXPECT_EQ(bs.CountActive(), 0u);
@@ -107,8 +107,8 @@ TEST(BulletSystemTest, ClearResetsActiveCount){
  */
 TEST(BulletSystemTest, ClearAllowsRespawn){
     BulletSystem bs(2);
-    bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
-    bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
+    (void)bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
+    (void)bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
     bs.Clear();
     EXPECT_TRUE(bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f));
 }
@@ -123,7 +123,7 @@ TEST(BulletSystemTest, ClearAllowsRespawn){
 TEST(BulletSystemTest, UpdateKeepsBulletOnScreen){
     BulletSystem bs(5);
     // 画面中心から微速で移動する弾(1フレームでは出ない)
-    bs.Spawn(Vec2{480.0f, 360.0f}, Vec2{1.0f, 0.0f}, 3.0f);
+    (void)bs.Spawn(Vec2{480.0f, 360.0f}, Vec2{1.0f, 0.0f}, 3.0f);
     bs.Update((1.0f/60.0f), 960.0f, 720.0f);
     // 1回のUpdate()では画面内に収まり活性状態のまあm
     EXPECT_EQ(bs.CountActive(), 1u);
@@ -136,7 +136,7 @@ TEST(BulletSystemTest, UpdateKeepsBulletOnScreen){
 TEST(BulletSystemTest, UpdateMovesOutOfScreen){
     BulletSystem bs(5);
     // 画面外(遠く離れた場所)へ高速で飛ぶ弾を生成
-    bs.Spawn(Vec2{480.0f, 360.0f}, Vec2{-99999.0f, -99999.0f}, 1.0f);
+    (void)bs.Spawn(Vec2{480.0f, 360.0f}, Vec2{-99999.0f, -99999.0f}, 1.0f);
     // スクリーンサイズは(960.0f, 720.0f)
     bs.Update((1.0f/60.0f), 960.0f, 720.0f);
     // 弾は画面外へ吹き飛び非活性になる
@@ -150,7 +150,7 @@ TEST(BulletSystemTest, UpdateMovesOutOfScreen){
 TEST(BulletSystemTest, GetBullets_PositionUpdated){
     BulletSystem bs(5);
     // x軸方向へ60px/s動く弾を生成
-    bs.Spawn(Vec2{0.0f, 0.0f}, Vec2{60.0f, 0.0f}, 1.0f);
+    (void)bs.Spawn(Vec2{0.0f, 0.0f}, Vec2{60.0f, 0.0f}, 1.0f);
     bs.Update((1.0f/60.0f), 960.0f, 720.0f); // 1フレーム進める
     // 1/60秒 * 60px/s = 1px動く
     const auto bullets = bs.GetBullets();
@@ -187,7 +187,7 @@ TEST(BulletSystemTest, GetBullets_DataPointer_StableAfterSpawn){
     // 生成直後のBulletSystemのポインタ(先頭)を取得
     const zimovka::Bullet* ptr_before = bs.GetBullets().data();
     for(int i = 0; i < 5; ++i){
-        bs.Spawn(Vec2{static_cast<float>(i), 0.0f}, Vec2{0.0f, 1.0f}, 1.0f);
+        (void)bs.Spawn(Vec2{static_cast<float>(i), 0.0f}, Vec2{0.0f, 1.0f}, 1.0f);
     }
     // ポインタが変化していない = ヒープ再確保なし
     EXPECT_EQ(bs.GetBullets().data(), ptr_before);
@@ -202,7 +202,7 @@ TEST(BulletSystemTest, GetBullets_DataPointer_StableAfterClear){
     BulletSystem bs(10);
     // 生成直後のポインタ取得
     const zimovka::Bullet* ptr_before = bs.GetBullets().data();
-    bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
+    (void)bs.Spawn(Vec2{0,0}, Vec2{0,1}, 1.0f);
     bs.Clear();
     EXPECT_EQ(bs.GetBullets().data(), ptr_before);
 }
@@ -216,7 +216,7 @@ TEST(BulletSystemTest, GetBullets_DataPointer_StableAfterClear){
  */
 TEST(BulletSystemTest, OutOfScreen_Left){
     BulletSystem bs(5);
-    bs.Spawn(Vec2{1.0f, 360.0f}, Vec2{-9999.0f, 0.0f}, 3.0f);
+    (void)bs.Spawn(Vec2{1.0f, 360.0f}, Vec2{-9999.0f, 0.0f}, 3.0f);
     bs.Update(1.0f, 960.0f, 720.0f);
     EXPECT_EQ(bs.CountActive(), 0u);
 }
@@ -227,7 +227,7 @@ TEST(BulletSystemTest, OutOfScreen_Left){
  */
 TEST(BulletSystemTest, OutOfScreen_Right){
     BulletSystem bs(5);
-    bs.Spawn(Vec2{959.0f, 360.0f}, Vec2{9999.0f, 0.0f}, 3.0f);
+    (void)bs.Spawn(Vec2{959.0f, 360.0f}, Vec2{9999.0f, 0.0f}, 3.0f);
     bs.Update(1.0f, 960.0f, 720.0f);
     EXPECT_EQ(bs.CountActive(), 0u);
 }
@@ -238,7 +238,7 @@ TEST(BulletSystemTest, OutOfScreen_Right){
  */
 TEST(BulletSystemTest, OutOfScreen_Top){
     BulletSystem bs(5);
-    bs.Spawn(Vec2{480.0f, 1.0f}, Vec2{0.0f, -9999.0f}, 3.0f);
+    (void)bs.Spawn(Vec2{480.0f, 1.0f}, Vec2{0.0f, -9999.0f}, 3.0f);
     bs.Update(1.0f, 960.0f, 720.0f);
     EXPECT_EQ(bs.CountActive(), 0u);
 }
@@ -249,7 +249,7 @@ TEST(BulletSystemTest, OutOfScreen_Top){
  */
 TEST(BulletSystemTest, OutOfScreen_Bottom){
     BulletSystem bs(5);
-    bs.Spawn(Vec2{480.0f, 719.0f}, Vec2{0.0f, 9999.0f}, 3.0f);
+    (void)bs.Spawn(Vec2{480.0f, 719.0f}, Vec2{0.0f, 9999.0f}, 3.0f);
     bs.Update(1.0f, 960.0f, 720.0f);
     EXPECT_EQ(bs.CountActive(), 0u);
 }
@@ -260,7 +260,7 @@ TEST(BulletSystemTest, OutOfScreen_Bottom){
  */
 TEST(BulletSystemTest, NotOutOfScreen_Stationary){
     BulletSystem bs(5);
-    bs.Spawn(Vec2{480.0f, 360.0f}, Vec2{0.0f, 0.0f}, 3.0f); // 静止
+    (void)bs.Spawn(Vec2{480.0f, 360.0f}, Vec2{0.0f, 0.0f}, 3.0f); // 静止
     bs.Update(1.0f, 960.0f, 720.0f);
     EXPECT_EQ(bs.CountActive(), 1u);
 }
@@ -274,7 +274,7 @@ TEST(BulletSystemTest, NotOutOfScreen_Stationary){
  */
 TEST(BulletSystemTest, Deactivate_ActiveBullet){
     BulletSystem bs(5);
-    bs.Spawn(Vec2{100.0f, 100.0f}, Vec2{0.0f, 0.0f}, 3.0f);
+    (void)bs.Spawn(Vec2{100.0f, 100.0f}, Vec2{0.0f, 0.0f}, 3.0f);
     EXPECT_EQ(bs.CountActive(), 1u);
     EXPECT_TRUE(bs.Deactivate(0));
     EXPECT_FALSE(bs.GetBullets()[0].active);
@@ -298,9 +298,9 @@ TEST(BulletSystemTest, Deactivate_AlreadyInactive){
  */
 TEST(BulletSystemTest, Deactivate_DecrementsActiveCount){
     BulletSystem bs(5);
-    bs.Spawn(Vec2{100.0f, 100.0f}, Vec2{0.0f, 0.0f}, 3.0f);
-    bs.Spawn(Vec2{200.0f, 200.0f}, Vec2{0.0f, 0.0f}, 3.0f);
-    bs.Spawn(Vec2{300.0f, 300.0f}, Vec2{0.0f, 0.0f}, 3.0f);
+    (void)bs.Spawn(Vec2{100.0f, 100.0f}, Vec2{0.0f, 0.0f}, 3.0f);
+    (void)bs.Spawn(Vec2{200.0f, 200.0f}, Vec2{0.0f, 0.0f}, 3.0f);
+    (void)bs.Spawn(Vec2{300.0f, 300.0f}, Vec2{0.0f, 0.0f}, 3.0f);
     EXPECT_EQ(bs.CountActive(), 3u);
     bs.Deactivate(1); // 中間スロットを非活性化
     EXPECT_EQ(bs.CountActive(), 2u);
@@ -312,7 +312,7 @@ TEST(BulletSystemTest, Deactivate_DecrementsActiveCount){
  */
 TEST(BulletSystemTest, Deactivate_AllowsRespawn){
     BulletSystem bs(1); // 容量1
-    bs.Spawn(Vec2{100.0f, 100.0f}, Vec2{0.0f, 0.0f}, 3.0f);
+    (void)bs.Spawn(Vec2{100.0f, 100.0f}, Vec2{0.0f, 0.0f}, 3.0f);
     EXPECT_EQ(bs.CountActive(), 1u);
     EXPECT_FALSE(bs.Spawn(Vec2{200.0f, 200.0f}, Vec2{0.0f, 0.0f}, 3.0f)); // 満杯
     bs.Deactivate(0);

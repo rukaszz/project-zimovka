@@ -6,23 +6,19 @@
 #include <span>
 #include <vector>
 
+#include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/enemy/Enemy.hpp"
 #include "zimovka/systems/enemy/EnemyDamageResult.hpp"
 #include "zimovka/systems/enemy/EnemySpawnParams.hpp"
+#include "zimovka/systems/pattern/PatternSystem.hpp"
+#include "zimovka/rendering/PrimitiveRenderer.hpp"
 
 namespace zimovka{
-
-// 前方宣言
-class PrimitiveRenderer;
-class PatternSystem;
-class BulletSystem;
-
 /**
  * @brief AoSに基づいて敵を連続メモリで管理するシステム
  * 
  * 敵の生成はinactive→activeの状態遷移であり，オブジェクト生成(ヒープ)は実施しない
  * ゲーム開始時に最大値までメモリを確保する※ゲーム中にヒープ領域は確保しない
- * 
  */
 class EnemySystem{
 private:

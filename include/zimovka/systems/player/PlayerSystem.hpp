@@ -3,11 +3,14 @@
 
 #include "zimovka/input/InputState.hpp"
 #include "zimovka/systems/player/Player.hpp"
+#include "zimovka/rendering/PrimitiveRenderer.hpp"
 
 namespace zimovka{
-
-class PrimitiveRenderer;
-
+/**
+ * @brief プレイヤーを管理するシステム
+ * 
+ * 画面上のプレイヤー関係の処理を行い，ショットなどは他システムで管理する
+ */
 class PlayerSystem{
 private:
     // プレイヤー構造体

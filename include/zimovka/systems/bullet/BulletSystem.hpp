@@ -8,11 +8,9 @@
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/rendering/Color.hpp"
 #include "zimovka/systems/bullet/Bullet.hpp"
+#include "zimovka/rendering/PrimitiveRenderer.hpp"
 
 namespace zimovka{
-
-class PrimitiveRenderer;
-
 /**
  * @brief AoSに基づいて弾を連続メモリで管理するシステム
  *

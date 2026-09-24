@@ -66,4 +66,34 @@ void Renderer::Present(){
     }
 }
 
+/**
+ * @brief プレイ領域外に出た部分をクリップ(カット)する矩形を設定する
+ * 
+ * SDL_RenderSetClipRectで描画領域を制限する
+ * 
+ * @param x 
+ * @param y 
+ * @param w 
+ * @param h 
+ */
+void Renderer::SetClipRect(int x, int y, int w, int h){
+    // SDL_Rectへ変換
+    const SDL_Rect rect{x, y, w, h};
+    // 描画領域制限矩形設定(rectはポインタで渡す)
+    if(SDL_RenderSetClipRect(renderer_, &rect) != 0){
+        throw std::runtime_error(std::string("SDL_RenderSetClipRect failed. ") + SDL_GetError());
+    }
+}
+
+/**
+ * @brief 描画領域制限用clip矩形の削除処理
+ * 
+ * SDL_RenderSetClipRectを解除する
+ */
+void Renderer::ClearClipRect(){
+    if(SDL_RenderSetClipRect(renderer_, nullptr) != 0){
+        throw std::runtime_error(std::string("SDL_RenderSetClipRect failed. ") + SDL_GetError());
+    }
+}
+
 }   // namespace zimovka

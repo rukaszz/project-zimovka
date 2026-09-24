@@ -41,6 +41,12 @@ public:
     void Reset() noexcept;
     void Present();
 
+    // プレイ領域のオブジェクトがHUD領域へ入ってこないように消す(クリップ)処理
+    // ※上書きするのではなく，clipしてきれいな状態でHUDの描画をするため
+    void SetClipRect(int x, int y, int w, int h);
+    // HUD描画用のclipを無効化
+    void ClearClipRect();
+
     // getter
     SDL_Renderer* Get() const{
         return renderer_;
