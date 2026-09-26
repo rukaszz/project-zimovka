@@ -8,6 +8,7 @@
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/collision/CollisionSystem.hpp"
 #include "zimovka/systems/enemy/EnemySystem.hpp"
+#include "zimovka/systems/spawn/EnemySpawner.hpp"
 #include "zimovka/systems/bomb/PlayerBombSystem.hpp"
 #include "zimovka/systems/pattern/PatternSystem.hpp"
 #include "zimovka/systems/player/PlayerSystem.hpp"
@@ -43,6 +44,8 @@ private:
     CollisionSystem collision_system_;
     // ボム
     PlayerBombSystem bomb_system_;
+    // 敵スポーン管理
+    EnemySpawner enemy_spawner_;
 
     // 各段階のUpdate(UpdateTick()から順番に呼ばれる)
     void UpdatePlayer(float dt, const InputState& input);
@@ -93,10 +96,9 @@ public:
     std::uint64_t GetRngDrawCount() const noexcept{
         return gameplay_rng_.GetDrawCount();    // Replayのデバッグ用
     }
-
-    // ── 実装・性能試験用 ───────────────────────────────────────
-    // NOTE: 将来的にはEnemySystemに移行する
-    void SpawnPhase1PrototypeEnemy();
+    std::size_t GetSpawnerNextEventIndex() const noexcept{
+        return enemy_spawner_.GetNextEventIndex();
+    }
 };
 
 }   // namespace zimovka

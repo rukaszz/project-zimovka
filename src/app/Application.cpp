@@ -73,7 +73,7 @@ int Application::Run(int argc, char* argv[]){
     const float fixed_delta = SimulationConfig::FIXED_DELTA_SECONDS;
     // 精度を保証しつつナノ秒単位の1/60を取得
     const auto fixed_ns = SimulationConfig::FIXED_STEP;
-    // 1/60 * 5 を更新遅延時の最大更新数とする
+    // 1/60 * 5を更新遅延時の最大更新数とする
     const auto max_acc = fixed_ns * MAX_UPDATE_PER_FRAME;
 
     // ループ処理開始前の時刻取得
@@ -89,7 +89,7 @@ int Application::Run(int argc, char* argv[]){
 
     while(running_){
         // ────────────────────────────────
-        // フレーム時間計測(前フレームの start → 今フレームの start)
+        // フレーム時間計測(前フレームのstart → 今フレームのstart)
         // ────────────────────────────────
         // 現フレーム開始時刻
         auto frame_start = Clock::now();
@@ -183,6 +183,8 @@ int Application::Run(int argc, char* argv[]){
         CapFrameRate(frame_start);
     }
     // 終了処理
+    // Spawerのnext_spawn_indexを保持してから記録終了
+    run_recorder_.SetSpawnerNextIndex(update_pipeline_.GetSpawnerNextEventIndex());
     run_recorder_.Stop();
     return 0;
 }

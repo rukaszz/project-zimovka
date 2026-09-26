@@ -1,6 +1,7 @@
 #ifndef ZIMOVKA_REPLAY_RUNRECORD_HPP_
 #define ZIMOVKA_REPLAY_RUNRECORD_HPP_
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -28,12 +29,13 @@ struct RecordedInputFrame{
  * 
  */
 struct RunRecord{
-    std::uint32_t format_version = RUN_RECORD_FORMAT_VERSION;       // フォーマットのバージョン(リプレイ時の判別用)
-    std::uint32_t simulation_hz  = SimulationConfig::SIMULATION_HZ; // 固定simulation tick rate
-    std::uint32_t rng_version    = GAMEPLAY_RNG_VERSION;            // 乱数バージョン
-    std::uint32_t math_version   = GameplayMath::VERSION;           // 数学ライブラリの仕様バージョン
-    std::uint32_t random_seed    = 0;
-    bool frame_limit_reached     = false; // 記録の終了地点を示す
+    std::uint32_t format_version   = RUN_RECORD_FORMAT_VERSION;       // フォーマットのバージョン(リプレイ時の判別用)
+    std::uint32_t simulation_hz    = SimulationConfig::SIMULATION_HZ; // 固定simulation tick rate
+    std::uint32_t rng_version      = GAMEPLAY_RNG_VERSION;            // 乱数バージョン
+    std::uint32_t math_version     = GameplayMath::VERSION;           // 数学ライブラリの仕様バージョン
+    std::uint32_t random_seed      = 0;                               // 乱数シード値
+    bool frame_limit_reached       = false;                           // 記録の終了地点を示す
+    std::size_t spawner_next_index = 0;                               // 終了時のスポーナーnext_event_index_
 
     std::vector<RecordedInputFrame> frames;
 };

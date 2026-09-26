@@ -89,6 +89,16 @@ bool RunRecorder::IsRecording() const noexcept{
 }
 
 /**
+ * @brief スポーナーのnext_event_indexをrecord_に保存する
+ * Stop()を呼ぶ前に呼び出す
+ *
+ * @param idx EnemySpawner::GetNextEventIndex()の戻り値
+ */
+void RunRecorder::SetSpawnerNextIndex(std::size_t idx) noexcept{
+    record_.spawner_next_index = idx;
+}
+
+/**
  * @brief 記録を返す
  *
  * @return const RunRecord&

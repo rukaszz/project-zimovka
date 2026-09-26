@@ -36,7 +36,7 @@ namespace{
  * @param renderer
  * @param sprites
  * @param primitives
- * @param texutures
+ * @param textures
  * @param draw_debug_collision
  */
 void RenderPipeline::RenderFrame(
@@ -44,7 +44,7 @@ void RenderPipeline::RenderFrame(
     Renderer&             renderer,
     SpriteRenderer&       sprites,
     PrimitiveRenderer&    primitives,
-    const TextureStore&   texutures,
+    const TextureStore&   textures,
     bool draw_debug_collision
 ) const
 {
@@ -65,7 +65,7 @@ void RenderPipeline::RenderFrame(
             continue;
         }
         sprites.Draw(
-            texutures.GetTexture(TextureId::EnemyPrototype),
+            textures.GetTexture(TextureId::EnemyPrototype),
             {   // SpriteDrawParams
                 .center = enemy.position,
                 .size   = enemy.render_size,
@@ -88,7 +88,7 @@ void RenderPipeline::RenderFrame(
             continue;
         }
         sprites.Draw(
-            texutures.GetTexture(TextureId::PlayerBullet),
+            textures.GetTexture(TextureId::PlayerBullet),
             {   // SpriteDrawParams
                 .center = pb.position,
                 .size   = PLAYER_BULLET_SIZE
@@ -101,7 +101,7 @@ void RenderPipeline::RenderFrame(
             continue;
         }
         sprites.Draw(
-            texutures.GetTexture(TextureId::EnemyBullet),
+            textures.GetTexture(TextureId::EnemyBullet),
             {   // SpriteDrawParams
                 .center = eb.position,
                 .size   = ENEMY_BULLET_SIZE
@@ -111,7 +111,7 @@ void RenderPipeline::RenderFrame(
     // Player描画
     const auto& player = gameplay.GetPlayerSystem().GetPlayer();
     sprites.Draw(
-        texutures.GetTexture(TextureId::Player),
+        textures.GetTexture(TextureId::Player),
         {   // SpriteDrawParams
             .center = player.position,
             .size   = {48.0f, 48.0f},

@@ -34,6 +34,10 @@ public:
     void Stop() noexcept;
     // 初期化
     void Clear() noexcept;
+
+    // スポーナーのインデックスをセット(Stop()前に呼ぶ)
+    void SetSpawnerNextIndex(std::size_t idx) noexcept;
+    
     // getter
     bool IsRecording() const noexcept;
     const RunRecord& GetRecord() const noexcept;

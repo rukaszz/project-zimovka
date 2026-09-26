@@ -43,6 +43,7 @@ set(ZIMOVKA_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerWeaponSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/enemy/EnemySystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/spawn/EnemySpawner.cpp
     ${CMAKE_SOURCE_DIR}/src/replay/RunRecorder.cpp
 )
 

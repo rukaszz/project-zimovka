@@ -8,8 +8,8 @@
 #include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
 #include "zimovka/systems/bomb/PlayerBombEvents.hpp"
-#include "zimovka/systems/enemy/EnemySpawnParams.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
+#include "zimovka/stages/Stage1Data.hpp"
 
 namespace zimovka{
 /**
@@ -38,6 +38,7 @@ void UpdatePipeline::Initialize(float width, float height){
     bomb_system_.Reset();
     // 敵初期化
     enemy_system_.Clear();
+    enemy_spawner_ = EnemySpawner{Stage1::PROTOTYPE_EVENTS};
     // BulletSystem初期化
     player_bullets_.Clear();
     enemy_bullets_.Clear();
@@ -76,9 +77,7 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     // 5. Projectile movement
     // 6. Collision
     // 7. State resolution
-    // ── 実装・性能試験用 ───────────────────────────────────────
-    SpawnPhase1PrototypeEnemy();
-    // ─────────────────────────────────────────
+    (void)enemy_spawner_.UpdateTick(tick_index_, enemy_system_);
     UpdatePlayer(dt, input);
     events.weapon = UpdateWeapons(input);
     UpdateEnemy(dt);
@@ -210,37 +209,5 @@ void UpdatePipeline::Render(PrimitiveRenderer& prim) const{
     player_system_.Render(prim);
 }
 
-/**
- * @brief 実際に乱数を消費して敵を生成する
- * 
- * NOTE: 仮の実装
- */
-void UpdatePipeline::SpawnPhase1PrototypeEnemy(){
-    // 約10秒周期で生成する
-    if(tick_index_ % 625u != 0u){
-        return;
-    }
-
-    // x座標はランダム(プレイフィールド幅に収める: margin 100px を両側に確保)
-    const auto field_w = static_cast<std::uint32_t>(world_width_);
-    const float spawn_x = static_cast<float>(
-        gameplay_rng_.UniformU32(100u, field_w - 100u)
-    );
-    // スピードでも乱数を消費
-    const float speed = static_cast<float>(
-        gameplay_rng_.UniformU32(30u, 70u)      // 30〜70
-    );
-    
-    // 敵生成用引数を用意
-    EnemySpawnParams params{};
-    params.position       = {spawn_x, 80.0f};
-    params.velocity       = {0.0f, speed};    // y軸のみ速度をつける
-    params.render_size    = {32.0f, 32.0f};
-    params.hurtbox_radius = 13.0f;
-    params.contact_radius = 10.0f;
-    params.hp             = 2;
-
-    (void)enemy_system_.Spawn(params);
-}
 
 }   // namespace zimovka

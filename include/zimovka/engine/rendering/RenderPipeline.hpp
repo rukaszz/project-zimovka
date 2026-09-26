@@ -19,7 +19,7 @@ public:
         Renderer&             renderer,
         SpriteRenderer&       sprites,
         PrimitiveRenderer&    primitives,
-        const TextureStore&   texutures,
+        const TextureStore&   textures,
         bool draw_debug_collision
     ) const;
 };
