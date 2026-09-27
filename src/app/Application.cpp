@@ -183,8 +183,6 @@ int Application::Run(int argc, char* argv[]){
         CapFrameRate(frame_start);
     }
     // 終了処理
-    // Spawerのnext_spawn_indexを保持してから記録終了
-    run_recorder_.SetSpawnerNextIndex(update_pipeline_.GetSpawnerNextEventIndex());
     run_recorder_.Stop();
     return 0;
 }

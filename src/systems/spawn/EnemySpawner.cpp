@@ -1,5 +1,7 @@
 #include "zimovka/systems/spawn/EnemySpawner.hpp"
 
+#include <stdexcept>
+
 namespace zimovka{
 
 /**
@@ -7,9 +9,18 @@ namespace zimovka{
  *
  * @param events スポーンイベント配列のView(ライフタイムは呼び出し元が保証する)
  */
-EnemySpawner::EnemySpawner(std::span<const EnemySpawnEvent> events) noexcept
+EnemySpawner::EnemySpawner(std::span<const EnemySpawnEvent> events)
     : events_{events}
-{}
+{
+    // EnemySpawnEventがtickの昇順でソートされているかチェック
+    for(std::size_t i = 1; i <events_.size(); ++i){
+        if(events_[i].tick < events_[i-1].tick){    // 同一tickは許可するので`<`
+            throw std::invalid_argument(
+                "EnemySpawnEvent must be sorted by tick. "
+            );
+        }
+    }
+}
 
 /**
  * @brief スポーンイベントを処理する
@@ -22,14 +33,14 @@ EnemySpawner::EnemySpawner(std::span<const EnemySpawnEvent> events) noexcept
  *
  * @param stage_tick 現在のステージtick
  * @param enemies    EnemySystemの参照
- * @return EnemySpawnEvents 今回処理したスポーン結果
+ * @return EnemySpawnTickResult 今回処理したスポーン結果
  */
-EnemySpawnEvents EnemySpawner::UpdateTick(
+EnemySpawnTickResult EnemySpawner::UpdateTick(
     std::uint64_t stage_tick,
     EnemySystem& enemies
 )
 {
-    EnemySpawnEvents result{};
+    EnemySpawnTickResult result{};
 
     while(next_event_index_ < events_.size()){
         const auto& event = events_[next_event_index_];

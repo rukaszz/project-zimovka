@@ -69,8 +69,9 @@ void RunRecorder::Stop() noexcept{
 void RunRecorder::Clear() noexcept{
     recording_ = false;
 
-    record_.rng_version         = GAMEPLAY_RNG_VERSION; // 契約として明示的に初期化
+    record_.rng_version         = GAMEPLAY_RNG_VERSION;      // 明示的に初期化
     record_.format_version      = RUN_RECORD_FORMAT_VERSION; // RunRecordで定義
+    record_.math_version        = GameplayMath::VERSION;     // 明示的に初期化
     record_.simulation_hz       = zimovka::SimulationConfig::SIMULATION_HZ;
     record_.random_seed         = 0;
     record_.frame_limit_reached = false;
@@ -86,16 +87,6 @@ void RunRecorder::Clear() noexcept{
  */
 bool RunRecorder::IsRecording() const noexcept{
     return recording_;
-}
-
-/**
- * @brief スポーナーのnext_event_indexをrecord_に保存する
- * Stop()を呼ぶ前に呼び出す
- *
- * @param idx EnemySpawner::GetNextEventIndex()の戻り値
- */
-void RunRecorder::SetSpawnerNextIndex(std::size_t idx) noexcept{
-    record_.spawner_next_index = idx;
 }
 
 /**

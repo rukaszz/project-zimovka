@@ -10,6 +10,7 @@
 
 #include "timing_stats.hpp"
 #include "zimovka/config/SimulationConfig.hpp"
+#include "zimovka/config/ScreenLayout.hpp"
 #include "zimovka/core/DeterministicRng.hpp"
 #include "zimovka/engine/update/UpdatePipeline.hpp"
 #include "zimovka/events/GameplayTickEvents.hpp"
@@ -33,8 +34,8 @@ using zimovka::UpdatePipeline;
 namespace{
 
 // ── ワールド設定 ───────────────────────────────────────────
-constexpr float WORLD_W = 960.0f;
-constexpr float WORLD_H = 720.0f;
+constexpr float WORLD_W = zimovka::ScreenLayout::PLAYFIELD_WIDTH;
+constexpr float WORLD_H = zimovka::ScreenLayout::PLAYFIELD_HEIGHT;
 constexpr float DT      = zimovka::SimulationConfig::FIXED_DELTA_SECONDS;
 
 // ── シナリオスクリプト定義 ─────────────────────────────────
@@ -291,12 +292,18 @@ static std::uint64_t ComputeStateHash(
         h = HashMixFloat(h, e.render_size.y);
         h = HashMix(h, static_cast<std::uint32_t>(e.hp));
         h = HashMixFloat(h, e.hurtbox_radius);
+        h = HashMix(h, e.fire_timer_ticks);
+        h = HashMix(h, e.fire_interval_ticks);
     }
     // ── EnemySystem システムレベルの状態 ─────────────────────
     // next_spawn_index_: 次スポーンで使うスロット番号(将来の状態に影響するためハッシュ値に混ぜる)
     // active_count_    : スロットループ外からの一括チェック用
     h = HashMix(h, static_cast<std::uint32_t>(pipeline.GetEnemySystem().CountActive()));
     h = HashMix(h, static_cast<std::uint32_t>(pipeline.GetEnemySystem().GetNextSpawnIndex()));
+
+    // ── EnemySpawner cursor ─────────────────────────────────
+    // 次に処理するスポーンイベントのインデックス(将来のスポーン結果に影響する)
+    h = HashMix(h, static_cast<std::uint32_t>(pipeline.GetSpawnerNextEventIndex()));
 
     // ── 自機弾 per-slot ──────────────────────────────────────
     {
@@ -339,6 +346,13 @@ static std::uint64_t ComputeStateHash(
     h = HashMix(h, ws.ammo);
     h = HashMix(h, ws.cooldown_ticks_remaining);
     h = HashMix(h, ws.reload_ticks_remaining);
+
+    // ── ボム状態 ─────────────────────────────────────────────
+    const auto& bomb = pipeline.GetBombSystem().GetState();
+    h = HashMix(h, bomb.stock);
+    h = HashMix(h, bomb.invincible_ticks_remaining);
+    h = HashMix(h, bomb.grace_ticks_remaining);
+    h = HashMix(h, bomb.HasPendingHit() ? 1u : 0u);
 
     // ── Tickイベント ─────────────────────────────────────────
     // ハッシュ累積値

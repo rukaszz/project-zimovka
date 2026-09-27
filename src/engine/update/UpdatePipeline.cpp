@@ -72,11 +72,12 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     // Simulation pipeline:
     // 1. Player movement
     // 2. Player weapon
-    // 3. Enemy movement
-    // 4. Enemy fire
-    // 5. Projectile movement
-    // 6. Collision
-    // 7. State resolution
+    // 3. Enemy spawn
+    // 4. Enemy movement
+    // 5. Enemy fire
+    // 6. Projectile movement
+    // 7. Collision
+    // 8. State resolution
     (void)enemy_spawner_.UpdateTick(tick_index_, enemy_system_);
     UpdatePlayer(dt, input);
     events.weapon = UpdateWeapons(input);
