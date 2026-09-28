@@ -28,7 +28,8 @@ inline constexpr std::uint32_t RECORD_ACTION_MASK =
       | ActionBit(Action::MoveRight)
       | ActionBit(Action::Slow)
       | ActionBit(Action::Shoot)
-      | ActionBit(Action::Bomb);
+      | ActionBit(Action::Bomb)
+      | ActionBit(Action::Reload);
 
 /**
  * @brief InputState→RecordedInputFrameへのエンコード

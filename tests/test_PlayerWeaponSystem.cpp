@@ -22,9 +22,21 @@ using zimovka::PlayerWeaponEvents;
 // ヘルパ関数
 namespace{
 /**
+ * @brief Reload(R)をこのTickで初めて押した判定を作る
+ *
+ * @return InputState
+ */
+InputState ReloadPressed(){
+    InputState s;
+    s.SetPressed(Action::Reload);
+    s.SetHeld(Action::Reload, true);
+    return s;
+}
+
+/**
  * @brief このTickで初めて押した(pressed + held)判定を作る
- * 
- * @return InputState 
+ *
+ * @return InputState
  */
 InputState ShootPressed(){
     InputState s;
@@ -681,7 +693,7 @@ TEST(PlayerWeaponSystemTest, GetConfig_ReturnsConfig){
 
 /**
  * @brief GetState() が現在の状態を返すことを確認
- * 
+ *
  */
 TEST(PlayerWeaponSystemTest, GetState_ReturnsCurrentState){
     PlayerWeaponSystem pws(SmallConfig());
@@ -691,4 +703,94 @@ TEST(PlayerWeaponSystemTest, GetState_ReturnsCurrentState){
     const auto& s = pws.GetState();
     EXPECT_EQ(s.ammo, SmallConfig().max_ammo - 1u);
     EXPECT_EQ(s.cooldown_ticks_remaining, SmallConfig().shot_cooldown_ticks);
+}
+
+// ──────────────────────────────────────────────────────
+// 能動リロード(Rボタン)
+// ──────────────────────────────────────────────────────
+/**
+ * @brief 残弾が部分的なときRを押すとリロードが始まることを確認
+ *
+ * SmallConfig: ammo=3 → 1発撃つと ammo=2 → R押下で reload_started
+ */
+TEST(PlayerWeaponSystemTest, PartialAmmo_ReloadPressed_StartsReload){
+    PlayerWeaponSystem pws(SmallConfig());  // ammo=3
+    BulletSystem bs(10);
+    Player p = TestPlayer();
+    pws.UpdateTick(ShootPressed(), p, bs);  // ammo 3→2
+    ASSERT_EQ(pws.GetState().ammo, 2u);
+
+    const auto ev = pws.UpdateTick(ReloadPressed(), p, bs);
+    EXPECT_TRUE(ev.reload_started);
+    EXPECT_TRUE(pws.GetState().IsReloading());
+}
+
+/**
+ * @brief 弾が満杯のときRを押してもリロードが始まらないことを確認
+ *
+ * SmallConfig: 初期ammo=max_ammo → R押下は無視
+ */
+TEST(PlayerWeaponSystemTest, FullAmmo_ReloadPressed_IsIgnored){
+    PlayerWeaponSystem pws(SmallConfig());  // ammo=3(満杯)
+    BulletSystem bs(10);
+    Player p = TestPlayer();
+
+    const auto ev = pws.UpdateTick(ReloadPressed(), p, bs);
+    EXPECT_FALSE(ev.reload_started);
+    EXPECT_FALSE(pws.GetState().IsReloading());
+    EXPECT_EQ(pws.GetState().ammo, SmallConfig().max_ammo);
+}
+
+/**
+ * @brief 能動リロード中にShootを押しても発射しないことを確認
+ *
+ * 1発撃ってR押下 → リロード開始 → その次tickでShoot押下しても発射しない
+ */
+TEST(PlayerWeaponSystemTest, Reloading_ShootIsIgnored){
+    PlayerWeaponSystem pws(SmallConfig());  // ammo=3
+    BulletSystem bs(10);
+    Player p = TestPlayer();
+    pws.UpdateTick(ShootPressed(), p, bs);  // ammo 3→2
+    const auto reload_ev = pws.UpdateTick(ReloadPressed(), p, bs);
+    ASSERT_TRUE(reload_ev.reload_started);
+    ASSERT_TRUE(pws.GetState().IsReloading());
+
+    const auto shoot_ev = pws.UpdateTick(ShootPressed(), p, bs);
+    EXPECT_FALSE(shoot_ev.shot_fired);
+    EXPECT_TRUE(pws.GetState().IsReloading());
+}
+
+/**
+ * @brief 能動リロードが完了するとammoがmax_ammoに戻ることを確認
+ *
+ * SmallConfig: reload_duration=5 → R押下後5tick後に完了
+ */
+TEST(PlayerWeaponSystemTest, ManualReload_CompletesAndRefillsAmmo){
+    PlayerWeaponSystem pws(SmallConfig());  // ammo=3, reload=5
+    BulletSystem bs(10);
+    Player p = TestPlayer();
+    pws.UpdateTick(ShootPressed(), p, bs);  // ammo 3→2
+    pws.UpdateTick(ReloadPressed(), p, bs); // リロード開始(reload_ticks=5)
+    ASSERT_TRUE(pws.GetState().IsReloading());
+
+    AdvanceTicks(pws, static_cast<int>(SmallConfig().reload_duration_ticks), bs, p);
+    EXPECT_EQ(pws.GetState().ammo, SmallConfig().max_ammo);
+    EXPECT_FALSE(pws.GetState().IsReloading());
+}
+
+/**
+ * @brief 残弾ゼロでRを押さなくても自動リロードが始まることを確認
+ *
+ * 能動リロードのコードを追加した後も自動リロードが壊れていないことの回帰テスト
+ * MinimalConfig: ammo=1 → 1発撃つと ammo=0 → 自動リロード開始
+ */
+TEST(PlayerWeaponSystemTest, EmptyAmmo_StillStartsAutoReload){
+    PlayerWeaponSystem pws(MinimalConfig()); // ammo=1
+    BulletSystem bs(10);
+    Player p = TestPlayer();
+
+    const auto ev = pws.UpdateTick(ShootPressed(), p, bs); // ammo 1→0 → 自動リロード
+    EXPECT_TRUE(ev.shot_fired);
+    EXPECT_TRUE(ev.reload_started);
+    EXPECT_TRUE(pws.GetState().IsReloading());
 }

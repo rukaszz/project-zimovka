@@ -196,6 +196,9 @@ bool InputSystem::MapKeyToAction(SDL_Scancode scancode, zimovka::Action& out_act
     case SDL_SCANCODE_X:
         out_act = zimovka::Action::Bomb;
         return true;
+    case SDL_SCANCODE_R:
+        out_act = zimovka::Action::Reload;
+        return true;
     case SDL_SCANCODE_P:
         out_act = zimovka::Action::Pause;
         return true;

@@ -18,6 +18,7 @@ enum class Action : std::uint8_t{
     Slow, 
     Shoot, 
     Bomb, 
+    Reload, 
     Pause, 
     Quit, 
 
