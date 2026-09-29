@@ -181,6 +181,10 @@ void UpdatePipeline::ResolveCollisions(bool& player_hit_out, EnemyHitEvents& ene
         player_bullets_,
         enemy_system_
     );
+    collision_system_.ResolvePlayerBulletsVsEnemyBullets(
+        player_bullets_,
+        enemy_bullets_
+    );
 }
 
 /**

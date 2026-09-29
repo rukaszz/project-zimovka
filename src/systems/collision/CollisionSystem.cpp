@@ -118,5 +118,72 @@ EnemyHitEvents CollisionSystem::ResolvePlayerBulletsVsEnemies(
     return result;
 }
 
+/**
+ * @brief 自機弾vs敵弾の衝突解決
+ * 自機弾によって敵弾を打ち消せる
+ * 
+ * @param player_bullets 
+ * @param enemy_bullets 
+ * @return BulletCancelEvents 
+ */
+BulletCancelEvents CollisionSystem::ResolvePlayerBulletsVsEnemyBullets(
+    BulletSystem& player_bullets, 
+    BulletSystem& enemy_bullets
+)
+{
+    // 返却値
+    BulletCancelEvents result{};
+    // 両Bulletsを取得
+    const auto& player = player_bullets.GetBullets();
+    const auto& enemy  = enemy_bullets.GetBullets();
+    // 最初に自機弾でループ
+    for(std::size_t pb_index = 0; pb_index < player.size(); ++pb_index){
+        const Bullet& pb = player[pb_index];
+        // 非活性は飛ばす
+        if(!pb.active){
+            continue;
+        }
+        // 自機弾当たり判定(円)
+        const Circle pb_circle{
+            pb.position,
+            pb.radius
+        };
+        // 敵弾のループ
+        for(std::size_t eb_index = 0; eb_index < enemy.size(); ++eb_index){
+            const Bullet& eb = enemy[eb_index];
+            // 非活性は飛ばす
+            if(!eb.active){
+                continue;
+            }
+            // 敵弾当たり判定(円)
+            const Circle eb_circle{
+                eb.position,
+                eb.radius
+            };
+            // 判定回数計測
+            ++collision_stats_.player_bullet_vs_enemy_checks;
+            // 衝突判定
+            if(!CollisionUtilities::Intersects(
+                pb_circle,
+                eb_circle
+            ))
+            {
+                // ヒットしていないなら次へ
+                continue;
+            }
+            // 両弾を非活性化
+            player_bullets.Deactivate(pb_index);
+            enemy_bullets.Deactivate(eb_index);
+
+            ++result.cancel_count;
+            
+            // 弾があたったら次へ
+            break;
+        }
+    }
+    // 全走査して結果を返す
+    return result;
+}
+
 
 }   // namespace zimovka
