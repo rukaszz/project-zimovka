@@ -468,7 +468,117 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_Stats_ChecksIncremented)
     ASSERT_TRUE(es.Spawn(MakeEnemyParams({600.0f, 600.0f}, 13.0f)));
     ASSERT_TRUE(bs.Spawn({100.0f, 100.0f}, {0.0f, 0.0f}, 5.0f)); // 遠くて当たらない
     cs.ResolvePlayerBulletsVsEnemies(bs, es);
-    
+
     // 1発の弾 × 2体の敵 = 2回チェック
     EXPECT_EQ(cs.GetStats().player_bullet_vs_enemy_checks, 2u);
+}
+
+// ──────────────────────────────────────────────────────
+// 自機弾vs敵弾打ち消し (ResolvePlayerBulletsVsEnemyBullets)
+// ──────────────────────────────────────────────────────
+/**
+ * @brief 重なり合う自機弾と敵弾が互いに非活性化されることを確認
+ */
+TEST(BulletCancelTest, Overlap_DeactivatesBoth){
+    CollisionSystem cs;
+    BulletSystem player_bs(10);
+    BulletSystem enemy_bs(10);
+
+    ASSERT_TRUE(player_bs.Spawn({100.0f, 100.0f}, {0.0f, -720.0f}, 5.0f));
+    ASSERT_TRUE(enemy_bs.Spawn( {100.0f, 100.0f}, {0.0f,  200.0f}, 5.0f));
+
+    const auto result = cs.ResolvePlayerBulletsVsEnemyBullets(player_bs, enemy_bs);
+
+    EXPECT_EQ(result.cancel_count, 1u);
+    EXPECT_EQ(player_bs.CountActive(), 0u);
+    EXPECT_EQ(enemy_bs.CountActive(),  0u);
+}
+
+/**
+ * @brief 離れた位置の自機弾と敵弾が打ち消されないことを確認
+ */
+TEST(BulletCancelTest, NoOverlap_DoesNothing){
+    CollisionSystem cs;
+    BulletSystem player_bs(10);
+    BulletSystem enemy_bs(10);
+
+    ASSERT_TRUE(player_bs.Spawn({100.0f, 100.0f}, {0.0f, -720.0f}, 5.0f));
+    ASSERT_TRUE(enemy_bs.Spawn( {900.0f, 600.0f}, {0.0f,  200.0f}, 5.0f));
+
+    const auto result = cs.ResolvePlayerBulletsVsEnemyBullets(player_bs, enemy_bs);
+
+    EXPECT_EQ(result.cancel_count, 0u);
+    EXPECT_EQ(player_bs.CountActive(), 1u);
+    EXPECT_EQ(enemy_bs.CountActive(),  1u);
+}
+
+/**
+ * @brief 1発の自機弾が複数の敵弾のうち1発のみを打ち消すことを確認
+ *
+ * 自機弾と敵弾は1対1で打ち消し合う仕様
+ * 打ち消し後に自機弾が非活性化され，残りの敵弾は生存する
+ */
+TEST(BulletCancelTest, OnePlayerBullet_CancelsOnlyOneEnemyBullet){
+    CollisionSystem cs;
+    BulletSystem player_bs(10);
+    BulletSystem enemy_bs(10);
+
+    ASSERT_TRUE(player_bs.Spawn({100.0f, 100.0f}, {0.0f, -720.0f}, 5.0f));
+    ASSERT_TRUE(enemy_bs.Spawn( {100.0f, 100.0f}, {0.0f,  200.0f}, 5.0f)); // スロット0: 打ち消される
+    ASSERT_TRUE(enemy_bs.Spawn( {100.0f, 100.0f}, {0.0f,  200.0f}, 5.0f)); // スロット1: 残る
+
+    const auto result = cs.ResolvePlayerBulletsVsEnemyBullets(player_bs, enemy_bs);
+
+    EXPECT_EQ(result.cancel_count, 1u);
+    EXPECT_EQ(player_bs.CountActive(), 0u); // 自機弾は非活性化
+    EXPECT_EQ(enemy_bs.CountActive(),  1u); // 敵弾1発が残る
+}
+
+/**
+ * @brief 2発の自機弾と1発の敵弾のヒット時に打ち消し回数が1であることを確認
+ *
+ * 自機弾スロット0が敵弾を打ち消す
+ * 自機弾スロット1は活性のままだが対応する敵弾がないため打ち消しは発生しない
+ */
+TEST(BulletCancelTest, TwoPlayerBullets_OneEnemyBullet_CancelCountIsOne){
+    CollisionSystem cs;
+    BulletSystem player_bs(10);
+    BulletSystem enemy_bs(10);
+
+    ASSERT_TRUE(player_bs.Spawn({100.0f, 100.0f}, {0.0f, -720.0f}, 5.0f)); // スロット0
+    ASSERT_TRUE(player_bs.Spawn({100.0f, 100.0f}, {0.0f, -720.0f}, 5.0f)); // スロット1
+    ASSERT_TRUE(enemy_bs.Spawn( {100.0f, 100.0f}, {0.0f,  200.0f}, 5.0f));
+
+    const auto result = cs.ResolvePlayerBulletsVsEnemyBullets(player_bs, enemy_bs);
+
+    EXPECT_EQ(result.cancel_count, 1u);
+    EXPECT_EQ(player_bs.CountActive(), 1u); // スロット1の自機弾は残る
+    EXPECT_EQ(enemy_bs.CountActive(),  0u); // 敵弾は非活性化
+}
+
+/**
+ * @brief 打ち消しされた敵弾が同Tickのプレイヤー被弾判定に使われないことを確認
+ *
+ * ResolvePlayerBulletsVsEnemyBullets → CheckPlayerHitByBullets の処理順序で
+ * 打ち消し済みの敵弾(inactive)がプレイヤーに当たらないことをテストする
+ */
+TEST(BulletCancelTest, CancelledEnemyBullet_CannotHitPlayerSameTick){
+    CollisionSystem cs;
+    BulletSystem player_bs(10);
+    BulletSystem enemy_bs(10);
+    Player player;
+    player.position   = {100.0f, 100.0f};
+    player.hit_radius = 10.0f;
+
+    // プレイヤーと同座標に自機弾と敵弾を配置
+    ASSERT_TRUE(player_bs.Spawn({100.0f, 100.0f}, {0.0f, -720.0f}, 5.0f));
+    ASSERT_TRUE(enemy_bs.Spawn( {100.0f, 100.0f}, {0.0f,  200.0f}, 5.0f));
+
+    // 1. 打ち消し処理 → 敵弾が非活性化
+    const auto cancel = cs.ResolvePlayerBulletsVsEnemyBullets(player_bs, enemy_bs);
+    ASSERT_EQ(cancel.cancel_count, 1u);
+    ASSERT_EQ(enemy_bs.CountActive(), 0u);
+
+    // 2. プレイヤー被弾判定 → 打ち消された敵弾はinactiveなのでヒットしない
+    EXPECT_FALSE(cs.CheckPlayerHitByBullets(player, enemy_bs));
 }

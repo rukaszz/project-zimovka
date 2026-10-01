@@ -2,6 +2,7 @@
 #define ZIMOVKA_ENGINE_UPDATE_UPDATEPIPELINE_HPP_
 
 #include "zimovka/core/DeterministicRng.hpp"
+#include "zimovka/events/BulletCancelEvents.hpp"
 #include "zimovka/events/GameplayTickEvents.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/input/InputState.hpp"
@@ -52,7 +53,11 @@ private:
     PlayerWeaponEvents UpdateWeapons(const InputState& input);
     void UpdateEnemy(float dt);
     void UpdateProjectiles(float dt);
-    void ResolveCollisions(bool& player_hit_out, EnemyHitEvents& enemy_hit_out);
+    void ResolveCollisions(
+        bool& player_hit_out, 
+        EnemyHitEvents& enemy_hit_out, 
+        BulletCancelEvents& bullet_cancel_out
+    );
     PlayerBombEvents UpdateBomb(const InputState& input, bool player_hit);
 
 public:
@@ -62,8 +67,6 @@ public:
     void StartRun(float width, float height, DeterministicRng::Seed seed);
     // 固定タイムステップ更新
     GameplayTickEvents UpdateTick(float dt, const InputState& input);
-    // 描画(NOTE: RenderPipelineへ移行するまでの暫定実装)
-    void Render(PrimitiveRenderer& prim) const;
 
     // ── デバッグ/統計用 getter ───────────────────────────
     const PlayerSystem& GetPlayerSystem() const noexcept{

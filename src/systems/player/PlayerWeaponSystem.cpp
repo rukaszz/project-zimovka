@@ -109,6 +109,7 @@ PlayerWeaponEvents PlayerWeaponSystem::UpdateTick(
     // 能動的なリロード(弾数が最大以下で実施可能)
     if(input.IsPressed(Action::Reload) && state_.ammo < config_.max_ammo){
         StartReload(events);
+        return events;
     }
     // 外的要因で残弾ゼロになった場合もreload開始
     if(state_.ammo == 0){

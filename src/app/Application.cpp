@@ -218,15 +218,6 @@ void Application::Update(float dt, const InputState& input){
     (void)events;   // NOTE: のちのちSE再生などで使用する
 }
 
-/**
- * @brief 描画処理
- *
- */
-// void Application::Render(PrimitiveRenderer& prim){
-//     // NOTE: Rendering処理は別クラス(RenderPipelineなど)に移管予定
-//     update_pipeline_.Render(prim);
-// }
-
 void Application::Render(
     Renderer&           renderer,
     SpriteRenderer&     sprites,

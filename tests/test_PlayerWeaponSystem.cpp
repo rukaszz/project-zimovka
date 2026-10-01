@@ -34,6 +34,20 @@ InputState ReloadPressed(){
 }
 
 /**
+ * @brief R+Zを同一Tickで初めて押した判定を作る
+ *
+ * @return InputState
+ */
+InputState ReloadAndShootPressed(){
+    InputState s;
+    s.SetPressed(Action::Reload);
+    s.SetHeld(Action::Reload, true);
+    s.SetPressed(Action::Shoot);
+    s.SetHeld(Action::Shoot, true);
+    return s;
+}
+
+/**
  * @brief このTickで初めて押した(pressed + held)判定を作る
  *
  * @return InputState
@@ -792,5 +806,27 @@ TEST(PlayerWeaponSystemTest, EmptyAmmo_StillStartsAutoReload){
     const auto ev = pws.UpdateTick(ShootPressed(), p, bs); // ammo 1→0 → 自動リロード
     EXPECT_TRUE(ev.shot_fired);
     EXPECT_TRUE(ev.reload_started);
+    EXPECT_TRUE(pws.GetState().IsReloading());
+}
+
+/**
+ * @brief 同一TickでR+Zを押してもリロードが優先され発射されないことを確認
+ *
+ * 能動リロードのブランチに return events が存在するため，
+ * 同じTickでShootを押してもリロード開始後は発射コードに到達しない
+ * SmallConfig: ammo=3, cooldown=2 → 1発撃ちクールダウン経過後にR+Z同時押し
+ */
+TEST(PlayerWeaponSystemTest, ManualReload_SameTickShoot_DoesNotFire){
+    PlayerWeaponSystem pws(SmallConfig());  // ammo=3, cooldown=2
+    BulletSystem bs(10);
+    Player p = TestPlayer();
+    pws.UpdateTick(ShootPressed(), p, bs);              // ammo 3→2, cooldown=2
+    AdvanceTicks(pws, 2, bs, p);                        // cooldown 2→1→0
+    ASSERT_EQ(pws.GetState().cooldown_ticks_remaining, 0u);
+    ASSERT_EQ(pws.GetState().ammo, 2u);
+
+    const auto ev = pws.UpdateTick(ReloadAndShootPressed(), p, bs);
+    EXPECT_TRUE(ev.reload_started);
+    EXPECT_FALSE(ev.shot_fired);
     EXPECT_TRUE(pws.GetState().IsReloading());
 }

@@ -85,7 +85,7 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     UpdateProjectiles(dt);
     bool raw_player_hit = false;
     // 被弾したかどうかのみを見る
-    ResolveCollisions(raw_player_hit, events.enemy_hit);
+    ResolveCollisions(raw_player_hit, events.enemy_hit, events.bullet_cancel);
     // ボム処理開始
     events.bomb = UpdateBomb(input, raw_player_hit);
     // 被弾確定時の後処理
@@ -168,21 +168,27 @@ void UpdatePipeline::UpdateProjectiles(float dt){
  * 被弾の解決はUpdateBombへ委譲するため，ここでは検出のみを行う
  *
  */
-void UpdatePipeline::ResolveCollisions(bool& player_hit_out, EnemyHitEvents& enemy_hit_out){
+void UpdatePipeline::ResolveCollisions(
+    bool& player_hit_out, 
+    EnemyHitEvents& enemy_hit_out,
+    BulletCancelEvents& bullet_cancel_out
+)
+{
     // Collision判定回数の初期化
     collision_system_.InitializeStatsAtBeginTick();
-    // Player vs EnemyBullet(検出のみ，解決はUpdateBombで行う)
-    player_hit_out = collision_system_.CheckPlayerHitByBullets(
-        player_system_.GetPlayer(),
+    // 1. Player Bullets vs Enemy Bullets
+    bullet_cancel_out = collision_system_.ResolvePlayerBulletsVsEnemyBullets(
+        player_bullets_,
         enemy_bullets_
     );
-    // PlayerBullet vs Enemy
+     // 2. PlayerBullet vs Enemy
     enemy_hit_out = collision_system_.ResolvePlayerBulletsVsEnemies(
         player_bullets_,
         enemy_system_
     );
-    collision_system_.ResolvePlayerBulletsVsEnemyBullets(
-        player_bullets_,
+    // 3. Player vs EnemyBullet(検出のみ，解決はUpdateBombで行う)
+    player_hit_out = collision_system_.CheckPlayerHitByBullets(
+        player_system_.GetPlayer(),
         enemy_bullets_
     );
 }
@@ -198,21 +204,4 @@ void UpdatePipeline::ResolveCollisions(bool& player_hit_out, EnemyHitEvents& ene
 PlayerBombEvents UpdatePipeline::UpdateBomb(const InputState& input, bool player_hit){
     return bomb_system_.UpdateTick(input, player_hit, enemy_bullets_, enemy_system_);
 }
-
-/**
- * @brief 各システムの描画
- *
- * @param prim
- */
-void UpdatePipeline::Render(PrimitiveRenderer& prim) const{
-    // 敵更新
-    enemy_system_.Render(prim);
-    // 弾更新
-    player_bullets_.Render(prim);
-    enemy_bullets_.Render(prim);
-    // プレイヤー更新
-    player_system_.Render(prim);
-}
-
-
 }   // namespace zimovka

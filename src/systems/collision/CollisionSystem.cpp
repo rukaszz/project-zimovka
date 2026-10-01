@@ -146,7 +146,7 @@ BulletCancelEvents CollisionSystem::ResolvePlayerBulletsVsEnemyBullets(
         // 自機弾当たり判定(円)
         const Circle pb_circle{
             pb.position,
-            pb.radius
+            pb.radius + 3.0f
         };
         // 敵弾のループ
         for(std::size_t eb_index = 0; eb_index < enemy.size(); ++eb_index){
@@ -155,13 +155,12 @@ BulletCancelEvents CollisionSystem::ResolvePlayerBulletsVsEnemyBullets(
             if(!eb.active){
                 continue;
             }
+            ++collision_stats_.player_bullet_vs_enemy_bullet_checks;
             // 敵弾当たり判定(円)
             const Circle eb_circle{
                 eb.position,
-                eb.radius
+                eb.radius + 3.0f
             };
-            // 判定回数計測
-            ++collision_stats_.player_bullet_vs_enemy_checks;
             // 衝突判定
             if(!CollisionUtilities::Intersects(
                 pb_circle,
