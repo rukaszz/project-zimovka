@@ -477,18 +477,19 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsEnemies_Stats_ChecksIncremented)
 // 自機弾vs敵弾打ち消し (ResolvePlayerBulletsVsEnemyBullets)
 // ──────────────────────────────────────────────────────
 /**
- * @brief 重なり合う自機弾と敵弾が互いに非活性化されることを確認
+ * @brief 重なり合う自機弾と敵弾が互いに非活性化(inactive)されることを確認
+ * 
  */
 TEST(BulletCancelTest, Overlap_DeactivatesBoth){
     CollisionSystem cs;
     BulletSystem player_bs(10);
     BulletSystem enemy_bs(10);
-
+    // 同一座標へ出現
     ASSERT_TRUE(player_bs.Spawn({100.0f, 100.0f}, {0.0f, -720.0f}, 5.0f));
     ASSERT_TRUE(enemy_bs.Spawn( {100.0f, 100.0f}, {0.0f,  200.0f}, 5.0f));
 
     const auto result = cs.ResolvePlayerBulletsVsEnemyBullets(player_bs, enemy_bs);
-
+    // 打ち消し数1, Player/Enemy Bulletsのactive数0
     EXPECT_EQ(result.cancel_count, 1u);
     EXPECT_EQ(player_bs.CountActive(), 0u);
     EXPECT_EQ(enemy_bs.CountActive(),  0u);
@@ -496,17 +497,18 @@ TEST(BulletCancelTest, Overlap_DeactivatesBoth){
 
 /**
  * @brief 離れた位置の自機弾と敵弾が打ち消されないことを確認
+ * 
  */
 TEST(BulletCancelTest, NoOverlap_DoesNothing){
     CollisionSystem cs;
     BulletSystem player_bs(10);
     BulletSystem enemy_bs(10);
-
+    // 全く重ならない座標へ出現
     ASSERT_TRUE(player_bs.Spawn({100.0f, 100.0f}, {0.0f, -720.0f}, 5.0f));
     ASSERT_TRUE(enemy_bs.Spawn( {900.0f, 600.0f}, {0.0f,  200.0f}, 5.0f));
 
     const auto result = cs.ResolvePlayerBulletsVsEnemyBullets(player_bs, enemy_bs);
-
+    // 打ち消し数0, Player/Enemy Bulletsのactive数1
     EXPECT_EQ(result.cancel_count, 0u);
     EXPECT_EQ(player_bs.CountActive(), 1u);
     EXPECT_EQ(enemy_bs.CountActive(),  1u);
@@ -526,12 +528,12 @@ TEST(BulletCancelTest, OnePlayerBullet_CancelsOnlyOneEnemyBullet){
     ASSERT_TRUE(player_bs.Spawn({100.0f, 100.0f}, {0.0f, -720.0f}, 5.0f));
     ASSERT_TRUE(enemy_bs.Spawn( {100.0f, 100.0f}, {0.0f,  200.0f}, 5.0f)); // スロット0: 打ち消される
     ASSERT_TRUE(enemy_bs.Spawn( {100.0f, 100.0f}, {0.0f,  200.0f}, 5.0f)); // スロット1: 残る
-
+    // 敵弾スロット0→1で判定される
     const auto result = cs.ResolvePlayerBulletsVsEnemyBullets(player_bs, enemy_bs);
 
     EXPECT_EQ(result.cancel_count, 1u);
     EXPECT_EQ(player_bs.CountActive(), 0u); // 自機弾は非活性化
-    EXPECT_EQ(enemy_bs.CountActive(),  1u); // 敵弾1発が残る
+    EXPECT_EQ(enemy_bs.CountActive(),  1u); // 敵弾スロット1が残る
 }
 
 /**
@@ -548,18 +550,19 @@ TEST(BulletCancelTest, TwoPlayerBullets_OneEnemyBullet_CancelCountIsOne){
     ASSERT_TRUE(player_bs.Spawn({100.0f, 100.0f}, {0.0f, -720.0f}, 5.0f)); // スロット0
     ASSERT_TRUE(player_bs.Spawn({100.0f, 100.0f}, {0.0f, -720.0f}, 5.0f)); // スロット1
     ASSERT_TRUE(enemy_bs.Spawn( {100.0f, 100.0f}, {0.0f,  200.0f}, 5.0f));
-
+    // 自機弾スロット0→1で判定される
     const auto result = cs.ResolvePlayerBulletsVsEnemyBullets(player_bs, enemy_bs);
 
     EXPECT_EQ(result.cancel_count, 1u);
-    EXPECT_EQ(player_bs.CountActive(), 1u); // スロット1の自機弾は残る
+    EXPECT_EQ(player_bs.CountActive(), 1u); // スロット1の自機弾が残る
     EXPECT_EQ(enemy_bs.CountActive(),  0u); // 敵弾は非活性化
 }
 
 /**
  * @brief 打ち消しされた敵弾が同Tickのプレイヤー被弾判定に使われないことを確認
  *
- * ResolvePlayerBulletsVsEnemyBullets → CheckPlayerHitByBullets の処理順序で
+ * UpdatePipeline::ResolveCollisions()の処理順序に従い，
+ * ResolvePlayerBulletsVsEnemyBullets → CheckPlayerHitByBulletsの処理順序で
  * 打ち消し済みの敵弾(inactive)がプレイヤーに当たらないことをテストする
  */
 TEST(BulletCancelTest, CancelledEnemyBullet_CannotHitPlayerSameTick){
@@ -581,4 +584,116 @@ TEST(BulletCancelTest, CancelledEnemyBullet_CannotHitPlayerSameTick){
 
     // 2. プレイヤー被弾判定 → 打ち消された敵弾はinactiveなのでヒットしない
     EXPECT_FALSE(cs.CheckPlayerHitByBullets(player, enemy_bs));
+}
+
+// ──────────────────────────────────────────────────────
+// プレイヤーvs敵の接触判定 (CheckPlayerHitByEnemies)
+// ──────────────────────────────────────────────────────
+/**
+ * @brief 活性状態の敵とプレイヤーが重なるとtrueを返すことを確認
+ * 
+ */
+TEST(CollisionSystemTest, CheckPlayerHitByEnemies_Hit_ActiveEnemy){
+    CollisionSystem cs;
+    EnemySystem es(10);
+    Player player;
+    player.position   = {100.0f, 100.0f};
+    player.hit_radius = 4.0f;
+
+    // プレイヤーの中心に敵を配置(contact_radius=10 → 重なる)
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f})));
+    EXPECT_TRUE(cs.CheckPlayerHitByEnemies(player, es));
+}
+
+/**
+ * @brief 非活性状態の敵はヒット判定されないことを確認
+ * 
+ */
+TEST(CollisionSystemTest, CheckPlayerHitByEnemies_NoHit_InactiveEnemy){
+    CollisionSystem cs;
+    EnemySystem es(10);
+    Player player;
+    player.position   = {100.0f, 100.0f};
+    player.hit_radius = 4.0f;
+
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f})));
+    es.Clear(); // 全て非活性化
+    EXPECT_FALSE(cs.CheckPlayerHitByEnemies(player, es));
+}
+
+/**
+ * @brief 離れた位置の敵はヒット判定されないことを確認
+ * 
+ */
+TEST(CollisionSystemTest, CheckPlayerHitByEnemies_NoHit_EnemyFarAway){
+    CollisionSystem cs;
+    EnemySystem es(10);
+    Player player;
+    player.position   = {100.0f, 100.0f};
+    player.hit_radius = 4.0f;
+
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({900.0f, 600.0f})));
+    EXPECT_FALSE(cs.CheckPlayerHitByEnemies(player, es));
+}
+
+/**
+ * @brief 活性状態の敵の数だけplayer_vs_enemy_checksが増えることを確認
+ * 
+ */
+TEST(CollisionSystemTest, CheckPlayerHitByEnemies_Stats_TracksChecks){
+    CollisionSystem cs;
+    EnemySystem es(10);
+    Player player;
+    player.position   = {100.0f, 100.0f};
+    player.hit_radius = 4.0f;
+
+    // 当たらない位置に3体
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({900.0f, 900.0f})));
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({800.0f, 800.0f})));
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({700.0f, 700.0f})));
+
+    cs.InitializeStatsAtBeginTick();    // collision_stats_の初期化
+    cs.CheckPlayerHitByEnemies(player, es);
+    EXPECT_EQ(cs.GetStats().player_vs_enemy_checks, 3u);
+}
+
+/**
+ * @brief 最初の敵でヒットした場合に以降をスキップすることを確認
+ *
+ * スロット0(hit) → early return → スロット1は走査されない
+ */
+TEST(CollisionSystemTest, CheckPlayerHitByEnemies_EarlyReturn_FirstHit){
+    CollisionSystem cs;
+    EnemySystem es(10);
+    Player player;
+    player.position   = {100.0f, 100.0f};
+    player.hit_radius = 4.0f;
+
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({100.0f, 100.0f}))); // スロット0: hit
+    ASSERT_TRUE(es.Spawn(MakeEnemyParams({900.0f, 900.0f}))); // スロット1: 走査されない
+
+    cs.InitializeStatsAtBeginTick();
+    EXPECT_TRUE(cs.CheckPlayerHitByEnemies(player, es));
+    EXPECT_EQ(cs.GetStats().player_vs_enemy_checks, 1u);
+}
+
+/**
+ * @brief contact_offsetが接触判定に反映されることを確認
+ *
+ * 敵の中心座標は(200, 100)だが contact_offset=(-100, 0)のため
+ * 接触判定円の中心は(100, 100) → プレイヤーと重なる
+ */
+TEST(CollisionSystemTest, CheckPlayerHitByEnemies_Hit_WithContactOffset){
+    CollisionSystem cs;
+    EnemySystem es(10);
+    Player player;
+    player.position   = {100.0f, 100.0f};
+    player.hit_radius = 4.0f;
+
+    EnemySpawnParams p = MakeEnemyParams({200.0f, 100.0f}); // 中心は(200, 100)
+    p.contact_offset  = {-100.0f, 0.0f};                    // 接触判定の半径は(100, 100)
+    ASSERT_TRUE(es.Spawn(p));
+
+    // GetContactCircle()が正しく適用されるとヒットになる
+    EXPECT_TRUE(cs.CheckPlayerHitByEnemies(player, es));
 }

@@ -22,7 +22,7 @@ using zimovka::PlayerWeaponEvents;
 // ヘルパ関数
 namespace{
 /**
- * @brief Reload(R)をこのTickで初めて押した判定を作る
+ * @brief Reload(Rキー)を呼び出しTickで初めて押した(pressed + held)判定を作る
  *
  * @return InputState
  */
@@ -34,7 +34,7 @@ InputState ReloadPressed(){
 }
 
 /**
- * @brief R+Zを同一Tickで初めて押した判定を作る
+ * @brief R+Z(両キー同時押し)を同一Tickで初めて押した判定(pressed + held)を作る
  *
  * @return InputState
  */
@@ -812,21 +812,23 @@ TEST(PlayerWeaponSystemTest, EmptyAmmo_StillStartsAutoReload){
 /**
  * @brief 同一TickでR+Zを押してもリロードが優先され発射されないことを確認
  *
- * 能動リロードのブランチに return events が存在するため，
- * 同じTickでShootを押してもリロード開始後は発射コードに到達しない
- * SmallConfig: ammo=3, cooldown=2 → 1発撃ちクールダウン経過後にR+Z同時押し
+ * 能動リロードでリロードイベントが発行されるため，
+ * 同じTickでShootを押してもリロード開始後は発射しない
+ * SmallConfigでammo=3, cooldown=2を設定 → 1発撃ちクールダウン経過後にR+Z同時押し
  */
 TEST(PlayerWeaponSystemTest, ManualReload_SameTickShoot_DoesNotFire){
-    PlayerWeaponSystem pws(SmallConfig());  // ammo=3, cooldown=2
+    // ammo=3, cooldown=2
+    PlayerWeaponSystem pws(SmallConfig());
     BulletSystem bs(10);
     Player p = TestPlayer();
-    pws.UpdateTick(ShootPressed(), p, bs);              // ammo 3→2, cooldown=2
-    AdvanceTicks(pws, 2, bs, p);                        // cooldown 2→1→0
+    // ammo 3→2, cooldown=2
+    pws.UpdateTick(ShootPressed(), p, bs);
+    AdvanceTicks(pws, 2, bs, p);    // cooldown 2→1→0
     ASSERT_EQ(pws.GetState().cooldown_ticks_remaining, 0u);
     ASSERT_EQ(pws.GetState().ammo, 2u);
 
     const auto ev = pws.UpdateTick(ReloadAndShootPressed(), p, bs);
     EXPECT_TRUE(ev.reload_started);
-    EXPECT_FALSE(ev.shot_fired);
+    EXPECT_FALSE(ev.shot_fired);    // 発射されない
     EXPECT_TRUE(pws.GetState().IsReloading());
 }

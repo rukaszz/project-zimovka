@@ -29,6 +29,8 @@ public:
     EnemyHitEvents ResolvePlayerBulletsVsEnemies(BulletSystem& player_bullets, EnemySystem& enemies);
     // 自機弾 vs 敵弾のヒットチェック・解決
     BulletCancelEvents ResolvePlayerBulletsVsEnemyBullets(BulletSystem& player_bullets, BulletSystem& enemy_bullets);
+    // プレイヤー vs 敵のヒットチェック・解決
+    bool CheckPlayerHitByEnemies(const Player& player, const EnemySystem& enemies);
     // getter
     // UpdatePipeline::ResolveCollisions()で冒頭に呼ばれる
     void InitializeStatsAtBeginTick() noexcept{

@@ -6,6 +6,7 @@
 #include "zimovka/systems/enemy/Enemy.hpp"
 #include "zimovka/systems/enemy/EnemyDamageResult.hpp"
 #include "zimovka/systems/collision/CollisionUtilities.hpp"
+#include "zimovka/systems/player/PlayerWeaponConfig.hpp"
 
 namespace zimovka{
 /**
@@ -146,7 +147,7 @@ BulletCancelEvents CollisionSystem::ResolvePlayerBulletsVsEnemyBullets(
         // 自機弾当たり判定(円)
         const Circle pb_circle{
             pb.position,
-            pb.radius + 3.0f
+            pb.radius + 6.0f    // NOTE：一時的にハードコードで判定を緩める 
         };
         // 敵弾のループ
         for(std::size_t eb_index = 0; eb_index < enemy.size(); ++eb_index){
@@ -159,7 +160,7 @@ BulletCancelEvents CollisionSystem::ResolvePlayerBulletsVsEnemyBullets(
             // 敵弾当たり判定(円)
             const Circle eb_circle{
                 eb.position,
-                eb.radius + 3.0f
+                eb.radius
             };
             // 衝突判定
             if(!CollisionUtilities::Intersects(
@@ -184,5 +185,42 @@ BulletCancelEvents CollisionSystem::ResolvePlayerBulletsVsEnemyBullets(
     return result;
 }
 
+/**
+ * @brief プレイヤーと敵の衝突判定
+ * 被弾し祭の処理はBombSystemへ移譲している(UpdatePipeline::ResolveCollision()で解決)
+ * 
+ * @param player 
+ * @param enemies 
+ * @return true 
+ * @return false 
+ */
+bool CollisionSystem::CheckPlayerHitByEnemies(
+    const Player& player, 
+    const EnemySystem& enemies
+)
+{
+    // 判定用の変数用意
+    const Circle player_circle{
+        player.position, 
+        player.hit_radius
+    };
+    // enemy_list走査
+    // Playerの敵への接触ではEnemyを非活性にしないため，インデックスを用いない
+    for(const Enemy& e : enemies.GetEnemies()){
+        if(!e.active){
+            continue;
+        }
+        ++collision_stats_.player_vs_enemy_checks;
+        // contact_offsetを適用するためGetContactCircle()を使う
+        if (CollisionUtilities::Intersects(
+            player_circle, e.GetContactCircle()
+        ))
+        {
+            return true;
+        }
+    }
+    // 走査して衝突していなければfalse
+    return false;
+}
 
 }   // namespace zimovka

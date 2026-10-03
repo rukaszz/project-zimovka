@@ -2895,3 +2895,70 @@ zimovkaの形がある程度できた中で，EnemySpawnerを実装し30秒程�
 自機弾での対消滅は敵を倒す，弾を避ける，に加えて，逃げ道を作るという行動を可能にする．そのため，実装価値は高いと判断している．その他，武器によっては広範囲に弾を消せる(爆発)などを差別化も考えられる．
 
 近接攻撃はまだ案の段階だが，例えば全体で50発しか撃てない，という制限を加え，弾の補給に近接攻撃，というアクションをさせても面白いと考えている．
+
+### 2026/10/01
+
+#### CollisionSystemの解決順序
+
+Player BulletsとEnemy Bulletsの衝突が発生した際に，敵弾を打ち消す処理を追加している．これによって，弾を撃って回避するというアクションが追加された．また弾数制限があるため，回避と敵を倒すという2つのアクションを使い分けるという要素が生まれた．
+
+この敵弾打ち消しについて，解決順序を整理する：
+
+1. PlayerBullet vs EnemyBullet
+2. PlayerBullet vs Enemy
+3. Player vs EnemyBullet
+4. Player vs Enemy
+
+敵弾を打ち消す処理を最初にする．理由としては，例として`Player vs EnemyBullet`処理が最初に行われたとき，同一Tickで`PlayerBullet vs EnemyBullet`が解決できても衝突が確定してしまう．また，「自機弾が敵を倒す」と敵弾を消すが同時に発生しないようにしたいという理由もある．
+
+そのため，CollisionSystemとUpdatePipelineでは最初に自機弾と敵弾の衝突判定を実施する：
+
+```cpp
+/**
+ * @brief 当たり判定の検出処理
+ * 被弾の解決はUpdateBombへ委譲するため，ここでは検出のみを行う
+ *
+ */
+void UpdatePipeline::ResolveCollisions(
+    bool& player_hit_out, 
+    EnemyHitEvents& enemy_hit_out,
+    BulletCancelEvents& bullet_cancel_out
+)
+{
+    // Collision判定回数の初期化
+    collision_system_.InitializeStatsAtBeginTick();
+    // 1. Player Bullets vs Enemy Bullets
+    bullet_cancel_out = collision_system_.ResolvePlayerBulletsVsEnemyBullets(
+        player_bullets_,
+        enemy_bullets_
+    );
+     // 2. PlayerBullet vs Enemy
+    enemy_hit_out = collision_system_.ResolvePlayerBulletsVsEnemies(
+        player_bullets_,
+        enemy_system_
+    );
+    // 3. Player vs EnemyBullet(検出のみ，解決はUpdateBombで行う)
+    const bool bullet_hit = collision_system_.CheckPlayerHitByBullets(
+        player_system_.GetPlayer(),
+        enemy_bullets_
+    );
+    // 4. Player vs Enemy
+    const bool contact_hit = collision_system_.CheckPlayerHitByEnemies(
+        player_system_.GetPlayer(), 
+        enemy_system_
+    );
+    // 敵弾，敵との接触判定の結果で被弾判定を確定
+    player_hit_out = bullet_hit || contact_hit;
+}
+```
+
+### 2026/10/03
+
+#### Player vs Enemy
+
+敵との衝突判定を実装していなかったため追加．ただし，仕様として次の通り規定する：
+
+Playerと衝突したEnemyは消滅しない(非活性にならない)
+
+理由としては，敵との衝突で敵を倒せる(inactiveになる)場合，そのようなアクションがゲームに追加されプレイヤーに体当たりで倒すという選択肢が生まれる可能性がある．
+また，プレイヤーの衝突で敵へダメージを与える，ということになればダメージを定義する必要がある．敵へダメージを与えるルートを今の段階で追加するべきではないと判断し，Enemyのdeactiveは実装しない．

@@ -22,7 +22,8 @@ struct PlayerWeaponConfig{
     std::uint32_t reload_duration_ticks = 90;
     // 弾の設定
     float bullet_speed = 720.0f;
-    float bullet_radius = 3.0f;
+    float bullet_radius = 3.0f;         // 通常の弾判定
+    float cancel_hitbox_expand = 6.0f;  // 敵弾打ち消し用に少し大きい半径を設定
     Color bullet_color{120, 220, 255, 255};
     // 弾発射場所調整用のオフセット
     Vec2 muzzle_offset{0.0f, 0.0f};

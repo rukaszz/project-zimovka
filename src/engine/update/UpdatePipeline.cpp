@@ -187,10 +187,17 @@ void UpdatePipeline::ResolveCollisions(
         enemy_system_
     );
     // 3. Player vs EnemyBullet(検出のみ，解決はUpdateBombで行う)
-    player_hit_out = collision_system_.CheckPlayerHitByBullets(
+    const bool bullet_hit = collision_system_.CheckPlayerHitByBullets(
         player_system_.GetPlayer(),
         enemy_bullets_
     );
+    // 4. Player vs Enemy
+    const bool contact_hit = collision_system_.CheckPlayerHitByEnemies(
+        player_system_.GetPlayer(), 
+        enemy_system_
+    );
+    // 敵弾，敵との接触判定の結果で被弾判定を確定
+    player_hit_out = bullet_hit || contact_hit;
 }
 
 /**
