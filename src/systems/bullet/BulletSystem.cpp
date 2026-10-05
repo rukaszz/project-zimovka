@@ -37,12 +37,9 @@ BulletSystem::BulletSystem(std::size_t max_bullets)
 }
 
 /**
- * @brief 弾を生成する関数(inactive → activeの状態遷移)
+ * @brief 弾を生成する関数(打ち消し用引数を考慮しない版)
  *
- * next_spawn_idx_から始めて循環しながら空(!active)スロットを探す
- * 弾は生成された順に期限切れになる可能性が高い(傾向がある)
- * →よって，循環インデックスにより平均的にO(1)で空きを見つけられる
- * 空きスロットによっては最悪計算量(O(N))
+ * 引数5版へ渡す構成にしている
  *
  * @param position  初期座標
  * @param velocity  速度 (px/s)
@@ -55,15 +52,41 @@ bool BulletSystem::Spawn(
     float radius, Color color
 )
 {
+    // 引数5版のSpawnを用いて打ち消し用半径と弾半径が同じ弾を生成する
+    return Spawn(position, velocity, radius, radius, color);
+}
+
+/**
+ * @brief 弾を生成する関数(inactive → activeの状態遷移)
+ *
+ * next_spawn_idx_から始めて循環しながら空(!active)スロットを探す
+ * 弾は生成された順に期限切れになる可能性が高い(傾向がある)
+ * →よって，循環インデックスにより平均的にO(1)で空きを見つけられる
+ * 空きスロットによっては最悪計算量(O(N))
+ *
+ * @param position      初期座標
+ * @param velocity      速度 (px/s)
+ * @param radius        弾半径
+ * @param cancel_radius 打ち消し用半径(>= radius)
+ * @param color         弾色
+ * @return true 生成成功 / false 引数不正かプール満杯
+ */
+bool BulletSystem::Spawn(
+    const Vec2& position, const Vec2& velocity,
+    float radius, float cancel_radius, Color color
+)
+{
     // 無効な半径や無限大な値はfalse
-    if(radius <= 0.0f
+    if(radius <= 0.0f 
+    || cancel_radius < radius
     || !IsFinite(position)
     || !IsFinite(velocity)
-    || !std::isfinite(radius))
+    || !std::isfinite(radius)
+    || !std::isfinite(cancel_radius))
     {
         return false;
     }
-    // サイズ取得，満杯時は即return
+    // bulletsのプールサイズ取得，満杯時は即return
     const std::size_t size = bullets_.size();
     if(active_count_ >= size){
         return false;
@@ -74,11 +97,12 @@ bool BulletSystem::Spawn(
         const std::size_t idx = (next_spawn_idx_ + i) % size;
         // inactiveな弾を発見したら表示
         if(!bullets_[idx].active){
-            bullets_[idx].active   = true;
-            bullets_[idx].position = position;
-            bullets_[idx].velocity = velocity;
-            bullets_[idx].radius   = radius;
-            bullets_[idx].color    = color;
+            bullets_[idx].active        = true;
+            bullets_[idx].position      = position;
+            bullets_[idx].velocity      = velocity;
+            bullets_[idx].radius        = radius;
+            bullets_[idx].cancel_radius = cancel_radius;
+            bullets_[idx].color         = color;
             // 次のSpawn()は1つ後のスロットから探す
             next_spawn_idx_ = (idx + 1) % size;
             ++active_count_;
@@ -95,7 +119,7 @@ bool BulletSystem::Spawn(
  * activeな弾の位置をvelocity * dt で更新し，
  * 完全に画面外へ出たらinactiveにする
  * 
- * NOTE: assertによるチェック飲みにしてリリース時はチェック処理を省略する仕組みを検討中
+ * NOTE: assertによるチェックのみにしてリリース時はチェック処理を省略する仕組みを検討中
  *
  * @param dt            固定デルタ時間 (s)
  * @param screen_width  画面幅 (px)

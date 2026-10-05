@@ -697,3 +697,57 @@ TEST(CollisionSystemTest, CheckPlayerHitByEnemies_Hit_WithContactOffset){
     // GetContactCircle()が正しく適用されるとヒットになる
     EXPECT_TRUE(cs.CheckPlayerHitByEnemies(player, es));
 }
+
+// ──────────────────────────────────────────────────────
+// cancel_radius による打ち消し判定範囲のテスト
+// ──────────────────────────────────────────────────────
+/**
+ * @brief cancel_radiusにより通常半径の外側でも打ち消しが発生することを確認
+ *
+ * 自機弾: radius=5, cancel_radius=15
+ * 敵弾:   radius=5(cancel_radiusは通常半径と同じ)
+ * 中心間距離=18:
+ *   通常半径判定: 5+5=10 < 18 → 通常半径同士の判定ではヒットしない
+ *   cancel_radius判定: 15+5=20 > 18 → ヒット(打ち消し発生)
+ */
+TEST(BulletCancelTest, ExpandedCancelRadius_CancelsOutsideNormalHitbox){
+    CollisionSystem cs;
+    BulletSystem player_bs(10);
+    BulletSystem enemy_bs(10);
+
+    // radius=5, cancel_radius=15 で自機弾を生成
+    ASSERT_TRUE(player_bs.Spawn({0.0f, 0.0f}, {0.0f, -720.0f}, 5.0f, 15.0f));
+    // 中心間距離=18 (通常半径 5+5=10 では届かない位置)
+    ASSERT_TRUE(enemy_bs.Spawn( {18.0f, 0.0f}, {0.0f, 200.0f}, 5.0f));
+
+    const auto result = cs.ResolvePlayerBulletsVsEnemyBullets(player_bs, enemy_bs);
+
+    EXPECT_EQ(result.cancel_count, 1u);     // cancel_radiusで打ち消し成立
+    EXPECT_EQ(player_bs.CountActive(), 0u);
+    EXPECT_EQ(enemy_bs.CountActive(),  0u);
+}
+
+/**
+ * @brief cancel_radiusの外側では打ち消しが発生しないことを確認
+ *
+ * 自機弾: radius=5, cancel_radius=15
+ * 敵弾:   radius=5 (cancel_radiusは通常半径と同じ)
+ * 中心間距離=25:
+ *   cancel_radius判定: 15+5=20 < 25 → ヒットしない
+ */
+TEST(BulletCancelTest, OutsideCancelRadius_DoesNotCancel){
+    CollisionSystem cs;
+    BulletSystem player_bs(10);
+    BulletSystem enemy_bs(10);
+
+    // radius=5, cancel_radius=15 で自機弾を生成
+    ASSERT_TRUE(player_bs.Spawn({0.0f, 0.0f}, {0.0f, -720.0f}, 5.0f, 15.0f));
+    // 中心間距離=25 (cancel_radius 15+5=20 でも届かない位置)
+    ASSERT_TRUE(enemy_bs.Spawn( {25.0f, 0.0f}, {0.0f, 200.0f}, 5.0f));
+
+    const auto result = cs.ResolvePlayerBulletsVsEnemyBullets(player_bs, enemy_bs);
+
+    EXPECT_EQ(result.cancel_count, 0u);     // cancel_radiusでも届かない
+    EXPECT_EQ(player_bs.CountActive(), 1u);
+    EXPECT_EQ(enemy_bs.CountActive(),  1u);
+}

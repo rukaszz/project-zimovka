@@ -19,6 +19,8 @@ struct Bullet{
     Vec2 velocity{};    // px/s
     // 弾半径
     float radius = 4.0f;
+    // 打ち消し処理用の大きめの弾半径
+    float cancel_radius = 0.0f;
     // 弾の色
     Color color{};
 };

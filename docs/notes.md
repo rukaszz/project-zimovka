@@ -2962,3 +2962,182 @@ Playerと衝突したEnemyは消滅しない(非活性にならない)
 
 理由としては，敵との衝突で敵を倒せる(inactiveになる)場合，そのようなアクションがゲームに追加されプレイヤーに体当たりで倒すという選択肢が生まれる可能性がある．
 また，プレイヤーの衝突で敵へダメージを与える，ということになればダメージを定義する必要がある．敵へダメージを与えるルートを今の段階で追加するべきではないと判断し，Enemyのdeactiveは実装しない．
+
+### 2026/10/04
+
+#### 弾の打ち消し
+
+zimovkaは自機弾で敵弾を打ち消すことができる仕様にしている．しかし現状プレイしていて敵弾に当てるのがそもそも難しい．もちろん敵弾のサイズ調整で対応可能だが，見た目の大きさと当たり判定が異なるケースもあるため，弾のサイズを大きくするだけでは難易度調整などにも影響が出る．
+
+自機弾についてはPlayerWeaponConfigで設定する機能がすでにあるため，こちらに打ち消し用の設定を乗せる．
+具体的には，`bullet_cancel_radius`を用意して`BulletSystem::Spawn()`へ引数として渡してしまう．今後このような対応が必要になれば構造体によるSpawn引数管理を検討するが現状はこのように設定する．
+
+また，Spawn()はこれまで引数が4つであったが引数が5になる関係上，APIが変化する影響を最小限に抑えるべく引数4つ版の内部で引数5つ版を呼ぶようにした．
+
+責務の関係は次のようになる：
+
+```text
+PlayerWeaponConfig
+        ↓
+PlayerWeaponSystem
+        ↓
+Bullet
+        ↓
+CollisionSystem
+```
+
+PlayerWeaponConfig.hpp
+
+```cpp
+#ifndef ZIMOVKA_SYSTEMS_PLAYER_PLAYERWEAPONCONFIG_HPP_
+#define ZIMOVKA_SYSTEMS_PLAYER_PLAYERWEAPONCONFIG_HPP_
+
+#include <cstdint>
+
+#include "zimovka/core/Vec2.hpp"
+#include "zimovka/rendering/Color.hpp"
+
+namespace zimovka{
+/**
+ * @brief プレイヤー弾や発射処理に関する設定
+ * 
+ * 静的な情報はこちらで管理する
+ */
+struct PlayerWeaponConfig{
+    // 最大弾数
+    std::uint32_t max_ammo = 6;
+    // クールダウンなどの時間はTick(ゲームループ基準の間隔)で管理する
+    // 連続射撃抑制用のクールダウン
+    std::uint32_t shot_cooldown_ticks = 8;
+    // 弾切れから装填完了までの固定時間
+    std::uint32_t reload_duration_ticks = 90;
+    // 弾の設定
+    float bullet_speed = 720.0f;
+    float bullet_radius = 3.0f;         // 通常の弾判定
+    float bullet_cancel_radius = 9.0f;  // 敵弾打ち消し用の少し大きい半径
+    Color bullet_color{120, 220, 255, 255};
+    // 弾発射場所調整用のオフセット
+    Vec2 muzzle_offset{0.0f, 0.0f};
+};
+
+}   // namespace zimovka
+
+#endif  // ZIMOVKA_SYSTEMS_PLAYER_PLAYERWEAPONCONFIG_HPP_
+
+```
+
+Bullet.hpp
+
+```cpp
+#ifndef ZIMOVKA_SYSTEMS_BULLET_BULLET_HPP_
+#define ZIMOVKA_SYSTEMS_BULLET_BULLET_HPP_
+
+#include "zimovka/core/Vec2.hpp"
+#include "zimovka/rendering/Color.hpp"
+
+namespace zimovka{
+
+/**
+ * @brief 弾のデータ構造(コンポーネント)
+ * 
+ */
+struct Bullet{
+    // 活性非活性管理用
+    bool active = false;
+    // 座標
+    Vec2 position{};    // x, y
+    // 2次元の速度
+    Vec2 velocity{};    // px/s
+    // 弾半径
+    float radius = 4.0f;
+    // 打ち消し処理用の大きめの弾半径
+    float cancel_radius = 0.0f;
+    // 弾の色
+    Color color{};
+};
+
+}   // namespace zimovka
+
+#endif  // ZIMOVKA_SYSTEMS_BULLET_BULLET_HPP_
+
+```
+
+BulletSystem.cpp
+
+```cpp
+/**
+ * @brief 弾を生成する関数(打ち消し用引数を考慮しない版)
+ *
+ *
+ * @param position  初期座標
+ * @param velocity  速度 (px/s)
+ * @param radius    弾半径
+ * @param color     弾色
+ * @return true 生成成功 / false 引数不正かプール満杯
+ */
+bool BulletSystem::Spawn(
+    const Vec2& position, const Vec2& velocity,
+    float radius, Color color
+)
+{
+    // 引数5版のSpawnを用いて打ち消し用半径と弾半径が同じ弾を生成する
+    return Spawn(position, velocity, radius, radius, color);
+}
+
+/**
+ * @brief 弾を生成する関数(inactive → activeの状態遷移)
+ *
+ * next_spawn_idx_から始めて循環しながら空(!active)スロットを探す
+ * 弾は生成された順に期限切れになる可能性が高い(傾向がある)
+ * →よって，循環インデックスにより平均的にO(1)で空きを見つけられる
+ * 空きスロットによっては最悪計算量(O(N))
+ *
+ * @param position      初期座標
+ * @param velocity      速度 (px/s)
+ * @param radius        弾半径
+ * @param cancel_radius 打ち消し用半径(>= radius)
+ * @param color         弾色
+ * @return true 生成成功 / false 引数不正かプール満杯
+ */
+bool BulletSystem::Spawn(
+    const Vec2& position, const Vec2& velocity,
+    float radius, float cancel_radius, Color color
+)
+{
+    // 無効な半径や無限大な値はfalse
+    if(radius <= 0.0f 
+    || cancel_radius < radius
+    || !IsFinite(position)
+    || !IsFinite(velocity)
+    || !std::isfinite(radius)
+    || !std::isfinite(cancel_radius))
+    {
+        return false;
+    }
+    // bulletsのプールサイズ取得，満杯時は即return
+    const std::size_t size = bullets_.size();
+    if(active_count_ >= size){
+        return false;
+    }
+    // サイズ分連番で走査
+    for(std::size_t i = 0; i < size; ++i){
+        // 次に出現するインデックスを設定(0〜最大弾数の周期で回る)
+        const std::size_t idx = (next_spawn_idx_ + i) % size;
+        // inactiveな弾を発見したら表示
+        if(!bullets_[idx].active){
+            bullets_[idx].active        = true;
+            bullets_[idx].position      = position;
+            bullets_[idx].velocity      = velocity;
+            bullets_[idx].radius        = radius;
+            bullets_[idx].cancel_radius = cancel_radius;
+            bullets_[idx].color         = color;
+            // 次のSpawn()は1つ後のスロットから探す
+            next_spawn_idx_ = (idx + 1) % size;
+            ++active_count_;
+            return true;
+        }
+    }
+    // 全配列を走査してinactiveがゼロ=プールが満杯
+    return false;
+}
+```

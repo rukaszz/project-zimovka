@@ -2,8 +2,10 @@
 #define ZIMOVKA_SYSTEMS_ENEMY_ENEMYSPAWNPARAMS_HPP_
 
 #include <cstdint>
+#include <numbers>
 
 #include "zimovka/core/Vec2.hpp"
+#include "zimovka/systems/enemy/EnemyAttackPattern.hpp"
 
 namespace zimovka{
 /**
@@ -21,15 +23,22 @@ struct EnemySpawnParams{
     Vec2 hurtbox_offset{};
     float hurtbox_radius = 13.0f;
 
-    // Playerとの接触判定用円
+    // Playerとの接触判定用半径
     Vec2 contact_offset{};
     float contact_radius = 10.0f;
 
     std::int32_t hp = 1;
 
     // 弾発射関係
-    std::uint32_t initial_fire_delay_ticks = 60;
-    std::uint32_t fire_interval_ticks      = 120;
+    // 攻撃パターン
+    EnemyAttackPattern attack_pattern    = EnemyAttackPattern::AimedSpread;
+    // FixedSpread 用の固定発射角度
+    float fixed_fire_angle_rad           = std::numbers::pi_v<float> * 0.5f;   // デフォルト: 真下
+    std::uint32_t fire_bullet_count      = 5;                                   // 発射数
+    float         fire_spread_rad        = std::numbers::pi_v<float> * 0.5f;   // 拡散角度(90°)
+    float         fire_bullet_speed      = 180.0f;                              // 弾速
+    std::uint32_t initial_fire_delay_ticks = 60;                                // スポーン時の発射ディレイ
+    std::uint32_t fire_interval_ticks      = 120;                               // 発射間隔
 };
 
 }   // namespace zimovka

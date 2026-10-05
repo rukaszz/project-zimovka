@@ -14,9 +14,14 @@ namespace zimovka{
  */
 class PatternSystem{
 public:
-    // 扇状弾
+    // 扇状弾(base_angle_radを中心に拡散)
     std::size_t EmitSpread(
-        const PatternEmitRequest& pattern, 
+        const PatternEmitRequest& pattern,
+        BulletSystem& bullets
+    ) const;
+    // 全方向均等弾(菊型: 始点と終点が重複しない)
+    std::size_t EmitCircle(
+        const PatternEmitRequest& pattern,
         BulletSystem& bullets
     ) const;
 };

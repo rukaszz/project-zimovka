@@ -13,7 +13,7 @@
 #include "zimovka/systems/pattern/PatternSystem.hpp"
 
 namespace zimovka{
-
+// ヘルパ関数
 namespace{
 /**
  * @brief 無限大チェック用ヘルパ関数
@@ -24,6 +24,55 @@ namespace{
  */
 bool IsFinite(const Vec2& value) noexcept{
     return std::isfinite(value.x) && std::isfinite(value.y);
+}
+
+/**
+ * @brief Spawn()の引数EnemySpawnParamsの妥当性チェック
+ * 
+ * @param params 
+ * @return true 
+ * @return false 
+ */
+[[nodiscard]]
+bool IsValidEnemySpawnParams(const EnemySpawnParams& params){
+    // 引数チェック(NaNや負の値を検知)
+    if(!IsFinite(params.position)
+    || !IsFinite(params.velocity)
+    || !IsFinite(params.render_size)
+    || !IsFinite(params.hurtbox_offset)
+    || !IsFinite(params.contact_offset))
+    {
+        return false;
+    }
+    const bool valid_size   = params.render_size.x > 0.0f
+                           && params.render_size.y > 0.0f;
+    const bool valid_radius = params.hurtbox_radius > 0.0f
+                           && params.contact_radius > 0.0f
+                           && std::isfinite(params.hurtbox_radius)
+                           && std::isfinite(params.contact_radius);
+    // enum型なので整数値にcastされることを防止するためにswitch文を用いる
+    switch(params.attack_pattern){
+    case EnemyAttackPattern::AimedSpread:
+    case EnemyAttackPattern::FixedSpread:
+        break;
+    case EnemyAttackPattern::Count:
+    default:
+        return false;
+    }
+    const bool valid_fire = std::isfinite(params.fixed_fire_angle_rad)
+                         && params.fire_bullet_count > 0
+                         && std::isfinite(params.fire_spread_rad)
+                         && params.fire_spread_rad >= 0.0f
+                         && std::isfinite(params.fire_bullet_speed)
+                         && params.fire_bullet_speed > 0.0f
+                         && params.fire_interval_ticks > 0;
+    if(!valid_size || !valid_radius || !valid_fire){
+        return false;
+    }
+    if(params.hp <= 0){
+        return false;
+    }
+    return true;
 }
 }   // namespace
 
@@ -51,30 +100,8 @@ EnemySystem::EnemySystem(std::size_t capacity)
  */
 bool EnemySystem::Spawn(const EnemySpawnParams& params){
     // 引数チェック(NaNや負の値を検知)
-    if(!IsFinite(params.position)
-    || !IsFinite(params.velocity)
-    || !IsFinite(params.render_size)
-    || !IsFinite(params.hurtbox_offset)
-    || !IsFinite(params.contact_offset)
-    )
-    {
+    if(!IsValidEnemySpawnParams(params)){
         return false;
-    }
-    const bool valid_size   = params.render_size.x > 0.0f
-                           && params.render_size.y > 0.0f;
-    const bool valid_radius = params.hurtbox_radius > 0.0f
-                           && params.contact_radius > 0.0f
-                           && std::isfinite(params.hurtbox_radius)
-                           && std::isfinite(params.contact_radius);
-    if(!valid_size || !valid_radius){
-        return false;
-    }
-    if(params.hp <= 0){
-        return false;
-    }
-    // 発射のインターバルが無いのは不許可
-    if (params.fire_interval_ticks == 0) {
-       return false;
     }
     // 配列サイズ取得
     const std::size_t array_size = enemies_.size();
@@ -99,6 +126,11 @@ bool EnemySystem::Spawn(const EnemySpawnParams& params){
             enemies_[idx].hp                  = params.hp;
             enemies_[idx].fire_timer_ticks    = params.initial_fire_delay_ticks;
             enemies_[idx].fire_interval_ticks = params.fire_interval_ticks;
+            enemies_[idx].attack_pattern      = params.attack_pattern;
+            enemies_[idx].fixed_fire_angle_rad= params.fixed_fire_angle_rad;
+            enemies_[idx].fire_bullet_count   = params.fire_bullet_count;
+            enemies_[idx].fire_spread_rad     = params.fire_spread_rad;
+            enemies_[idx].fire_bullet_speed   = params.fire_bullet_speed;
             // 次のSpawn()では見つけた非活性のenemies_インデックス+1から探す
             next_spawn_index_ = (idx +1) % array_size;
             ++active_count_;
@@ -267,8 +299,6 @@ void EnemySystem::UpdateFire(
     BulletSystem& enemy_bullets,
     const Vec2& player_pos
 ){
-    // PI
-    constexpr float pi = std::numbers::pi_v<float>;
     for(auto& e : enemies_){
         if(!e.active){
             continue;
@@ -281,14 +311,29 @@ void EnemySystem::UpdateFire(
         if(e.fire_timer_ticks > 0){
             continue;
         }
-        // 自機狙い角度の計算
-        const float base_angle = GameplayMath::AimAngleRad(e.position, player_pos);
-        // パターン設定
+        float base_angle = 0.0f;
+        switch (e.attack_pattern){
+        case EnemyAttackPattern::AimedSpread:
+            // 自機狙い角度の計算
+            base_angle = GameplayMath::AimAngleRad(e.position, player_pos);
+            break;
+        case EnemyAttackPattern::FixedSpread:
+            base_angle = e.fixed_fire_angle_rad;
+            break;
+        // 不正なパターンはassertして次へ
+        case EnemyAttackPattern::Count:
+        default:
+            assert(false && "Invalid EnemyAttackPattern");
+            e.fire_timer_ticks = e.fire_interval_ticks;
+            continue;
+        }
+        // パターン設定(各敵のフィールドを使用)
         PatternEmitRequest req{};
         req.origin         = e.position;
         req.base_angle_rad = base_angle;
-        req.bullet_count   = 5;
-        req.spread_rad     = pi * 0.25f;
+        req.bullet_count   = e.fire_bullet_count;
+        req.spread_rad     = e.fire_spread_rad;
+        req.bullet_speed   = e.fire_bullet_speed;
         (void)pattern.EmitSpread(req, enemy_bullets);
         // タイマーリセット
         e.fire_timer_ticks = e.fire_interval_ticks;

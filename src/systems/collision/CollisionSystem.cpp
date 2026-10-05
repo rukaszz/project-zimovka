@@ -144,10 +144,10 @@ BulletCancelEvents CollisionSystem::ResolvePlayerBulletsVsEnemyBullets(
         if(!pb.active){
             continue;
         }
-        // 自機弾当たり判定(円)
+        // 自機弾当たり判定(円): Bullet::cancel_radiusを使う
         const Circle pb_circle{
             pb.position,
-            pb.radius + 6.0f    // NOTE：一時的にハードコードで判定を緩める 
+            pb.cancel_radius
         };
         // 敵弾のループ
         for(std::size_t eb_index = 0; eb_index < enemy.size(); ++eb_index){

@@ -40,6 +40,14 @@ PlayerWeaponSystem::PlayerWeaponSystem(
             "PlayerWeaponConfig::bullet_radius must be positive. "
         );
     }
+    if(!std::isfinite(config_.bullet_cancel_radius)
+    || config_.bullet_cancel_radius <= 0.0f
+    || config_.bullet_cancel_radius <  config_.bullet_radius)
+    {
+        throw std::invalid_argument(
+            "bullet_cancel_radius must be finite and greater than or equal to bullet_radius"
+        );
+    }
     if (!std::isfinite(config_.muzzle_offset.x) || !std::isfinite(config_.muzzle_offset.y)) {
         throw std::invalid_argument(
             "PlayerWeaponConfig::muzzle_offset must be finite."
@@ -134,11 +142,12 @@ PlayerWeaponEvents PlayerWeaponSystem::UpdateTick(
             + config_.muzzle_offset.y
     };
     // 弾の発生
-    // NOTE: とりあえず別プールでプレイヤー弾を管理している
+    // NOTE: 敵弾と共通のシステムで，プールを別にして自機弾を管理している
     const bool fired = player_bullets.Spawn(
         muzzle_position, 
         Vec2{0.0f, -config_.bullet_speed}, 
         config_.bullet_radius, 
+        config_.bullet_cancel_radius, 
         config_.bullet_color
     );
     // 発射できたか

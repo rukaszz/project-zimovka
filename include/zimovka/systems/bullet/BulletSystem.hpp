@@ -47,8 +47,30 @@ public:
      * @return true 生成成功 / false 引数不正またはプール満杯
      */
     [[nodiscard]]   // 戻り値の無視はNG
-    bool Spawn(const Vec2& position, const Vec2& velocity, float radius,
-               Color color = Color{255, 100, 100, 255});
+    bool Spawn(
+        const Vec2& position, const Vec2& velocity, float radius,
+        Color color = Color{255, 100, 100, 255}
+    );
+
+    /**
+     * @brief 弾生成関数(打ち消し用半径追加版)
+     * 
+     * Playerの弾など打ち消し用の弾半径を設定する
+     * 
+     * @param position 
+     * @param velocity 
+     * @param radius 
+     * @param cancel_radius 
+     * @param color 
+     * @return true 
+     * @return false 
+     */
+    [[nodiscard]]   // 戻り値の無視はNG
+    bool Spawn(
+        const Vec2& position, const Vec2& velocity, 
+        float radius, float cancel_radius, 
+        Color color = Color{255, 100, 100, 255}
+    );               
 
     // 更新処理（移動・画面外消去）
     void Update(float dt, float screen_width, float screen_height);
