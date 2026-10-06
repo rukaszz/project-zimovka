@@ -1,0 +1,50 @@
+# zimovka用CI定義用ワークフローファイル
+# ワークフローの名前
+name: CI
+
+# ワークフローのトリガー
+on: 
+  push:  # pushで動作する
+    branches: [main, develop] # 
+  pull_request:
+    branches: [main]
+
+# 実行するジョブの定義
+jobs: 
+  # 1. 通常のビルド・テスト(Debug/Releaseビルド両方)
+  build-and-test:
+    runs-on: ubuntu-latest  # Ubuntuのコマンドを使う
+    strategy:
+      matrix:   # strategy.matrixでジョブを並列実行できる
+        build_type: [Debug, Release]
+    steps:  # 実行する処理(コマンド)
+      - uses: actions/checkout@v4
+      - name: Install SDL2
+        run: sudo apt install libsdl2-dev -y
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+      - name: Build tests
+        run: cmake --build build --target zimovka_tests -j$(nproc)
+      - name: Run tests
+        run: ./bin/zimovka_tests
+
+  # 2. サニタイザービルド(UBやメモリ安全性検証)
+  sanitizer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SDL2
+        run: sudo apt install libsdl2-dev -y
+      - name: Configure with ASan + UBSan
+        # fsanitize=address,undefinedで実行時のメモリ関係の不具合，未定義動作を検知する
+        # fno-omit-frame-pointer フレームポインタ(スタック領域のレジスタ)を必ず保持して解析を手助けする
+        run: |  # コマンドを改行付きで書くためのYAML構文
+          cmake -B build -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+      - name: Build tests
+        run: cmake --build build --target zimovka_tests -j$(nproc)
+      - name: Run tests
+        run: ./bin/zimovka_tests
+        env: # ASAN/UBSANでエラー検知時にプログラムを停止(1)
+          ASAN_OPTIONS: halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1
