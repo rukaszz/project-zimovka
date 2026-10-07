@@ -1,3 +1,5 @@
+[![CI](https://github.com/rukaszz/project-zimovka/actions/workflows/ci.yml/badge.svg)](https://github.com/rukaszz/project-zimovka/actions/workflows/ci.yml)
+
 # Project Zimovka
 
 ## 概要
