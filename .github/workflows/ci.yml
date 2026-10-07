@@ -20,7 +20,7 @@ jobs:
     steps:  # 実行する処理(コマンド)
       - uses: actions/checkout@v4
       - name: Install SDL2
-        run: sudo apt install libsdl2-dev -y
+        run: sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
       - name: Build tests
@@ -34,11 +34,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install SDL2
-        run: sudo apt install libsdl2-dev -y
+        run: sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
       - name: Configure with ASan + UBSan
         # fsanitize=address,undefinedで実行時のメモリ関係の不具合，未定義動作を検知する
         # fno-omit-frame-pointer フレームポインタ(スタック領域のレジスタ)を必ず保持して解析を手助けする
-        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+        # CMAKE_EXE_LINKER_FLAGS: cmakeのtry_compile/FetchContentがリンク時にもsanitizer runtimeを探せるよう設定する
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
       - name: Build tests
         run: cmake --build build --target zimovka_tests -j$(nproc)
       - name: Run tests
