@@ -1,0 +1,89 @@
+
+Run ./bin/zimovka_tests
+Running main() from /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[==========] Running 327 tests from 20 test suites.
+[----------] Global test environment set-up.
+[----------] 19 tests from Vec2Test
+[ RUN      ] Vec2Test.DefaultConstruct
+[       OK ] Vec2Test.DefaultConstruct (0 ms)
+[ RUN      ] Vec2Test.ValueConstruct
+[       OK ] Vec2Test.ValueConstruct (0 ms)
+[ RUN      ] Vec2Test.Add
+[       OK ] Vec2Test.Add (0 ms)
+[ RUN      ] Vec2Test.Subtract
+[       OK ] Vec2Test.Subtract (0 ms)
+[ RUN      ] Vec2Test.ScalarMultiply
+[       OK ] Vec2Test.ScalarMultiply (0 ms)
+[ RUN      ] Vec2Test.ScalarMultiplyLeft
+[       OK ] Vec2Test.ScalarMultiplyLeft (0 ms)
+[ RUN      ] Vec2Test.ScalarDivide
+[       OK ] Vec2Test.ScalarDivide (0 ms)
+[ RUN      ] Vec2Test.UnaryNegate
+[       OK ] Vec2Test.UnaryNegate (0 ms)
+[ RUN      ] Vec2Test.AddAssign
+[       OK ] Vec2Test.AddAssign (0 ms)
+[ RUN      ] Vec2Test.SubtractAssign
+[       OK ] Vec2Test.SubtractAssign (0 ms)
+[ RUN      ] Vec2Test.Length
+[       OK ] Vec2Test.Length (0 ms)
+[ RUN      ] Vec2Test.LengthSquared
+[       OK ] Vec2Test.LengthSquared (0 ms)
+[ RUN      ] Vec2Test.Dot_Perpendicular
+[       OK ] Vec2Test.Dot_Perpendicular (0 ms)
+[ RUN      ] Vec2Test.Dot_Parallel
+[       OK ] Vec2Test.Dot_Parallel (0 ms)
+[ RUN      ] Vec2Test.DistanceFrom
+[       OK ] Vec2Test.DistanceFrom (0 ms)
+[ RUN      ] Vec2Test.Normalized
+[       OK ] Vec2Test.Normalized (0 ms)
+[ RUN      ] Vec2Test.Normalized_ZeroVector
+[       OK ] Vec2Test.Normalized_ZeroVector (0 ms)
+[ RUN      ] Vec2Test.IsZero_True
+[       OK ] Vec2Test.IsZero_True (0 ms)
+[ RUN      ] Vec2Test.IsZero_False
+[       OK ] Vec2Test.IsZero_False (0 ms)
+[----------] 19 tests from Vec2Test (0 ms total)
+    #18 0x5611d90aab17 in testing::internal::UnitTestImpl::RunAllTests() /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest.cc:5920
+    #19 0x5611d91436ed in bool testing::internal::HandleSehExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>(testing::internal::UnitTestImpl*, bool (testing::internal::UnitTestImpl::*)(), char const*) /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest.cc:2612
+    #20 0x5611d9117dfa in bool testing::internal::HandleExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>(testing::internal::UnitTestImpl*, bool (testing::internal::UnitTestImpl::*)(), char const*) /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest.cc:2648
+    #21 0x5611d909d30a in testing::UnitTest::Run() /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest.cc:5484
+    #22 0x5611d90071e7 in RUN_ALL_TESTS() /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/include/gtest/gtest.h:2317
+    #23 0x5611d9007034 in main /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest_main.cc:64
+    #24 0x7eff7382a1c9  (/lib/x86_64-linux-gnu/libc.so.6+0x2a1c9) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #25 0x7eff7382a28a in __libc_start_main (/lib/x86_64-linux-gnu/libc.so.6+0x2a28a) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #26 0x5611d8dc8ea4 in _start (/home/runner/work/project-zimovka/project-zimovka/bin/zimovka_tests+0x574ea4) (BuildId: b773370d66fa2d0107d933390cfecdc5f9eef087)
+
+Direct leak of 128 byte(s) in 1 object(s) allocated from:
+    #0 0x7eff74afc778 in realloc ../../../../src/libsanitizer/asan/asan_malloc_linux.cpp:85
+    #1 0x7eff6c968c13  (<unknown module>)
+    #2 0x7eff6c9690e6  (<unknown module>)
+    #3 0x7eff738a1fb2  (/lib/x86_64-linux-gnu/libc.so.6+0xa1fb2) (BuildId: a4a7992a8e66555c8141ab2a08a8465ff6e0ea65)
+    #4 0x7eff6cc5ef32  (<unknown module>)
+    #5 0x7eff6c4f0f0f  (<unknown module>)
+    #6 0x7eff6cc3a68c  (<unknown module>)
+    #7 0x7eff6cc3a5bf  (<unknown module>)
+    #8 0x7eff6c4f4db4  (<unknown module>)
+    #9 0x7eff6f11b708  (<unknown module>)
+    #10 0x7eff6f11ccd8  (<unknown module>)
+    #11 0x7eff6f11bf77  (<unknown module>)
+    #12 0x7eff6f10b9a7  (<unknown module>)
+    #13 0x7eff74920238  (/lib/x86_64-linux-gnu/libSDL2-2.0.so.0+0xfc238) (BuildId: 832936b3309cbf275a4c7cb4f642c4fea4cbf33f)
+    #14 0x7eff7490a302  (/lib/x86_64-linux-gnu/libSDL2-2.0.so.0+0xe6302) (BuildId: 832936b3309cbf275a4c7cb4f642c4fea4cbf33f)
+    #15 0x7eff74908550  (/lib/x86_64-linux-gnu/libSDL2-2.0.so.0+0xe4550) (BuildId: 832936b3309cbf275a4c7cb4f642c4fea4cbf33f)
+    #16 0x7eff7489c0a6  (/lib/x86_64-linux-gnu/libSDL2-2.0.so.0+0x780a6) (BuildId: 832936b3309cbf275a4c7cb4f642c4fea4cbf33f)
+    #17 0x7eff7489130e  (/lib/x86_64-linux-gnu/libSDL2-2.0.so.0+0x6d30e) (BuildId: 832936b3309cbf275a4c7cb4f642c4fea4cbf33f)
+    #18 0x7eff7490431c  (/lib/x86_64-linux-gnu/libSDL2-2.0.so.0+0xe031c) (BuildId: 832936b3309cbf275a4c7cb4f642c4fea4cbf33f)
+    #19 0x7eff7490aa1e  (/lib/x86_64-linux-gnu/libSDL2-2.0.so.0+0xe6a1e) (BuildId: 832936b3309cbf275a4c7cb4f642c4fea4cbf33f)
+    #20 0x7eff748bbc7a  (/lib/x86_64-linux-gnu/libSDL2-2.0.so.0+0x97c7a) (BuildId: 832936b3309cbf275a4c7cb4f642c4fea4cbf33f)
+    #21 0x7eff7489170f  (/lib/x86_64-linux-gnu/libSDL2-2.0.so.0+0x6d70f) (BuildId: 832936b3309cbf275a4c7cb4f642c4fea4cbf33f)
+    #22 0x5611d8fb562b in SetUpTestSuite /home/runner/work/project-zimovka/project-zimovka/tests/test_Texture.cpp:176
+    #23 0x5611d90d6536 in testing::TestSuite::RunSetUpTestSuite() /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/include/gtest/gtest.h:795
+    #24 0x5611d913f607 in void testing::internal::HandleSehExceptionsInMethodIfSupported<testing::TestSuite, void>(testing::TestSuite*, void (testing::TestSuite::*)(), char const*) /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest.cc:2612
+    #25 0x5611d91151dc in void testing::internal::HandleExceptionsInMethodIfSupported<testing::TestSuite, void>(testing::TestSuite*, void (testing::TestSuite::*)(), char const*) /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest.cc:2648
+    #26 0x5611d905ff81 in testing::TestSuite::Run() /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest.cc:3003
+    #27 0x5611d90aab17 in testing::internal::UnitTestImpl::RunAllTests() /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest.cc:5920
+    #28 0x5611d91436ed in bool testing::internal::HandleSehExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>(testing::internal::UnitTestImpl*, bool (testing::internal::UnitTestImpl::*)(), char const*) /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest.cc:2612
+    #29 0x5611d9117dfa in bool testing::internal::HandleExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool>(testing::internal::UnitTestImpl*, bool (testing::internal::UnitTestImpl::*)(), char const*) /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest.cc:2648
+
+SUMMARY: AddressSanitizer: 2808 byte(s) leaked in 2 allocation(s).
+Error: Process completed with exit code 1.

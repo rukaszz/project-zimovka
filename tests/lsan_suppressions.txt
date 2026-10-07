@@ -1,0 +1,4 @@
+# SDL2 on Linux initializes D-Bus/glib connections as process-lifetime singletons.
+# These are never explicitly freed, causing false positives with LSAN.
+# This is a known SDL2 issue, not a zimovka bug.
+leak:libSDL2

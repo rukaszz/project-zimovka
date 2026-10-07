@@ -36,8 +36,8 @@ jobs:
       - name: Install SDL2
         run: sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
       - name: Configure with ASan + UBSan
-        # fsanitize=address,undefinedで実行時のメモリ関係の不具合，未定義動作を検知する
-        # fno-omit-frame-pointer フレームポインタ(スタック領域のレジスタ)を必ず保持して解析を手助けする
+        # fsanitize=address,undefined: 実行時のメモリ関係の不具合，未定義動作を検知する
+        # fno-omit-frame-pointer: フレームポインタ(スタック領域のレジスタ)を必ず保持して解析を手助けする
         # CMAKE_EXE_LINKER_FLAGS: cmakeのtry_compile/FetchContentがリンク時にもsanitizer runtimeを探せるよう設定する
         run: |
           cmake -B build \
@@ -51,3 +51,5 @@ jobs:
         env: # ASAN/UBSANでエラー検知時にプログラムを停止(1)
           ASAN_OPTIONS: halt_on_error=1
           UBSAN_OPTIONS: halt_on_error=1
+          # SDL2がLinux上でD-Bus/glibのシングルトン接続を保持するfalse positiveを抑制
+          LSAN_OPTIONS: suppressions=tests/lsan_suppressions.txt
