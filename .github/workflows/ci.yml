@@ -38,9 +38,7 @@ jobs:
       - name: Configure with ASan + UBSan
         # fsanitize=address,undefinedで実行時のメモリ関係の不具合，未定義動作を検知する
         # fno-omit-frame-pointer フレームポインタ(スタック領域のレジスタ)を必ず保持して解析を手助けする
-        run: |  # コマンドを改行付きで書くためのYAML構文
-          cmake -B build -DCMAKE_BUILD_TYPE=Debug \
-            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
       - name: Build tests
         run: cmake --build build --target zimovka_tests -j$(nproc)
       - name: Run tests
