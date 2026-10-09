@@ -1570,6 +1570,9 @@ phase 0クローズのためValgrindを実行した．実行結果は次の通�
 > ==84675==    indirectly lost: 6,724 bytes in 44 blocks
 
 とあるように，完全にcleanではないがこれは前作のTheMysteriousForestでも発生した事象であり，SDL起因のメモリリークである．
+
+Linux版SDL2はウィンドウシステム統合のためにD-Bus接続を初期化し，D-Bus/glibはこのオブジェクトをプロセス終了まで保持するシングルトンとして扱うため，SDL終了時までD-Busが生存しメモリリークとなる．
+
 zimovkaで取り逃がしたメモリではないため，プロジェクトコード起因のリークではないとする．
 
 ### 2026/08/26
@@ -3141,3 +3144,121 @@ bool BulletSystem::Spawn(
     return false;
 }
 ```
+
+### 2026/10/07
+
+#### CIの導入
+
+zimovkaのコード品質やビルドの担保のため，CIを導入した．zimovkaのリポジトリはpublicで公開しているため，Github Actionsを利用することにした．
+
+※CI：継続的インテグレーション(Continuous Integration)のこと．開発したコードを高頻度にメインコードへマージし，自動的にビルド・テストを実施してコード品質を確保しつつ，コードのコンフリクト発生確率や修正コストを減らす．
+
+#### Github Actionsの導入
+
+新たに次のディレクトリを作成し，CIのジョブを定義したYAMLファイルを配置する：
+
+```bash
+mkdir ./github/workflows
+cd ./github/workflows
+echo "" > ci.yml
+```
+
+YAMLファイル名は自由に決められるが，配置場所は必ず`.github/workflows`でなければならない．
+このYAMLファイルをコミットすると，GiuhubのリポジトリページのActionsタブから自動的にCIが始まる．
+
+今回は次のようなYAMLファイルを配置した．コメントにどのような動作をさせるかを記述している．
+
+構成としては次のようになっている．
+
+1. build-and-testでDebug/Releaseの双方でテストする
+   - install SDL2→cmake→build→test
+2. sanitizerでメモリリークなどをチェック
+   - cmake (CXX_FLAGS + EXE_LINKER_FLAGS両方にfsanitize)
+   - → build
+   - → test(ASAN/UBSAN/LSAN_OPTIONS設定)
+     - SDL2の既知のメモリリークはsuppressionsで抑制
+
+```yaml
+# zimovka用CI定義用ワークフローファイル
+# ワークフローの名前
+name: CI
+
+# ワークフローのトリガー
+on: 
+  push:  # pushで動作する
+    branches: [main, develop] # 
+  pull_request:
+    branches: [main]
+
+# 実行するジョブの定義
+jobs: 
+  # 1. 通常のビルド・テスト(Debug/Releaseビルド両方)
+  build-and-test:
+    runs-on: ubuntu-latest  # Ubuntuのコマンドを使う
+    strategy:
+      matrix:   # strategy.matrixでジョブを並列実行できる
+        build_type: [Debug, Release]
+    steps:  # 実行する処理(コマンド)
+      - uses: actions/checkout@v4
+      - name: Install SDL2
+        run: sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+      - name: Build tests
+        run: cmake --build build --target zimovka_tests -j$(nproc)
+      - name: Run tests
+        run: ./bin/zimovka_tests
+
+  # 2. サニタイザービルド(UBやメモリ安全性検証)
+  sanitizer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install SDL2
+        run: sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
+      - name: Configure with ASan + UBSan
+        # fsanitize=address,undefined: 実行時のメモリ関係の不具合，未定義動作を検知する
+        # fno-omit-frame-pointer: フレームポインタ(スタック領域のレジスタ)を必ず保持して解析を手助けする
+        # CMAKE_EXE_LINKER_FLAGS: cmakeのtry_compile/FetchContentがリンク時にもsanitizer runtimeを探せるよう設定する
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+      - name: Build tests
+        run: cmake --build build --target zimovka_tests -j$(nproc)
+      - name: Run tests
+        run: ./bin/zimovka_tests
+        env: # ASAN/UBSANでエラー検知時にプログラムを停止(1)
+          ASAN_OPTIONS: halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1
+          # SDL2がLinux上でD-Bus/glibのシングルトン接続を保持するfalse positiveを抑制
+          LSAN_OPTIONS: suppressions=tests/lsan_suppressions.txt
+
+```
+
+#### SDL2の既知のメモリリークについて
+
+このノートでも触れているが，SDLには既知のメモリリークのバグがある．D-Bus起因のメモリリークであり，こちらはzimovkaのコード起因のメモリリークではない．しかしこのままではASanで必ずエラーとなりCIの意味がないため，このリークを無視するようにLSanサプレッションファイル(LSan suppression file)をtestsディレクトリへ用意した．
+
+./docs/ci_ASan_result_20261008.txtにある`libSDL2-2.0.so.0`の部分でリークしていることから，SDLによる内部初期化でD-Bus接続の初期化を行っていると推測できる．テクスチャのテスト時に生じていることから，Linuxのウィンドウシステムとの接続で初期化処理が走ったと推測している．
+
+リーク時のスタックトレース：
+
+> #21 0x7eff7489170f  (/lib/x86_64-linux-gnu/libSDL2-2.0.so.0+0x6d70f) (BuildId: 832936b3309cbf275a4c7cb4f642c4fea4cbf33f)
+> #22 0x5611d8fb562b in SetUpTestSuite /home/runner/work/project-zimovka/project-zimovka/tests/test_Texture.cpp:176
+> #23 0x5611d90d6536 in testing::TestSuite::RunSetUpTestSuite() /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/include/gtest/gtest.h:795
+> #24 0x5611d913f607 in void testing::internal::HandleSehExceptionsInMethodIfSupported<testing::TestSuite, void>(testing::TestSuite*, void (testing::TestSuite::*)(), char const*) /home/runner/work/project-zimovka/project-zimovka/build/_deps/googletest-src/googletest/src/gtest.cc:2612
+
+既知のメモリリークの検出を，次のように記述することで「リーク報告のスタックトレース内のこの文字列を含むフレームを無視する」ことができる．これによってメモリリークの検知を抑制する：
+
+```text
+# SDL2 on Linux initializes D-Bus/glib connections as process-lifetime singletons.
+# These are never explicitly freed, causing false positives with LSAN.
+# This is a known SDL2 issue, not a zimovka bug.
+leak:libSDL2
+```
+
+LSan Suppressionsの書き方は簡単で，`leak:<マッチさせる文字列>`と記述すれば，スタックトレース内のこの文字列を含むフレームを無視する．上述の引用でも，`libSDL2`の文字列が見えている．また，今回はunknown moduleフレーム(ここがおそらくD-Bus)が多いため，SDL2のフレームに焦点を当て，既知のメモリリークであることに留意してlinSDL2を指定している．
+
+より限定的にするなら，`leak:SDL_Init`や`leak:libdus`も有効と思われる．

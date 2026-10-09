@@ -31,12 +31,12 @@ struct EnemySpawnParams{
 
     // 弾発射関係
     // 攻撃パターン
-    EnemyAttackPattern attack_pattern    = EnemyAttackPattern::AimedSpread;
+    EnemyAttackPattern attack_pattern      = EnemyAttackPattern::AimedSpread;
     // FixedSpread 用の固定発射角度
-    float fixed_fire_angle_rad           = std::numbers::pi_v<float> * 0.5f;   // デフォルト: 真下
-    std::uint32_t fire_bullet_count      = 5;                                   // 発射数
-    float         fire_spread_rad        = std::numbers::pi_v<float> * 0.5f;   // 拡散角度(90°)
-    float         fire_bullet_speed      = 180.0f;                              // 弾速
+    float fixed_fire_angle_rad             = std::numbers::pi_v<float> * 0.5f;  // デフォルト: 真下
+    std::uint32_t fire_bullet_count        = 5;                                 // 発射数
+    float         fire_spread_rad          = std::numbers::pi_v<float> * 0.5f;  // 拡散角度(90°)
+    float         fire_bullet_speed        = 180.0f;                            // 弾速
     std::uint32_t initial_fire_delay_ticks = 60;                                // スポーン時の発射ディレイ
     std::uint32_t fire_interval_ticks      = 120;                               // 発射間隔
 };

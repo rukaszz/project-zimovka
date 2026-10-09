@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <stdexcept>
 
 #include "zimovka/core/Vec2.hpp"
@@ -9,9 +10,12 @@
 #include "zimovka/systems/enemy/EnemySpawnParams.hpp"
 #include "zimovka/systems/enemy/EnemySystem.hpp"
 
+using zimovka::BulletSystem;
+using zimovka::EnemyAttackPattern;
 using zimovka::EnemyDamageResult;
 using zimovka::EnemySpawnParams;
 using zimovka::EnemySystem;
+using zimovka::PatternSystem;
 using zimovka::Vec2;
 
 // 有効なSpawnParams(全テストで利用するので静的に定義)
@@ -414,4 +418,162 @@ TEST(EnemySystemTest, GetCapacity_FixedAfterConstruct){
     ASSERT_TRUE(es.Spawn(MakeDefaultParams()));
     es.Clear();
     EXPECT_EQ(es.GetCapacity(), 8u); // Spawn/Clearで変化しない
+}
+
+// ──────────────────────────────────────────────────────
+// Spawn: EnemyAttackPattern検証
+// ──────────────────────────────────────────────────────
+/**
+ * @brief EnemyAttackPattern::CountでSpawnが失敗するか
+ * IsValidEnemySpawnParams()のswitchの門番(Count/default)が機能しているか確認
+ * 
+ */
+TEST(EnemySystemTest, SpawnRejectsCountAttackPattern){
+    EnemySystem es(5);
+    EnemySpawnParams p = MakeDefaultParams();
+    p.attack_pattern = EnemyAttackPattern::Count;
+    EXPECT_FALSE(es.Spawn(p));
+    EXPECT_EQ(es.CountActive(), 0u);
+}
+
+/**
+ * @brief 弾発射パラメータが不正な場合にSpawnが失敗することを確認
+ * IsValidEnemySpawnParams()のvalid_fireブランチの代表的な4条件をチェックする
+ * 
+ */
+TEST(EnemySystemTest, SpawnRejectsInvalidFireParameters){
+    // fire_bullet_count = 0(弾数ゼロ)
+    {
+        EnemySystem es(5);
+        EnemySpawnParams p = MakeDefaultParams();
+        p.fire_bullet_count = 0;
+        EXPECT_FALSE(es.Spawn(p));
+        EXPECT_EQ(es.CountActive(), 0u);
+    }
+    // fire_bullet_speed = 0.0f(弾速ゼロ)
+    {
+        EnemySystem es(5);
+        EnemySpawnParams p = MakeDefaultParams();
+        p.fire_bullet_speed = 0.0f;
+        EXPECT_FALSE(es.Spawn(p));
+        EXPECT_EQ(es.CountActive(), 0u);
+    }
+    // fire_interval_ticks = 0(発射間隔ゼロ → 毎tick発射になり不正)
+    {
+        EnemySystem es(5);
+        EnemySpawnParams p = MakeDefaultParams();
+        p.fire_interval_ticks = 0;
+        EXPECT_FALSE(es.Spawn(p));
+        EXPECT_EQ(es.CountActive(), 0u);
+    }
+    // fire_spread_rad = -0.1f(負の拡散角度)
+    {
+        EnemySystem es(5);
+        EnemySpawnParams p = MakeDefaultParams();
+        p.fire_spread_rad = -0.1f;
+        EXPECT_FALSE(es.Spawn(p));
+        EXPECT_EQ(es.CountActive(), 0u);
+    }
+}
+
+// ──────────────────────────────────────────────────────
+// UpdateFire: 攻撃パターン検証
+// ──────────────────────────────────────────────────────
+/**
+ * @brief AimedSpreadの敵が自機方向に弾を発射するか
+ * 自機を敵の真下に配置し，発射された弾が真下方向(angle≈π/2)を向くかチェック
+ * 
+ */
+TEST(EnemySystemTest, AimedSpread_AimsAtPlayer){
+    EnemySystem es(5);
+    BulletSystem enemy_bullets(10);
+    PatternSystem pattern;
+
+    // 自機の真上に敵を配置 → 期待発射方向 = 真下(π/2)
+    EnemySpawnParams p = MakeDefaultParams({320.0f, 100.0f});
+    p.attack_pattern           = EnemyAttackPattern::AimedSpread;
+    p.fire_bullet_count        = 1;
+    p.fire_spread_rad          = 0.0f;      // 単発なのでスプレッドなし
+    p.fire_bullet_speed        = 200.0f;
+    p.initial_fire_delay_ticks = 0;         // 即時発射
+    p.fire_interval_ticks      = 120;
+    ASSERT_TRUE(es.Spawn(p));
+
+    // 敵の真下にプレイヤーを配置
+    const Vec2 player_pos = {320.0f, 500.0f};
+    es.UpdateFire(pattern, enemy_bullets, player_pos);
+
+    ASSERT_EQ(enemy_bullets.CountActive(), 1u);
+
+    // activeな弾の速度を取得
+    Vec2 bullet_vel{};
+    for(const auto& b : enemy_bullets.GetBullets()){
+        if(b.active){
+            bullet_vel = b.velocity;
+            break;
+        }
+    }
+    // 真下方向(angle=π/2): cos(π/2)≈0, sin(π/2)=1 → velocity ≈ (0, +200)
+    EXPECT_NEAR(bullet_vel.x, 0.0f,   1e-3f);
+    EXPECT_NEAR(bullet_vel.y, 200.0f, 1e-3f);
+}
+
+/**
+ * @brief FixedSpreadの敵が自機位置に依存しない弾を発射するか
+ * 方向が大きく異なる2つの自機位置で発射し，同一の速度ベクトルが得られることを確認
+ * 
+ */
+TEST(EnemySystemTest, FixedSpread_DoesNotDependOnPlayerPosition){
+    const float fixed_angle = std::numbers::pi_v<float> / 2.0f; // π/2→真下
+
+    EnemySpawnParams p = MakeDefaultParams({320.0f, 100.0f});
+    p.attack_pattern           = EnemyAttackPattern::FixedSpread;
+    p.fixed_fire_angle_rad     = fixed_angle;
+    p.fire_bullet_count        = 1;
+    p.fire_spread_rad          = 0.0f;
+    p.fire_bullet_speed        = 200.0f;
+    p.initial_fire_delay_ticks = 0;
+    p.fire_interval_ticks      = 120;
+
+    PatternSystem pattern;
+
+    // 自機位置A(左上)
+    BulletSystem bullets_A(10);
+    {
+        EnemySystem es(5);
+        ASSERT_TRUE(es.Spawn(p));
+        es.UpdateFire(pattern, bullets_A, {0.0f, 0.0f});
+    }
+    ASSERT_EQ(bullets_A.CountActive(), 1u);
+
+    // 自機位置B(右下)
+    BulletSystem bullets_B(10);
+    {
+        EnemySystem es(5);
+        ASSERT_TRUE(es.Spawn(p));
+        es.UpdateFire(pattern, bullets_B, {640.0f, 400.0f});
+    }
+    ASSERT_EQ(bullets_B.CountActive(), 1u);
+
+    // 速度取得
+    Vec2 vel_A{}, vel_B{};
+    for(const auto& b : bullets_A.GetBullets()){
+        if(b.active){
+            vel_A = b.velocity;
+            break;
+        }
+    }
+    for(const auto& b : bullets_B.GetBullets()){
+        if(b.active){
+            vel_B = b.velocity;
+            break;
+        }
+    }
+
+    // FixedSpreadなのでプレイヤー位置によらず同一速度
+    EXPECT_FLOAT_EQ(vel_A.x, vel_B.x);
+    EXPECT_FLOAT_EQ(vel_A.y, vel_B.y);
+    // fixed_fire_angle_rad = π/2 (真下) 方向であることも確認
+    EXPECT_NEAR(vel_A.x, 0.0f,   1e-3f);
+    EXPECT_NEAR(vel_A.y, 200.0f, 1e-3f);
 }
