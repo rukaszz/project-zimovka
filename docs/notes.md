@@ -3262,3 +3262,13 @@ leak:libSDL2
 LSan Suppressionsの書き方は簡単で，`leak:<マッチさせる文字列>`と記述すれば，スタックトレース内のこの文字列を含むフレームを無視する．上述の引用でも，`libSDL2`の文字列が見えている．また，今回はunknown moduleフレーム(ここがおそらくD-Bus)が多いため，SDL2のフレームに焦点を当て，既知のメモリリークであることに留意してlinSDL2を指定している．
 
 より限定的にするなら，`leak:SDL_Init`や`leak:libdus`も有効と思われる．
+
+### 2026/10/09
+
+#### BossSystemについて
+
+TheMysteriousForestではBossはEnemyを継承していたが，zimovkaではEnemyを継承しない．理由としてはEnemyはスクリプトに応じて特定のパターンを遷移するが(active→fire→...→inactive)，Bossはinactive→activeで演出が入り，active→fight→defeat→clearのようにステージの進行に直接影響する．
+
+また，BossのHP状態などがイベントに直結しており，原則単一個体である．そのため，Enemyを継承するとBossの実装の影響でEnemy側にBoss特有の実装が混ざってしまう．そのため，Bossは独立したサブシステムで実装する．
+
+ここまでのzimovkaはEnemySpawnerが実質ステージ進行を担っていたが，Bossの実装で正式にステージの時系列管理が重要となってくる．そのため，StageManagerを小規模で実装していきたい．
