@@ -8,6 +8,7 @@
 #include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
 #include "zimovka/systems/bomb/PlayerBombEvents.hpp"
+#include "zimovka/systems/boss/BossConfig.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 #include "zimovka/stages/Stage1Data.hpp"
 
@@ -39,9 +40,15 @@ void UpdatePipeline::Initialize(float width, float height){
     // 敵初期化
     enemy_system_.Clear();
     enemy_spawner_ = EnemySpawner{Stage1::PROTOTYPE_EVENTS};
+    
     // BulletSystem初期化
     player_bullets_.Clear();
     enemy_bullets_.Clear();
+
+    // ボス設定初期化
+    // fight_tick はボスのEnteringフェーズの長さ(= 180 tick = 3秒)
+    // 出現タイミング(tick 3600)はStage1::BOSS_SPAWN_TICKで管理する
+    boss_config_.fight_tick = 180;
 }
 
 /**
@@ -82,6 +89,7 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     UpdatePlayer(dt, input);
     events.weapon = UpdateWeapons(input);
     UpdateEnemy(dt);
+    UpdateBoss(dt);
     UpdateProjectiles(dt);
     bool raw_player_hit = false;
     // 被弾したかどうかのみを見る
@@ -211,4 +219,27 @@ void UpdatePipeline::ResolveCollisions(
 PlayerBombEvents UpdatePipeline::UpdateBomb(const InputState& input, bool player_hit){
     return bomb_system_.UpdateTick(input, player_hit, enemy_bullets_, enemy_system_);
 }
+
+/**
+ * @brief ボスシステムの更新
+ * 
+ * @param dt 
+ */
+void UpdatePipeline::UpdateBoss(float dt){
+    if(tick_index_ >= Stage1::BOSS_SPAWN_TICK && !boss_system_.IsNotInactive()){
+        // 敵削除
+        enemy_system_.Clear();
+        // ボス戦開始
+        boss_system_.Start(boss_config_);
+    }
+    if(boss_system_.IsNotInactive()){
+        boss_system_.UpdateTick(
+            dt, 
+            player_system_.GetPlayerPosition(), 
+            pattern_system_, 
+            enemy_bullets_
+        );
+    }
+}
+
 }   // namespace zimovka

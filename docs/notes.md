@@ -3272,3 +3272,7 @@ TheMysteriousForestではBossはEnemyを継承していたが，zimovkaではEne
 また，BossのHP状態などがイベントに直結しており，原則単一個体である．そのため，Enemyを継承するとBossの実装の影響でEnemy側にBoss特有の実装が混ざってしまう．そのため，Bossは独立したサブシステムで実装する．
 
 ここまでのzimovkaはEnemySpawnerが実質ステージ進行を担っていたが，Bossの実装で正式にステージの時系列管理が重要となってくる．そのため，StageManagerを小規模で実装していきたい．
+
+### 2026/10/10
+
+#### BossSystemの遷移

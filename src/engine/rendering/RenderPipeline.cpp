@@ -82,6 +82,26 @@ void RenderPipeline::RenderFrame(
             );
         }
     }
+    // Boss(Inactive時は描画しない)
+    if(gameplay.GetBossSystem().IsNotInactive()){
+        const auto& boss = gameplay.GetBossSystem().GetBoss();
+        sprites.Draw(
+            textures.GetTexture(TextureId::BossPrototype),
+            {   // SpriteDrawParams
+                .center = boss.position,
+                .size   = boss.render_size,
+            }
+        );
+        if(draw_debug_collision){
+            const Circle hurtbox = boss.GetHurtboxCircle();
+            primitives.DrawFilledCircle(
+                hurtbox.center.x,
+                hurtbox.center.y,
+                hurtbox.radius,
+                {128, 32, 32, 255}
+            );
+        }
+    }
     // Player Bullets
     for(const Bullet& pb : gameplay.GetPlayerBullets().GetBullets()){
         if(!pb.active){

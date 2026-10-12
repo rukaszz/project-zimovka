@@ -11,6 +11,7 @@
 #include "zimovka/systems/enemy/EnemySystem.hpp"
 #include "zimovka/systems/spawn/EnemySpawner.hpp"
 #include "zimovka/systems/bomb/PlayerBombSystem.hpp"
+#include "zimovka/systems/boss/BossSystem.hpp"
 #include "zimovka/systems/pattern/PatternSystem.hpp"
 #include "zimovka/systems/player/PlayerSystem.hpp"
 #include "zimovka/systems/player/PlayerWeaponSystem.hpp"
@@ -36,6 +37,10 @@ private:
     PlayerWeaponSystem player_weapon_system_;
     // 敵
     EnemySystem  enemy_system_;
+    // ボス設定
+    BossConfig   boss_config_;
+    // ボス
+    BossSystem   boss_system_;
     // 弾プール: enemy/playerを別プールで管理する
     BulletSystem enemy_bullets_{1200};
     BulletSystem player_bullets_{100};
@@ -52,6 +57,7 @@ private:
     void UpdatePlayer(float dt, const InputState& input);
     PlayerWeaponEvents UpdateWeapons(const InputState& input);
     void UpdateEnemy(float dt);
+    void UpdateBoss(float dt);
     void UpdateProjectiles(float dt);
     void ResolveCollisions(
         bool& player_hit_out, 
@@ -74,6 +80,9 @@ public:
     }
     const EnemySystem& GetEnemySystem() const noexcept{
         return enemy_system_;
+    }
+    const BossSystem& GetBossSystem() const noexcept{
+        return boss_system_;
     }
     const BulletSystem& GetPlayerBullets() const noexcept{
         return player_bullets_;

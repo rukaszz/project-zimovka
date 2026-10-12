@@ -17,6 +17,7 @@ constexpr std::size_t TEXTURE_COUNT =
 constexpr auto FILE_NAMES = std::to_array<std::string_view>({
     "img/player/player.png",                // TextureId::Player
     "img/enemy/enemy_prototype.png",        // TextureId::EnemyPrototype
+    "img/boss/boss_prototype.png",          // TextureId::BossPrototype
     "img/bullet/player_bullet.png",         // TextureId::PlayerBullet
     "img/bullet/enemy_bullet.png",          // TextureId::EnemyBullet
     "img/background/stage1_background.png", // TextureId::Stage1Background

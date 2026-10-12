@@ -23,6 +23,7 @@ add_executable(zimovka_tests
     test_DebugAccumulator.cpp
     test_RunRecorder.cpp
     test_EnemySpawner.cpp
+    test_BossSystem.cpp
     test_PlayerWeaponSystem.cpp
     test_DeterministicRng.cpp
     test_Texture.cpp
