@@ -9,10 +9,12 @@ namespace zimovka{
  * 
  */
 struct CollisionStats{
-    std::size_t player_vs_enemy_bullet_checks = 0;
-    std::size_t player_bullet_vs_enemy_checks = 0;
+    std::size_t player_vs_enemy_bullet_checks        = 0;
+    std::size_t player_bullet_vs_enemy_checks        = 0;
     std::size_t player_bullet_vs_enemy_bullet_checks = 0;
-    std::size_t player_vs_enemy_checks = 0;
+    std::size_t player_vs_enemy_checks               = 0;
+    std::size_t player_vs_boss_checks                = 0;
+    std::size_t player_bullets_vs_boss_checks        = 0;
 };
 
 }   // namespace zimovka

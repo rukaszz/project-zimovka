@@ -14,7 +14,7 @@ namespace zimovka{
  */
 struct BossConfig{
     std::string name = "boss 1";
-    Vec2 position{480.0f, 100.0f};
+    Vec2 position{320.0f, 100.0f};
     Vec2 velocity{0.0f, 5.0f};
     Vec2 render_size{128.0f, 128.0f};
 
@@ -23,10 +23,10 @@ struct BossConfig{
 
     std::int32_t max_hp = 20;
 
-    std::uint64_t fight_tick = 3600;
+    std::uint64_t entering_duration_ticks = 3600; // Entering残時間
 
-    std::uint32_t aimed_fire_interval  = 90;   // 自機狙い発射間隔(tick)
-    std::uint32_t circle_fire_interval = 180;  // 全方向発射間隔(tick)
+    std::uint32_t aimed_fire_interval     = 90;   // 自機狙い発射間隔(tick)
+    std::uint32_t circle_fire_interval    = 180;  // 全方向発射間隔(tick)
 };
 } // namespace zimovka
 

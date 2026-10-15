@@ -6,6 +6,7 @@
 #include "zimovka/events/GameplayTickEvents.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/input/InputState.hpp"
+#include "zimovka/stages/StagePhase.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/collision/CollisionSystem.hpp"
 #include "zimovka/systems/enemy/EnemySystem.hpp"
@@ -32,6 +33,8 @@ private:
     DeterministicRng gameplay_rng_{0};
     // 更新tick
     std::uint64_t tick_index_ = 0;
+    // ステージ進行管理
+    StagePhase stage_phase_ = StagePhase::Normal;
     // プレイヤー関連
     PlayerSystem       player_system_;
     PlayerWeaponSystem player_weapon_system_;
@@ -62,9 +65,12 @@ private:
     void ResolveCollisions(
         bool& player_hit_out, 
         EnemyHitEvents& enemy_hit_out, 
+        BossHitEvents& boss_hit_out, 
         BulletCancelEvents& bullet_cancel_out
     );
     PlayerBombEvents UpdateBomb(const InputState& input, bool player_hit);
+    // ボス戦開始処理
+    void StartBossPhase();
 
 public:
     // 初期化

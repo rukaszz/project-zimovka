@@ -69,6 +69,7 @@ set(ZIMOVKA_APP_SOURCES
     src/rendering/Renderer.cpp
     src/rendering/texture/TextTexture.cpp
     src/rendering/hud/HudRenderer.cpp
+    src/rendering/hud/BossHudRenderer.cpp
     src/app/Application.cpp
     src/debug/DebugOverlay.cpp
 )

@@ -4,6 +4,8 @@
 
 #include "zimovka/config/ScreenLayout.hpp"
 #include "zimovka/rendering/Renderer.hpp"
+#include "zimovka/rendering/hud/BossHudRenderer.hpp"
+#include "zimovka/rendering/hud/BossHudViewModel.hpp"
 #include "zimovka/rendering/hud/HudRenderer.hpp"
 #include "zimovka/rendering/hud/HudViewModel.hpp"
 #include "zimovka/rendering/texture/TextureId.hpp"
@@ -137,6 +139,17 @@ void RenderPipeline::RenderFrame(
             .size   = {48.0f, 48.0f},
         }
     );
+
+    // Boss HPバー(プレイフィールド下部に重ねて描画)
+    {
+        const auto& boss_sys = gameplay.GetBossSystem();
+        BossHudViewModel boss_hud;
+        boss_hud.visible = boss_sys.IsNotInactive();
+        boss_hud.hp      = boss_sys.GetBoss().hp;
+        boss_hud.max_hp  = boss_sys.GetBoss().max_hp;
+        BossHudRenderer boss_hud_renderer;
+        boss_hud_renderer.Render(boss_hud, primitives);
+    }
 
     // ── HUD描画 ──────────────────────────────────────────────
     // HUD領域にクリップを切り替え

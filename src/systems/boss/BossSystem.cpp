@@ -46,7 +46,8 @@ void BossSystem::Start(const BossConfig& config){
     }
     if(!IsFinite(config.position)
     || !IsFinite(config.velocity)
-    || !IsFinite(config.render_size))
+    || !IsFinite(config.render_size)
+    || (config.render_size.x <= 0 || config.render_size.y <= 0))
     {
         throw std::invalid_argument(
             "Invalid Boss config: Vec2 values is infinite."
@@ -56,7 +57,7 @@ void BossSystem::Start(const BossConfig& config){
                            && config.contact_radius > 0.0f
                            && std::isfinite(config.hurtbox_radius)
                            && std::isfinite(config.contact_radius);
-    const bool valid_timers = config.fight_tick > 0
+    const bool valid_timers = config.entering_duration_ticks > 0
                            && config.aimed_fire_interval > 0
                            && config.circle_fire_interval > 0;
     if(!valid_radius || !valid_timers || config.max_hp <= 0){
@@ -77,7 +78,7 @@ void BossSystem::Start(const BossConfig& config){
     boss_.hp     = config.max_hp;
     boss_.max_hp = config.max_hp;
 
-    boss_.fight_tick = config.fight_tick;
+    boss_.fight_tick = config.entering_duration_ticks;
 
     // タイマー: 最初の発射はinterval後に来るよう初期化
     boss_.aimed_fire_interval  = config.aimed_fire_interval;
@@ -94,7 +95,7 @@ void BossSystem::Start(const BossConfig& config){
  * 現状はHPのみ
  */
 void BossSystem::Reset() noexcept{
-    boss_.hp = boss_.max_hp;
+    boss_ = Boss{};
 }
 
 /**
@@ -184,20 +185,18 @@ BossEvents BossSystem::UpdateTick(
  * @return BossDamageResult
  */
 BossDamageResult BossSystem::TakeDamage(std::int32_t damage){
-    // 負の値は回復するので不正
-    if(damage <= 0){
+    // Fightingでのみダメージを受ける
+    if(damage <= 0 || boss_.status != BossStatus::Fighting){
         return BossDamageResult::InvalidTarget;
     }
-    // 非活性状態なら処理しない
-    if(boss_.status == BossStatus::Inactive){
-        return BossDamageResult::InvalidTarget;
-    }
-    // ダメージ処理
-    boss_.hp -= damage;
-    if(boss_.hp <= 0){
+    // hpを超えるダメージで撃破
+    if(damage >= boss_.hp){
+        boss_.hp = 0;
         boss_.status = BossStatus::Defeating;
         return BossDamageResult::Destroyed;
     }
+    // ダメージ処理
+    boss_.hp -= damage;
     return BossDamageResult::Damaged;
 }
 

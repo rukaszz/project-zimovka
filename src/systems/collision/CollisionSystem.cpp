@@ -2,11 +2,12 @@
 
 #include <cstdint>
 
+#include "zimovka/systems/boss/BossStatus.hpp"
+#include "zimovka/systems/boss/BossDamageResult.hpp"
 #include "zimovka/systems/bullet/Bullet.hpp"
 #include "zimovka/systems/enemy/Enemy.hpp"
 #include "zimovka/systems/enemy/EnemyDamageResult.hpp"
 #include "zimovka/systems/collision/CollisionUtilities.hpp"
-#include "zimovka/systems/player/PlayerWeaponConfig.hpp"
 
 namespace zimovka{
 /**
@@ -102,13 +103,13 @@ EnemyHitEvents CollisionSystem::ResolvePlayerBulletsVsEnemies(
             // ダメージ処理: 結果に応じてhit/killをカウント
             const EnemyDamageResult damage_result = enemies.TakeDamage(enemy_index, 1);
             // ダメージが通らないなら次へ
-            if (damage_result == EnemyDamageResult::InvalidTarget) {
+            if (damage_result == EnemyDamageResult::InvalidTarget){
                 continue;
             }
 
             ++result.hit_count;
             
-            if (damage_result == EnemyDamageResult::Destroyed) {
+            if (damage_result == EnemyDamageResult::Destroyed){
                 ++result.kill_count;
             }
             // 弾が当たったので次の弾へ(貫通しない)
@@ -212,7 +213,7 @@ bool CollisionSystem::CheckPlayerHitByEnemies(
         }
         ++collision_stats_.player_vs_enemy_checks;
         // contact_offsetを適用するためGetContactCircle()を使う
-        if (CollisionUtilities::Intersects(
+        if(CollisionUtilities::Intersects(
             player_circle, e.GetContactCircle()
         ))
         {
@@ -221,6 +222,96 @@ bool CollisionSystem::CheckPlayerHitByEnemies(
     }
     // 走査して衝突していなければfalse
     return false;
+}
+
+/**
+ * @brief プレイヤーとボスの接触判定
+ * 
+ * @param player 
+ * @param boss 
+ * @return true 
+ * @return false 
+ */
+bool CollisionSystem::CheckPlayerHitByBoss(
+    const Player& player, const Boss& boss
+)
+{
+    if(boss.status == BossStatus::Inactive){
+        return false;
+    }
+    const Circle player_circle{
+        player.position, 
+        player.hit_radius
+    };
+    // 接触判定
+    ++collision_stats_.player_vs_boss_checks;
+    if(CollisionUtilities::Intersects(
+        player_circle, boss.GetContactCircle()
+    ))
+    {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * @brief 
+ * 
+ * @param player_bullets 
+ * @param boss_system 
+ * @return BossHitEvents 
+ */
+BossHitEvents CollisionSystem::ResolvePlayerBulletsVsBoss(
+    BulletSystem& player_bullets, 
+    BossSystem& boss_system
+)
+{
+    // 結果(戻り値)
+    BossHitEvents result{};
+    if(!boss_system.IsFighting()){
+        return result;
+    }
+    // player_bulletsのループ
+    const auto& bullets = player_bullets.GetBullets();
+
+    for(std::size_t bullet_index = 0; bullet_index < bullets.size(); ++bullet_index){
+        const Bullet& b = bullets[bullet_index];
+        // 非活性は飛ばす
+        if(!b.active){
+            continue;
+        }
+        
+        // 判定回数計測
+        ++collision_stats_.player_bullets_vs_boss_checks;
+        // 衝突判定
+        if(!CollisionUtilities::Intersects(
+            {b.position, b.radius},   
+            boss_system.GetBoss().GetHurtboxCircle()
+        ))
+        {
+            // ヒットしていないなら次へ
+            continue;
+        }
+        // ダメージ処理: 結果に応じてhit/killをカウント
+        const BossDamageResult damage_result = boss_system.TakeDamage(1);
+        // ダメージが通らないなら次の弾へ
+        if (damage_result == BossDamageResult::InvalidTarget){
+            continue;
+        }
+
+        ++result.hit_count;
+        // 弾を非活性化
+        player_bullets.Deactivate(bullet_index);
+
+        if (damage_result == BossDamageResult::Destroyed) {
+            result.defeated_boss = true;
+            // ボスを撃破したら自機弾の処理を終了
+            break;
+        }
+        // ここでbreakすると複数弾ヒットが判定されなくなる
+    }
+    // 全走査して結果を返す
+    return result;
 }
 
 }   // namespace zimovka
