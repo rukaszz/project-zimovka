@@ -8,8 +8,6 @@ namespace zimovka{
 /**
  * @brief ボスHPバーの描画を担当するクラス
  *
- * プレイフィールド下部に横長バーを配置する。
- * visible=false のときは何も描画しない。
  */
 class BossHudRenderer{
 public:

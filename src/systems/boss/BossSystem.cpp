@@ -38,6 +38,12 @@ constexpr float         CircleBulletRadius = 4.0f;
  * @param config
  */
 void BossSystem::Start(const BossConfig& config){
+    // Inactiveな状態で一度のみ呼ばれなければならない
+    if(boss_.status!= BossStatus::Inactive){
+        throw std::logic_error(
+            "BossSystem::Start requires Inactive state. "
+        );
+    }
     // 引数configのチェック
     if(config.name.empty()){
         throw std::invalid_argument(
@@ -50,7 +56,7 @@ void BossSystem::Start(const BossConfig& config){
     || (config.render_size.x <= 0 || config.render_size.y <= 0))
     {
         throw std::invalid_argument(
-            "Invalid Boss config: Vec2 values is infinite."
+            "Invalid Boss render size or non-finite vector. "
         );
     }
     const bool valid_radius = config.hurtbox_radius > 0.0f
@@ -78,7 +84,7 @@ void BossSystem::Start(const BossConfig& config){
     boss_.hp     = config.max_hp;
     boss_.max_hp = config.max_hp;
 
-    boss_.fight_tick = config.entering_duration_ticks;
+    boss_.entering_ticks_remaining = config.entering_duration_ticks;
 
     // タイマー: 最初の発射はinterval後に来るよう初期化
     boss_.aimed_fire_interval  = config.aimed_fire_interval;
@@ -133,10 +139,10 @@ BossEvents BossSystem::UpdateTick(
     // Entering: fight_tick消費 → Fightingへ遷移
     if(boss_.status == BossStatus::Entering){
         // tick消費と残0判定で2回ifが必要
-        if(boss_.fight_tick > 0){
-            --boss_.fight_tick;
+        if(boss_.entering_ticks_remaining > 0){
+            --boss_.entering_ticks_remaining;
         }
-        if(boss_.fight_tick == 0){
+        if(boss_.entering_ticks_remaining == 0){
             boss_.status = BossStatus::Fighting;
         }
         return BossEvents::WaitingTrigger;

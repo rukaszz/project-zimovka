@@ -236,7 +236,8 @@ bool CollisionSystem::CheckPlayerHitByBoss(
     const Player& player, const Boss& boss
 )
 {
-    if(boss.status == BossStatus::Inactive){
+    // Fighting状態以外は接触してもOK
+    if(boss.status != BossStatus::Fighting){
         return false;
     }
     const Circle player_circle{

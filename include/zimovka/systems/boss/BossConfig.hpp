@@ -23,7 +23,7 @@ struct BossConfig{
 
     std::int32_t max_hp = 20;
 
-    std::uint64_t entering_duration_ticks = 3600; // Entering残時間
+    std::uint64_t entering_duration_ticks = 180;  // Entering残時間
 
     std::uint32_t aimed_fire_interval     = 90;   // 自機狙い発射間隔(tick)
     std::uint32_t circle_fire_interval    = 180;  // 全方向発射間隔(tick)

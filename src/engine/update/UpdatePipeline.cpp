@@ -22,9 +22,9 @@ namespace zimovka{
  */
 void UpdatePipeline::Initialize(float width, float height){
     // 引数チェック(負の値とNaNのチェック)
-    if( !std::isfinite(width) 
-     || !std::isfinite(height)
-     || width <= 0.0f || height <= 0.0f
+    if(!std::isfinite(width) 
+    || !std::isfinite(height)
+    || width <= 0.0f || height <= 0.0f
     )
     {
         throw std::invalid_argument(
@@ -40,6 +40,9 @@ void UpdatePipeline::Initialize(float width, float height){
     // 敵初期化
     enemy_system_.Clear();
     enemy_spawner_ = EnemySpawner{Stage1::PROTOTYPE_EVENTS};
+    // ステージ
+    stage_phase_ = StagePhase::Normal;
+    // ボス
     boss_system_.Reset();
     // BulletSystem初期化
     player_bullets_.Clear();
@@ -85,12 +88,17 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     // 6. Projectile movement
     // 7. Collision
     // 8. State resolution
+    
+    // NormalフェーズからBossフェーズへの遷移を監視
+    // NOTE: 現状は強制移行，WAVE処理による移行も検討
     if(stage_phase_ == StagePhase::Normal){
-        (void)enemy_spawner_.UpdateTick(tick_index_, enemy_system_);
-    }
-    // StagePhaseの変更
-    if(tick_index_ >= Stage1::BOSS_SPAWN_TICK && stage_phase_ == StagePhase::Normal){
-        StartBossPhase();
+        // ボス戦開始のTick
+        if(tick_index_ >= Stage1::BOSS_SPAWN_TICK){
+            StartBossPhase();
+        } else {
+            // ボス戦Tickまでは敵をスポーンさせる
+            (void)enemy_spawner_.UpdateTick(tick_index_, enemy_system_);
+        }
     }
     UpdatePlayer(dt, input);
     events.weapon = UpdateWeapons(input);

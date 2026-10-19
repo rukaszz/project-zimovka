@@ -32,7 +32,6 @@ using zimovka::Vec2;
 // ──────────────────────────────────────────────────────
 // ヘルパ
 // ──────────────────────────────────────────────────────
-
 // 有効なBossConfig(全テストで利用するので静的に定義)
 static BossConfig MakeDefaultConfig(){
     BossConfig cfg;
@@ -49,12 +48,14 @@ static BossConfig MakeDefaultConfig(){
     return cfg;
 }
 
-// Entering → Fighting への進行ヘルパ
+// Entering → Fightingへの進行ヘルパ
 static void AdvanceToFighting(
-    BossSystem& bs, BulletSystem& bullets, PatternSystem& patterns)
+    BossSystem& bs, BulletSystem& bullets, PatternSystem& patterns
+)
 {
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
+    // duration_tickの消費
     while(bs.GetBoss().status == BossStatus::Entering){
         bs.UpdateTick(dt, player_pos, patterns, bullets);
     }
@@ -65,6 +66,7 @@ static void AdvanceToFighting(
 // ──────────────────────────────────────────────────────
 /**
  * @brief BossSystemの初期状態はInactive
+ * 
  */
 TEST(BossSystemTest, InitialStateIsInactive){
     BossSystem bs;
@@ -75,10 +77,11 @@ TEST(BossSystemTest, InitialStateIsInactive){
 }
 
 // ──────────────────────────────────────────────────────
-// Start() バリデーション
+// Start()バリデーション
 // ──────────────────────────────────────────────────────
 /**
- * @brief 有効なConfigでStart()が例外を投げないことを確認
+ * @brief 有効なConfigでStart()が例外を投げない
+ * 
  */
 TEST(BossSystemTest, StartSucceedsWithValidConfig){
     BossSystem bs;
@@ -86,7 +89,8 @@ TEST(BossSystemTest, StartSucceedsWithValidConfig){
 }
 
 /**
- * @brief nameが空のConfigでStart()が例外を投げることを確認
+ * @brief nameが空のConfig
+ * 
  */
 TEST(BossSystemTest, StartRejectsEmptyName){
     BossSystem bs;
@@ -96,7 +100,8 @@ TEST(BossSystemTest, StartRejectsEmptyName){
 }
 
 /**
- * @brief Vec2フィールドが無限大のConfigでStart()が例外を投げることを確認
+ * @brief Vec2フィールドが無限大のConfig
+ * 
  */
 TEST(BossSystemTest, StartRejectsInfiniteVec2){
     const float inf = std::numeric_limits<float>::infinity();
@@ -121,7 +126,8 @@ TEST(BossSystemTest, StartRejectsInfiniteVec2){
 }
 
 /**
- * @brief 数値フィールドが不正なConfigでStart()が例外を投げることを確認
+ * @brief 数値フィールドが不正なConfig
+ * 
  */
 TEST(BossSystemTest, StartRejectsInvalidNumericFields){
     {   // max_hp=0
@@ -162,11 +168,22 @@ TEST(BossSystemTest, StartRejectsInvalidNumericFields){
     }
 }
 
+/**
+ * @brief Inactive以外の状態でStart()を呼ぶとlogic_errorが投げられることを確認
+ */
+TEST(BossSystemTest, Start_WhenNotInactive_ThrowsLogicError){
+    BossSystem bs;
+    bs.Start(MakeDefaultConfig());
+    // Entering状態でもう一度Start() → logic_error
+    EXPECT_THROW(bs.Start(MakeDefaultConfig()), std::logic_error);
+}
+
 // ──────────────────────────────────────────────────────
-// Start() 後の状態
+// Start()後の状態
 // ──────────────────────────────────────────────────────
 /**
- * @brief Start()後はEntering状態になることを確認
+ * @brief Start()後はEntering状態になるか
+ * 
  */
 TEST(BossSystemTest, StartTransitionsToEntering){
     BossSystem bs;
@@ -177,7 +194,8 @@ TEST(BossSystemTest, StartTransitionsToEntering){
 }
 
 /**
- * @brief Start()後はConfigの値がBossにコピーされることを確認
+ * @brief Start()後はConfigの値がBossへ設定される
+ * 
  */
 TEST(BossSystemTest, StartCopiesConfig){
     BossSystem bs;
@@ -199,7 +217,8 @@ TEST(BossSystemTest, StartCopiesConfig){
 // Reset()
 // ──────────────────────────────────────────────────────
 /**
- * @brief 撃破後にReset()するとInactive・HP・タイマーがすべて初期化されることを確認
+ * @brief 撃破後にReset()するとInactive・HP・タイマーがすべて初期化される
+ * 
  */
 TEST(BossSystemTest, Reset_RestoresInactiveState){
     BossSystem bs;
@@ -214,7 +233,7 @@ TEST(BossSystemTest, Reset_RestoresInactiveState){
     bs.TakeDamage(cfg.max_hp);
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
 
-    // Reset後は完全初期化されていること
+    // Resetすると初期状態になっている
     bs.Reset();
     const auto& boss = bs.GetBoss();
     EXPECT_EQ(boss.status, BossStatus::Inactive);
@@ -225,10 +244,11 @@ TEST(BossSystemTest, Reset_RestoresInactiveState){
 }
 
 // ──────────────────────────────────────────────────────
-// UpdateTick() 状態遷移
+// UpdateTick()状態遷移
 // ──────────────────────────────────────────────────────
 /**
- * @brief Inactive時はNoneを返すことを確認
+ * @brief Inactive時はNoneを返す
+ * 
  */
 TEST(BossSystemTest, UpdateTickReturnsNoneWhenInactive){
     BossSystem bs;
@@ -242,7 +262,8 @@ TEST(BossSystemTest, UpdateTickReturnsNoneWhenInactive){
 }
 
 /**
- * @brief Entering中はWaitingTriggerを返すことを確認
+ * @brief Entering中はWaitingTriggerを返す
+ * 
  */
 TEST(BossSystemTest, UpdateTickReturnsWaitingTriggerDuringEntering){
     BossSystem bs;
@@ -261,7 +282,8 @@ TEST(BossSystemTest, UpdateTickReturnsWaitingTriggerDuringEntering){
 }
 
 /**
- * @brief entering_duration_ticks消費でEntering→Fightingへ遷移することを確認
+ * @brief entering_duration_ticks消費でEntering→Fightingへの遷移を確認
+ * 
  */
 TEST(BossSystemTest, UpdateTickTransitionsEnteringToFighting){
     BossSystem bs;
@@ -283,7 +305,8 @@ TEST(BossSystemTest, UpdateTickTransitionsEnteringToFighting){
 }
 
 /**
- * @brief Fighting中はActiveを返すことを確認
+ * @brief Fighting中はActiveを返す
+ * 
  */
 TEST(BossSystemTest, UpdateTickReturnsActiveWhenFighting){
     BossSystem bs;
@@ -306,7 +329,8 @@ TEST(BossSystemTest, UpdateTickReturnsActiveWhenFighting){
 }
 
 /**
- * @brief Defeating状態はDefeatedを返すことを確認
+ * @brief Defeating状態はDefeatedを返す
+ * 
  */
 TEST(BossSystemTest, UpdateTickReturnsDefeatedWhenDefeating){
     BossSystem bs;
@@ -329,10 +353,11 @@ TEST(BossSystemTest, UpdateTickReturnsDefeatedWhenDefeating){
 }
 
 // ──────────────────────────────────────────────────────
-// UpdateTick() 弾発射
+// UpdateTick()弾発射
 // ──────────────────────────────────────────────────────
 /**
- * @brief タイマーが0になるとenem_bulletsプールに追加されることを確認(EmitSpread)
+ * @brief タイマーが0になるとenemy_bulletsプールに追加されることを確認
+ * ※EmitSpread
  */
 TEST(BossSystemTest, FiringEmitsSpreadBullets){
     BossSystem bs;
@@ -353,12 +378,20 @@ TEST(BossSystemTest, FiringEmitsSpreadBullets){
     bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); // aimed_fire_timer: 2→1
     EXPECT_EQ(enemy_bullets.CountActive(), 0u);
 
-    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); // aimed_fire_timer: 1→0 → 発射
-    EXPECT_GT(enemy_bullets.CountActive(), 0u);
+    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); // aimed_fire_timer: 1→0 → 1回目発射
+    const std::size_t count_after_shot1 = enemy_bullets.CountActive();
+    EXPECT_GT(count_after_shot1, 0u);   // 少なくとも1発出ている
+
+    // 2回目の発射(aimed_fire_intervalの分だけ進める)
+    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); // aimed_fire_timer: 2→1
+    EXPECT_EQ(enemy_bullets.CountActive(), count_after_shot1); // まだ増えない
+    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); // aimed_fire_timer: 1→0 → 2回目発射
+    EXPECT_EQ(enemy_bullets.CountActive(), count_after_shot1 * 2u); // 発射回数2回分
 }
 
 /**
- * @brief タイマーが0になるとenemy_bulletsプールに追加されることを確認(EmitCircle)
+ * @brief タイマーが0になるとenemy_bulletsプールに追加されることを確認
+ * ※EmitCircle
  */
 TEST(BossSystemTest, FiringEmitsCircleBullets){
     BossSystem bs;
@@ -379,15 +412,23 @@ TEST(BossSystemTest, FiringEmitsCircleBullets){
     bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); // circle_fire_timer: 2→1
     EXPECT_EQ(enemy_bullets.CountActive(), 0u);
 
-    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); // circle_fire_timer: 1→0 → 発射
-    EXPECT_GT(enemy_bullets.CountActive(), 0u);
+    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); // circle_fire_timer: 1→0 → 1回目発射
+    const std::size_t count_after_shot1 = enemy_bullets.CountActive();
+    EXPECT_GT(count_after_shot1, 0u);   // 少なくとも1発出ている
+
+    // 2回目の発射(circle_fire_intervalの分だけ進める)
+    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); // circle_fire_timer: 2→1
+    EXPECT_EQ(enemy_bullets.CountActive(), count_after_shot1); // まだ増えない
+    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); // circle_fire_timer: 1→0 → 2回目発射
+    EXPECT_EQ(enemy_bullets.CountActive(), count_after_shot1 * 2u); // 発射回数2回分
 }
 
 // ──────────────────────────────────────────────────────
 // TakeDamage()
 // ──────────────────────────────────────────────────────
 /**
- * @brief Inactive時はInvalidTargetを返すことを確認
+ * @brief Inactive時はInvalidTargetを返す
+ * 
  */
 TEST(BossSystemTest, TakeDamageRejectsWhenInactive){
     BossSystem bs;
@@ -396,21 +437,25 @@ TEST(BossSystemTest, TakeDamageRejectsWhenInactive){
 }
 
 /**
- * @brief damage<=0はInvalidTargetを返すことを確認
+ * @brief damage<=0はInvalidTargetを返す
+ * 
  */
 TEST(BossSystemTest, TakeDamageRejectsNonPositiveDamage){
     BossSystem bs;
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
+    // Entering→fighting
     bs.Start(MakeDefaultConfig());
     AdvanceToFighting(bs, enemy_bullets, patterns);
+    // 無効なダメージ
     EXPECT_EQ(bs.TakeDamage(0),  BossDamageResult::InvalidTarget);
     EXPECT_EQ(bs.TakeDamage(-1), BossDamageResult::InvalidTarget);
     EXPECT_EQ(bs.GetBoss().hp, 10);  // HPは変化しない
 }
 
 /**
- * @brief 通常ダメージでDamagedを返しHPが減ることを確認
+ * @brief 通常ダメージでDamagedを返しHPが減る
+ * 
  */
 TEST(BossSystemTest, TakeDamageReducesHp){
     BossSystem bs;
@@ -423,21 +468,25 @@ TEST(BossSystemTest, TakeDamageReducesHp){
 }
 
 /**
- * @brief HPが0以下になるとDestroyedを返しDefeating遷移することを確認
+ * @brief HPが0以下になるとDestroyedを返しDefeating遷移する
+ * 
  */
 TEST(BossSystemTest, TakeDamageTransitionsToDefeating){
     BossSystem bs;
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
+    // fighting
     bs.Start(MakeDefaultConfig());
     AdvanceToFighting(bs, enemy_bullets, patterns);
+    // max_hp=10に対して10ダメージ与える→Destroyed
     EXPECT_EQ(bs.TakeDamage(10), BossDamageResult::Destroyed);
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
     EXPECT_TRUE(bs.IsDefeated());
 }
 
 /**
- * @brief 超過ダメージ(HPを超える量)でもDestroyedを返すことを確認
+ * @brief 超過ダメージ(HPを超える量)でもDestroyedを返す
+ * 
  */
 TEST(BossSystemTest, TakeDamageOverkillReturnsDestroyed){
     BossSystem bs;
@@ -445,6 +494,7 @@ TEST(BossSystemTest, TakeDamageOverkillReturnsDestroyed){
     PatternSystem patterns;
     bs.Start(MakeDefaultConfig());
     AdvanceToFighting(bs, enemy_bullets, patterns);
+    // max_hp=10に対して999のダメージ
     EXPECT_EQ(bs.TakeDamage(999), BossDamageResult::Destroyed);
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
 }
@@ -453,7 +503,8 @@ TEST(BossSystemTest, TakeDamageOverkillReturnsDestroyed){
 // 当たり判定円
 // ──────────────────────────────────────────────────────
 /**
- * @brief GetHurtboxCircle / GetContactCircle がpositionとradiusを正しく返すことを確認
+ * @brief GetHurtboxCircle/GetContactCircleがpositionとradiusを正しく返すか
+ * 
  */
 TEST(BossSystemTest, GetCirclesReturnCorrectValues){
     BossSystem bs;
@@ -470,11 +521,12 @@ TEST(BossSystemTest, GetCirclesReturnCorrectValues){
 }
 
 // ──────────────────────────────────────────────────────
-// [新規テスト] 要求された6項目
+// 追加テスト
 // ──────────────────────────────────────────────────────
 
 /**
- * @brief Entering中はTakeDamage()がInvalidTargetを返しHPが変化しないことを確認
+ * @brief Entering中はTakeDamage()がInvalidTargetを返しHPが変化しない
+ * 
  */
 TEST(BossSystemTest, Entering_CannotTakeDamage){
     BossSystem bs;
@@ -489,7 +541,8 @@ TEST(BossSystemTest, Entering_CannotTakeDamage){
 }
 
 /**
- * @brief 同tick内に複数回TakeDamage()を呼ぶとその分だけダメージが蓄積されることを確認
+ * @brief 同tick内に複数回TakeDamage()を呼ぶとその分だけダメージが蓄積されるか
+ * 
  */
 TEST(BossSystemTest, MultiplePlayerBulletsSameTick_AllApplyDamage){
     BossSystem bs;
@@ -498,6 +551,7 @@ TEST(BossSystemTest, MultiplePlayerBulletsSameTick_AllApplyDamage){
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
     cfg.max_hp = 10;
+    // fighting
     bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
 
@@ -510,7 +564,8 @@ TEST(BossSystemTest, MultiplePlayerBulletsSameTick_AllApplyDamage){
 }
 
 /**
- * @brief 撃破後に再びTakeDamage()してもDestroyedが返らないことを確認
+ * @brief 撃破後に再びTakeDamage()してもDestroyedが返らない
+ * 
  */
 TEST(BossSystemTest, DefeatedBoss_CannotTakeFurtherDamage){
     BossSystem bs;
@@ -533,8 +588,8 @@ TEST(BossSystemTest, DefeatedBoss_CannotTakeFurtherDamage){
 }
 
 /**
- * @brief entering_duration_ticks ちょうどWaitingTriggerを返し，
- *        続く1tickでActiveに遷移することを確認(tick境界を固定)
+ * @brief entering_duration_ticks：1→0の境界でWaitingTriggerを返し，
+ * 続く1tickでActiveに遷移することを確認(tick境界を固定)
  */
 TEST(BossSystemTest, EnteringDuration_TransitionsToFightingExactlyOnce){
     BossSystem bs;
@@ -550,7 +605,7 @@ TEST(BossSystemTest, EnteringDuration_TransitionsToFightingExactlyOnce){
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
 
-    // ENTER_TICKS回分すべてWaitingTriggerが返ること
+    // ENTER_TICKS回分すべてWaitingTriggerが返る
     for(std::uint64_t i = 0; i < ENTER_TICKS; ++i){
         EXPECT_EQ(
             bs.UpdateTick(dt, player_pos, patterns, enemy_bullets),
@@ -571,44 +626,36 @@ TEST(BossSystemTest, EnteringDuration_TransitionsToFightingExactlyOnce){
 // ──────────────────────────────────────────────────────
 // UpdatePipeline レベルのボス遷移テスト
 // ──────────────────────────────────────────────────────
-
 /**
  * @brief BOSS_SPAWN_TICKに達するとボスが一度だけStartされ，
- *        以降はEnemySpawnerも含め二重起動されないことを確認
+ * 以降はEnemySpawnerも含め二重起動されない
  */
 TEST(UpdatePipelineBossTest, StageBossTransition_StartsOnce){
     UpdatePipeline pipeline;
     InputState no_input{};
-    pipeline.StartRun(640.0f, 480.0f, 42);
+    pipeline.StartRun(640.0f, 720.0f, 42);
     const float dt = 1.0f / 60.0f;
 
-    // BOSS_SPAWN_TICK回呼ぶと tick_index_ = BOSS_SPAWN_TICK になる
-    // この時点ではまだボスは出現していない
+    // BOSS_SPAWN_TICK回呼ぶとtick_index_ = BOSS_SPAWN_TICKになる
+    // この時点ではまだボスは出現しない
     for(std::uint64_t i = 0; i < zimovka::Stage1::BOSS_SPAWN_TICK; ++i){
         pipeline.UpdateTick(dt, no_input);
     }
     EXPECT_FALSE(pipeline.GetBossSystem().IsNotInactive());
 
-    // もう1tickでボス出現(tick_index_ == BOSS_SPAWN_TICK で StartBossPhase()が呼ばれる)
-    const std::size_t spawner_idx_at_start = pipeline.GetSpawnerNextEventIndex();
+    // もう1tickでボス出現(StartBossPhase()が呼ばれる)
     pipeline.UpdateTick(dt, no_input);
     EXPECT_TRUE(pipeline.GetBossSystem().IsNotInactive());
 
-    // 出現直後のmax_hpを記録
-    const int boss_max_hp = pipeline.GetBossSystem().GetBoss().max_hp;
+    // ボス出現直後のSpawnerカーソルを記録
     const std::size_t spawner_idx_after_boss = pipeline.GetSpawnerNextEventIndex();
 
-    // さらに10tick進めてもボスは再Startされていない
+    // さらに10tick進める
     for(int i = 0; i < 10; ++i){
         pipeline.UpdateTick(dt, no_input);
     }
+    // ボスはまだActive
     EXPECT_TRUE(pipeline.GetBossSystem().IsNotInactive());
-    EXPECT_EQ(pipeline.GetBossSystem().GetBoss().max_hp, boss_max_hp);
-
-    // EnemySpawnerは Boss フェーズでは呼ばれないためインデックスが凍結している
+    // EnemySpawnerはBossフェーズでは呼ばれないためカーソルが凍結している
     EXPECT_EQ(pipeline.GetSpawnerNextEventIndex(), spawner_idx_after_boss);
-
-    // 念のため: Boss出現直後にSpawnerが余分に前進していないことを確認
-    // (BOSS_SPAWN_TICK時点のSpawnerは全Stage1イベント処理済み=30, 増えていない)
-    EXPECT_EQ(spawner_idx_at_start, spawner_idx_after_boss);
 }

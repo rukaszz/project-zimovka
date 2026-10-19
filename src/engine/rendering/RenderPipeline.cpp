@@ -140,11 +140,12 @@ void RenderPipeline::RenderFrame(
         }
     );
 
-    // Boss HPバー(プレイフィールド下部に重ねて描画)
+    // Boss HPバー(プレイフィールド上部に重ねて描画)
     {
         const auto& boss_sys = gameplay.GetBossSystem();
         BossHudViewModel boss_hud;
-        boss_hud.visible = boss_sys.IsNotInactive();
+        boss_hud.visible = 
+            (boss_sys.IsNotInactive() && !boss_sys.IsDefeated());
         boss_hud.hp      = boss_sys.GetBoss().hp;
         boss_hud.max_hp  = boss_sys.GetBoss().max_hp;
         BossHudRenderer boss_hud_renderer;
