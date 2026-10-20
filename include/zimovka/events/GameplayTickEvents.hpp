@@ -2,6 +2,7 @@
 #define ZIMOVKA_EVENTS_GAMEPLAYTICKEVENTS_HPP_
 
 #include "zimovka/events/BulletCancelEvents.hpp"
+#include "zimovka/events/BossHitEvents.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
 #include "zimovka/systems/bomb/PlayerBombEvents.hpp"
@@ -15,6 +16,7 @@ struct GameplayTickEvents{
     bool               player_hit = false;  // 被弾確定フラグ(ボム解決後)
     BulletCancelEvents bullet_cancel{};
     EnemyHitEvents     enemy_hit{};
+    BossHitEvents      boss_hit{};
     PlayerBombEvents   bomb{};
     PlayerWeaponEvents weapon{};
 };

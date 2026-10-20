@@ -19,8 +19,10 @@ jobs:
         build_type: [Debug, Release]
     steps:  # 実行する処理(コマンド)
       - uses: actions/checkout@v4
+      - name: Initialize
+        run: sudo apt-get update -y
       - name: Install SDL2
-        run: sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
+        run: sudo apt-get install -y libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
       - name: Build tests
@@ -33,6 +35,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Initialize
+        run: sudo apt-get update -y
       - name: Install SDL2
         run: sudo apt install -y libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libsdl2-mixer-dev
       - name: Configure with ASan + UBSan
@@ -53,3 +57,16 @@ jobs:
           UBSAN_OPTIONS: halt_on_error=1
           # SDL2がLinux上でD-Bus/glibのシングルトン接続を保持するfalse positiveを抑制
           LSAN_OPTIONS: suppressions=tests/lsan_suppressions.txt
+
+# git command
+## 1. 新しい作業用ブランチ→mainから切り出す
+### $ git switch -c feature/<new feature>
+## 2. 作業したらコミット
+### $ git add .
+### $ git commit -m "commit comment"
+## 3. リモートへpush
+### $ git push -u origin feature/boss-system
+### gh pr create --base main --title "add <new feature>"
+## ex) もしもmainが進んでしまったら
+### $ git fetch origin
+### $ git rebase origin/main  # featureブランチを最新のmainに乗せる

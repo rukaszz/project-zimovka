@@ -6,11 +6,13 @@
 #include "zimovka/events/GameplayTickEvents.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/input/InputState.hpp"
+#include "zimovka/stages/StagePhase.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/collision/CollisionSystem.hpp"
 #include "zimovka/systems/enemy/EnemySystem.hpp"
 #include "zimovka/systems/spawn/EnemySpawner.hpp"
 #include "zimovka/systems/bomb/PlayerBombSystem.hpp"
+#include "zimovka/systems/boss/BossSystem.hpp"
 #include "zimovka/systems/pattern/PatternSystem.hpp"
 #include "zimovka/systems/player/PlayerSystem.hpp"
 #include "zimovka/systems/player/PlayerWeaponSystem.hpp"
@@ -31,11 +33,17 @@ private:
     DeterministicRng gameplay_rng_{0};
     // 更新tick
     std::uint64_t tick_index_ = 0;
+    // ステージ進行管理
+    StagePhase stage_phase_ = StagePhase::Normal;
     // プレイヤー関連
     PlayerSystem       player_system_;
     PlayerWeaponSystem player_weapon_system_;
     // 敵
     EnemySystem  enemy_system_;
+    // ボス設定
+    BossConfig   boss_config_;
+    // ボス
+    BossSystem   boss_system_;
     // 弾プール: enemy/playerを別プールで管理する
     BulletSystem enemy_bullets_{1200};
     BulletSystem player_bullets_{100};
@@ -52,13 +60,17 @@ private:
     void UpdatePlayer(float dt, const InputState& input);
     PlayerWeaponEvents UpdateWeapons(const InputState& input);
     void UpdateEnemy(float dt);
+    void UpdateBoss(float dt);
     void UpdateProjectiles(float dt);
     void ResolveCollisions(
         bool& player_hit_out, 
         EnemyHitEvents& enemy_hit_out, 
+        BossHitEvents& boss_hit_out, 
         BulletCancelEvents& bullet_cancel_out
     );
     PlayerBombEvents UpdateBomb(const InputState& input, bool player_hit);
+    // ボス戦開始処理
+    void StartBossPhase();
 
 public:
     // 初期化
@@ -74,6 +86,9 @@ public:
     }
     const EnemySystem& GetEnemySystem() const noexcept{
         return enemy_system_;
+    }
+    const BossSystem& GetBossSystem() const noexcept{
+        return boss_system_;
     }
     const BulletSystem& GetPlayerBullets() const noexcept{
         return player_bullets_;

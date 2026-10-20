@@ -42,6 +42,7 @@ set(ZIMOVKA_CORE_SOURCES
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/player/PlayerWeaponSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/enemy/EnemySystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/boss/BossSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/collision/CollisionSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/spawn/EnemySpawner.cpp
     ${CMAKE_SOURCE_DIR}/src/replay/RunRecorder.cpp
@@ -68,6 +69,7 @@ set(ZIMOVKA_APP_SOURCES
     src/rendering/Renderer.cpp
     src/rendering/texture/TextTexture.cpp
     src/rendering/hud/HudRenderer.cpp
+    src/rendering/hud/BossHudRenderer.cpp
     src/app/Application.cpp
     src/debug/DebugOverlay.cpp
 )

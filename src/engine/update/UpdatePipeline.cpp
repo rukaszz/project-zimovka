@@ -8,6 +8,7 @@
 #include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
 #include "zimovka/systems/bomb/PlayerBombEvents.hpp"
+#include "zimovka/systems/boss/BossConfig.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 #include "zimovka/stages/Stage1Data.hpp"
 
@@ -21,9 +22,9 @@ namespace zimovka{
  */
 void UpdatePipeline::Initialize(float width, float height){
     // 引数チェック(負の値とNaNのチェック)
-    if( !std::isfinite(width) 
-     || !std::isfinite(height)
-     || width <= 0.0f || height <= 0.0f
+    if(!std::isfinite(width) 
+    || !std::isfinite(height)
+    || width <= 0.0f || height <= 0.0f
     )
     {
         throw std::invalid_argument(
@@ -39,9 +40,18 @@ void UpdatePipeline::Initialize(float width, float height){
     // 敵初期化
     enemy_system_.Clear();
     enemy_spawner_ = EnemySpawner{Stage1::PROTOTYPE_EVENTS};
+    // ステージ
+    stage_phase_ = StagePhase::Normal;
+    // ボス
+    boss_system_.Reset();
     // BulletSystem初期化
     player_bullets_.Clear();
     enemy_bullets_.Clear();
+
+    // ボス設定初期化
+    // fight_tick はボスのEnteringフェーズの長さ(= 180 tick = 3秒)
+    // 出現タイミング(tick 3600)はStage1::BOSS_SPAWN_TICKで管理する
+    boss_config_.entering_duration_ticks = 180;
 }
 
 /**
@@ -78,14 +88,26 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     // 6. Projectile movement
     // 7. Collision
     // 8. State resolution
-    (void)enemy_spawner_.UpdateTick(tick_index_, enemy_system_);
+    
+    // NormalフェーズからBossフェーズへの遷移を監視
+    // NOTE: 現状は強制移行，WAVE処理による移行も検討
+    if(stage_phase_ == StagePhase::Normal){
+        // ボス戦開始のTick
+        if(tick_index_ >= Stage1::BOSS_SPAWN_TICK){
+            StartBossPhase();
+        } else {
+            // ボス戦Tickまでは敵をスポーンさせる
+            (void)enemy_spawner_.UpdateTick(tick_index_, enemy_system_);
+        }
+    }
     UpdatePlayer(dt, input);
     events.weapon = UpdateWeapons(input);
     UpdateEnemy(dt);
+    UpdateBoss(dt);
     UpdateProjectiles(dt);
     bool raw_player_hit = false;
-    // 被弾したかどうかのみを見る
-    ResolveCollisions(raw_player_hit, events.enemy_hit, events.bullet_cancel);
+    // 被弾したかどうかのみを見る(raw_palyer_hitは参照で渡す)
+    ResolveCollisions(raw_player_hit, events.enemy_hit, events.boss_hit, events.bullet_cancel);
     // ボム処理開始
     events.bomb = UpdateBomb(input, raw_player_hit);
     // 被弾確定時の後処理
@@ -95,6 +117,12 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
         player_bullets_.Clear();
         player_weapon_system_.Reset();
         events.player_hit = true;
+    }
+    
+    // ボス撃破判定
+    if(events.boss_hit.defeated_boss){
+        enemy_bullets_.Clear();
+        stage_phase_ = StagePhase::Cleared;
     }
 
     // 最後に伝搬したイベントを返す
@@ -171,6 +199,7 @@ void UpdatePipeline::UpdateProjectiles(float dt){
 void UpdatePipeline::ResolveCollisions(
     bool& player_hit_out, 
     EnemyHitEvents& enemy_hit_out,
+    BossHitEvents& boss_hit_out, 
     BulletCancelEvents& bullet_cancel_out
 )
 {
@@ -181,23 +210,33 @@ void UpdatePipeline::ResolveCollisions(
         player_bullets_,
         enemy_bullets_
     );
-     // 2. PlayerBullet vs Enemy
+    // 2. PlayerBullet vs Enemy
     enemy_hit_out = collision_system_.ResolvePlayerBulletsVsEnemies(
         player_bullets_,
         enemy_system_
     );
-    // 3. Player vs EnemyBullet(検出のみ，解決はUpdateBombで行う)
+    // 3. PlayerBullet vs Boss
+    boss_hit_out = collision_system_.ResolvePlayerBulletsVsBoss(
+        player_bullets_,
+        boss_system_
+    );
+    // 4. Player vs EnemyBullet(検出のみ，解決はUpdateBombで行う)
     const bool bullet_hit = collision_system_.CheckPlayerHitByBullets(
         player_system_.GetPlayer(),
         enemy_bullets_
     );
-    // 4. Player vs Enemy
-    const bool contact_hit = collision_system_.CheckPlayerHitByEnemies(
+    // 5. Player vs Enemy
+    const bool contact_hit_by_enemy = collision_system_.CheckPlayerHitByEnemies(
         player_system_.GetPlayer(), 
         enemy_system_
     );
+    // 6. Player vs Boss
+    const bool contact_hit_by_boss = collision_system_.CheckPlayerHitByBoss(
+        player_system_.GetPlayer(), 
+        boss_system_.GetBoss()
+    );
     // 敵弾，敵との接触判定の結果で被弾判定を確定
-    player_hit_out = bullet_hit || contact_hit;
+    player_hit_out = bullet_hit || contact_hit_by_enemy || contact_hit_by_boss;
 }
 
 /**
@@ -211,4 +250,32 @@ void UpdatePipeline::ResolveCollisions(
 PlayerBombEvents UpdatePipeline::UpdateBomb(const InputState& input, bool player_hit){
     return bomb_system_.UpdateTick(input, player_hit, enemy_bullets_, enemy_system_);
 }
+
+/**
+ * @brief ボスシステムの更新
+ * 
+ * @param dt 
+ */
+void UpdatePipeline::UpdateBoss(float dt){
+    if(boss_system_.IsNotInactive()){
+        boss_system_.UpdateTick(
+            dt, 
+            player_system_.GetPlayerPosition(), 
+            pattern_system_, 
+            enemy_bullets_
+        );
+    }
+}
+
+/**
+ * @brief ボス戦開始処理 
+ * 
+ */
+void UpdatePipeline::StartBossPhase(){
+    enemy_system_.Clear();
+    enemy_bullets_.Clear();
+    boss_system_.Start(boss_config_);
+    stage_phase_ = StagePhase::Boss;
+}
+
 }   // namespace zimovka

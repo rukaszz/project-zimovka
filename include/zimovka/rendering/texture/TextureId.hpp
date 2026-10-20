@@ -9,6 +9,7 @@ namespace zimovka{
 enum class TextureId{
     Player, 
     EnemyPrototype, 
+    BossPrototype, 
     PlayerBullet, 
     EnemyBullet,
     Stage1Background, 

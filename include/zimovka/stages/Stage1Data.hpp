@@ -31,6 +31,9 @@ namespace Stage1{
  */
 inline constexpr float PI = std::numbers::pi_v<float>;
 
+// ボス出現タイミング(tick): Phase3最終スポーン(tick 3300)の後, 5秒のインターバルを置く
+inline constexpr std::uint64_t BOSS_SPAWN_TICK = 3600;
+
 inline constexpr std::array<EnemySpawnEvent, 30> PROTOTYPE_EVENTS{{
 
     // ---- Phase 1: 導入(tick 60-1080 / 1s-18s) ----

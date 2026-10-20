@@ -170,7 +170,7 @@ void EnemySystem::Update(float dt, float world_width, float world_height){
             continue;
         }
         // 座標更新
-        e.position += e.velocity *dt;
+        e.position += e.velocity*dt;
         // 画面外へ出たら非活性化
         if(IsOutOfScreen(e, world_width, world_height)){
             Deactivate(e);

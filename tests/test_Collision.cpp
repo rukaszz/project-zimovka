@@ -2,19 +2,28 @@
 
 #include "zimovka/core/Circle.hpp"
 #include "zimovka/core/Vec2.hpp"
+#include "zimovka/events/BossHitEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
+#include "zimovka/systems/boss/BossConfig.hpp"
+#include "zimovka/systems/boss/BossStatus.hpp"
+#include "zimovka/systems/boss/BossSystem.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/collision/CollisionSystem.hpp"
 #include "zimovka/systems/collision/CollisionUtilities.hpp"
 #include "zimovka/systems/enemy/EnemySpawnParams.hpp"
 #include "zimovka/systems/enemy/EnemySystem.hpp"
+#include "zimovka/systems/pattern/PatternSystem.hpp"
 #include "zimovka/systems/player/Player.hpp"
 
+using zimovka::BossConfig;
+using zimovka::BossSystem;
+using zimovka::BossStatus;
 using zimovka::BulletSystem;
 using zimovka::Circle;
 using zimovka::CollisionSystem;
 using zimovka::EnemySpawnParams;
 using zimovka::EnemySystem;
+using zimovka::PatternSystem;
 using zimovka::Player;
 using zimovka::Vec2;
 
@@ -750,4 +759,78 @@ TEST(BulletCancelTest, OutsideCancelRadius_DoesNotCancel){
     EXPECT_EQ(result.cancel_count, 0u);     // cancel_radiusでも届かない
     EXPECT_EQ(player_bs.CountActive(), 1u);
     EXPECT_EQ(enemy_bs.CountActive(),  1u);
+}
+
+// ──────────────────────────────────────────────────────
+// 自機弾 vs ボス (ResolvePlayerBulletsVsBoss)
+// ──────────────────────────────────────────────────────
+
+// テスト用にFighting状態のBossSystemを構築するヘルパ
+// position={320,80}, hurtbox_radius=30, contact_radius=20
+static BossSystem MakeFightingBoss(int max_hp = 10){
+    BossConfig cfg;
+    cfg.name                    = "TestBoss";
+    cfg.position                = {320.0f, 80.0f};
+    cfg.velocity                = {0.0f, 0.0f};
+    cfg.render_size             = {64.0f, 64.0f};
+    cfg.hurtbox_radius          = 30.0f;
+    cfg.contact_radius          = 20.0f;
+    cfg.max_hp                  = max_hp;
+    cfg.entering_duration_ticks = 1;
+    cfg.aimed_fire_interval     = 999;
+    cfg.circle_fire_interval    = 999;
+    BossSystem bs;
+    bs.Start(cfg);
+    BulletSystem dummy(10);
+    PatternSystem patterns;
+    const zimovka::Vec2 player_pos{320.0f, 400.0f};
+    while(bs.GetBoss().status == BossStatus::Entering){
+        bs.UpdateTick(1.0f / 60.0f, player_pos, patterns, dummy);
+    }
+    return bs;
+}
+
+/**
+ * @brief 同Tick内に3発がボスに命中するとhit_count==3かつHP3減少することを確認
+ * 
+ */
+TEST(CollisionSystemTest, ResolvePlayerBulletsVsBoss_MultipleHits_AllApplyDamage){
+    CollisionSystem cs;
+    BulletSystem player_bullets(10);
+    auto boss = MakeFightingBoss(10);
+
+    // ボスのhurtbox内(中心=boss位置)に3発配置
+    ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 0
+    ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 1
+    ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 2
+
+    const auto result = cs.ResolvePlayerBulletsVsBoss(player_bullets, boss);
+
+    EXPECT_EQ(result.hit_count,  3u);          // 3発全てヒット
+    EXPECT_FALSE(result.defeated_boss);         // 撃破なし(hp 10→7)
+    EXPECT_EQ(boss.GetBoss().hp, 7);            // 10 - 1*3 = 7
+    EXPECT_EQ(player_bullets.CountActive(), 0u); // 3発全て消費
+}
+
+/**
+ * @brief 1発目でボスを撃破したとき，2発目・3発目は消費されないことを確認
+ *
+ * CollisionSystem::ResolvePlayerBulletsVsBoss はDestroyedでbreakするため
+ * 残りの弾はinactiveにならない
+ */
+TEST(CollisionSystemTest, ResolvePlayerBulletsVsBoss_FirstBulletKills_RemainingBulletsUnconsumed){
+    CollisionSystem cs;
+    BulletSystem player_bullets(10);
+    auto boss = MakeFightingBoss(1);  // max_hp=1: 1発で撃破
+
+    ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 0: 撃破弾
+    ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 1: 残る
+    ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 2: 残る
+
+    const auto result = cs.ResolvePlayerBulletsVsBoss(player_bullets, boss);
+
+    EXPECT_EQ(result.hit_count,  1u);            // 1発のみヒット
+    EXPECT_TRUE(result.defeated_boss);           // 撃破
+    EXPECT_EQ(boss.GetBoss().hp, 0);             // HP=0
+    EXPECT_EQ(player_bullets.CountActive(), 2u); // slot 1, 2 は未消費
 }

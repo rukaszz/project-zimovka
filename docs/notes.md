@@ -3262,3 +3262,85 @@ leak:libSDL2
 LSan Suppressionsの書き方は簡単で，`leak:<マッチさせる文字列>`と記述すれば，スタックトレース内のこの文字列を含むフレームを無視する．上述の引用でも，`libSDL2`の文字列が見えている．また，今回はunknown moduleフレーム(ここがおそらくD-Bus)が多いため，SDL2のフレームに焦点を当て，既知のメモリリークであることに留意してlinSDL2を指定している．
 
 より限定的にするなら，`leak:SDL_Init`や`leak:libdus`も有効と思われる．
+
+### 2026/10/09
+
+#### BossSystemについて
+
+TheMysteriousForestではBossはEnemyを継承していたが，zimovkaではEnemyを継承しない．理由としてはEnemyはスクリプトに応じて特定のパターンを遷移するが(active→fire→...→inactive)，Bossはinactive→activeで演出が入り，active→fight→defeat→clearのようにステージの進行に直接影響する．
+
+また，BossのHP状態などがイベントに直結しており，原則単一個体である．そのため，Enemyを継承するとBossの実装の影響でEnemy側にBoss特有の実装が混ざってしまう．そのため，Bossは独立したサブシステムで実装する．
+
+ここまでのzimovkaはEnemySpawnerが実質ステージ進行を担っていたが，Bossの実装で正式にステージの時系列管理が重要となってくる．そのため，StageManagerを小規模で実装していきたい．
+
+### 2026/10/10
+
+#### BossSystemの遷移
+
+BossSystemのStart()を呼ぶ際に，ステージの進行状況を導入した．まだ小さい状態であり，Normal, Boss, Clearedの3状態を持つenum classである．
+ここでBossIntroのような状態を持っていないのは，BossStatusでEnteringが存在しているからである．StagePhaseとの2重管理になるため省いているが，ステージ進行の状態管理という面ではボスのイントロ処理をStagePhaseに移管する想定で考えている．
+
+ボスの状態遷移に対して，次のような描画，攻撃，ダメージの処理を想定している：
+
+```text
+Inactive：描画なし / 発射なし / 被ダメージなし
+   ↓
+Entering：描画あり / 発射なし / 被ダメージなし
+   ↓
+Fighting：描画あり / 発射あり / 被ダメージあり
+   ↓ HP=0
+Defeating：描画あり / 発射なし / 被ダメージなし
+   ↓ 撃破演出完了
+StageCleared
+```
+
+StagePhase.hpp
+
+```cpp
+#ifndef ZIMOVKA_STAGES_STAGEPHASE_HPP_
+#define ZIMOVKA_STAGES_STAGEPHASE_HPP_
+
+#include <cstdint>
+
+namespace zimovka{
+/**
+ * @brief ステージの進行状態を管理するenum
+ * 
+ */
+enum class StagePhase : std::uint8_t{
+    Normal, 
+    Boss, 
+    Cleared, 
+};
+} // namespace zimovka
+
+#endif  // ZIMOVKA_STAGES_STAGEPHASE_HPP_
+
+```
+
+StagePhase.hpp
+
+```cpp
+#ifndef ZIMOVKA_SYSTEMS_BOSS_BOSSSTATUS_HPP_
+#define ZIMOVKA_SYSTEMS_BOSS_BOSSSTATUS_HPP_
+
+#include <cstdint>
+
+namespace zimovka{
+/**
+ * @brief ボスの状態遷移管理用enum
+ * 
+ */
+enum class BossStatus : std::uint8_t{
+    Inactive,   // 非活性
+    Entering,   // ボス導入
+    Fighting,   // 戦闘状態
+    Defeating,  // 敗北
+
+    Count,      // 門番
+};
+} // namespace zimovka
+
+#endif  // ZIMOVKA_SYSTEMS_BOSS_BOSSSTATUS_HPP_
+
+```

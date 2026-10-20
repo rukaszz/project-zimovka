@@ -4,6 +4,8 @@
 
 #include "zimovka/config/ScreenLayout.hpp"
 #include "zimovka/rendering/Renderer.hpp"
+#include "zimovka/rendering/hud/BossHudRenderer.hpp"
+#include "zimovka/rendering/hud/BossHudViewModel.hpp"
 #include "zimovka/rendering/hud/HudRenderer.hpp"
 #include "zimovka/rendering/hud/HudViewModel.hpp"
 #include "zimovka/rendering/texture/TextureId.hpp"
@@ -82,6 +84,26 @@ void RenderPipeline::RenderFrame(
             );
         }
     }
+    // Boss(Inactive時は描画しない)
+    if(gameplay.GetBossSystem().IsNotInactive()){
+        const auto& boss = gameplay.GetBossSystem().GetBoss();
+        sprites.Draw(
+            textures.GetTexture(TextureId::BossPrototype),
+            {   // SpriteDrawParams
+                .center = boss.position,
+                .size   = boss.render_size,
+            }
+        );
+        if(draw_debug_collision){
+            const Circle hurtbox = boss.GetHurtboxCircle();
+            primitives.DrawFilledCircle(
+                hurtbox.center.x,
+                hurtbox.center.y,
+                hurtbox.radius,
+                {128, 32, 32, 255}
+            );
+        }
+    }
     // Player Bullets
     for(const Bullet& pb : gameplay.GetPlayerBullets().GetBullets()){
         if(!pb.active){
@@ -117,6 +139,18 @@ void RenderPipeline::RenderFrame(
             .size   = {48.0f, 48.0f},
         }
     );
+
+    // Boss HPバー(プレイフィールド上部に重ねて描画)
+    {
+        const auto& boss_sys = gameplay.GetBossSystem();
+        BossHudViewModel boss_hud;
+        boss_hud.visible = 
+            (boss_sys.IsNotInactive() && !boss_sys.IsDefeated());
+        boss_hud.hp      = boss_sys.GetBoss().hp;
+        boss_hud.max_hp  = boss_sys.GetBoss().max_hp;
+        BossHudRenderer boss_hud_renderer;
+        boss_hud_renderer.Render(boss_hud, primitives);
+    }
 
     // ── HUD描画 ──────────────────────────────────────────────
     // HUD領域にクリップを切り替え

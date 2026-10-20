@@ -23,11 +23,13 @@ add_executable(zimovka_tests
     test_DebugAccumulator.cpp
     test_RunRecorder.cpp
     test_EnemySpawner.cpp
+    test_BossSystem.cpp
     test_PlayerWeaponSystem.cpp
     test_DeterministicRng.cpp
     test_Texture.cpp
     test_GameplayMath.cpp
     ${ZIMOVKA_CORE_SOURCES}
+    ${ZIMOVKA_ENGINE_SOURCES}
     ${CMAKE_SOURCE_DIR}/src/input/InputSystem.cpp
     # Texture は APP_SOURCES だが，Load()の引数チェック(null renderer)をテストするために追加
     # リンクに SDL2IMAGE が必要

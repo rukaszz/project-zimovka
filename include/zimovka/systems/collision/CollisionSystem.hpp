@@ -4,8 +4,11 @@
 #include <cstddef>
 
 #include "zimovka/core/Circle.hpp"
+#include "zimovka/events/BossHitEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
 #include "zimovka/events/BulletCancelEvents.hpp"
+#include "zimovka/systems/boss/Boss.hpp"
+#include "zimovka/systems/boss/BossSystem.hpp"
 #include "zimovka/systems/collision/CollisionStats.hpp"
 #include "zimovka/systems/player/Player.hpp"
 #include "zimovka/systems/enemy/EnemySystem.hpp"
@@ -31,6 +34,10 @@ public:
     BulletCancelEvents ResolvePlayerBulletsVsEnemyBullets(BulletSystem& player_bullets, BulletSystem& enemy_bullets);
     // プレイヤー vs 敵のヒットチェック・解決
     bool CheckPlayerHitByEnemies(const Player& player, const EnemySystem& enemies);
+    // プレイヤー vs ボスのヒットチェック・解決
+    bool CheckPlayerHitByBoss(const Player& player, const Boss& boss);
+    // 自機弾 vs ボスのヒットチェック・解決
+    BossHitEvents ResolvePlayerBulletsVsBoss(BulletSystem& player_bullets, BossSystem& boss_system);
     // getter
     // UpdatePipeline::ResolveCollisions()で冒頭に呼ばれる
     void InitializeStatsAtBeginTick() noexcept{
