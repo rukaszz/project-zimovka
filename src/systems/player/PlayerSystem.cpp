@@ -60,30 +60,6 @@ void PlayerSystem::Update(float dt, const InputState& input){
 }
 
 /**
- * @brief プレイヤーの描画処理
- * 現状は矩形と円で簡易的に表示する
- * 
- * @param renderer 
- */
-void PlayerSystem::Render(PrimitiveRenderer& renderer) const{
-    // 色の定義
-    const Color body_color{80, 180, 255, 255};
-    const Color hitbox_color{255, 255, 255, 255};
-    // 左辺と上辺を定義
-    const float left = player_.position.x - player_.width * 0.5f;
-    const float top = player_.position.y - player_.height * 0.5f;
-    // プレイヤー外見を矩形で表示
-    renderer.DrawFilledRect(left, top, player_.width, player_.height, body_color);
-    // プレイヤーの当たり判定は円で表現
-    renderer.DrawFilledCircle(
-        player_.position.x, 
-        player_.position.y, 
-        static_cast<int>(player_.hit_radius), 
-        hitbox_color
-    );
-}
-
-/**
  * @brief プレイヤー座標が画面外に出ないように補正する
  * 
  */

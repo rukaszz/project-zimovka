@@ -3344,3 +3344,45 @@ enum class BossStatus : std::uint8_t{
 #endif  // ZIMOVKA_SYSTEMS_BOSS_BOSSSTATUS_HPP_
 
 ```
+
+### 2026/10/22
+
+#### ボスの"戦闘の"状態遷移
+
+BossSystemを作成したため，CI→pull request→Mergeのステップを経てmainブランチへ取り込んだ．
+次のfeatureではボスの撃破演出とステージクリアを実装してステージのサイクルを完成させ，面白さを高めていきたい．
+
+ボスの現状の状態遷移(BossStatus)は次の通り：
+
+```text
+Inactive
+    ↓
+Entering
+    ↓
+Fighting
+    ↓
+Defeating
+    ↓
+終了
+```
+
+これはボスそのものの状態遷移である．戦闘状態の遷移，例として通常攻撃→必殺技→通常攻撃→......というような状況の変化をボス戦の基盤として，ボスのパターンを変化させたい．この状態遷移は，Fightingの状態を細分化した状態とも言える．つまりこんな感じ：
+
+```text
+Inactive
+    ↓
+Entering
+    ↓
+Fighting→→→↓
+    ↓        ↓
+    ↓      NormalAttack
+    ↓        ↓
+    ↓      SpecialAttack
+Defeating     ↓  
+    ↓         
+終了         
+```
+
+このようにfightingの状態を拡張したいが，BossStatusに追加してしまうと`IsFighting()`が複雑になる．なぜならfightingではないがNormalAttackはIsFighting()がtrueになるべきで......と場合分けが難しくなる．
+
+そこで，BossStatusはライフサイクルの管理，BossAttackStepでボスの攻撃状態を管理する方針で進めたい．
