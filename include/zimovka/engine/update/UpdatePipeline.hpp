@@ -34,7 +34,7 @@ private:
     // 更新tick
     std::uint64_t tick_index_ = 0;
     // ステージ進行管理
-    StagePhase stage_phase_ = StagePhase::Normal;
+    StagePhase stage_phase_;
     // プレイヤー関連
     PlayerSystem       player_system_;
     PlayerWeaponSystem player_weapon_system_;
@@ -60,7 +60,7 @@ private:
     void UpdatePlayer(float dt, const InputState& input);
     PlayerWeaponEvents UpdateWeapons(const InputState& input);
     void UpdateEnemy(float dt);
-    void UpdateBoss(float dt);
+    BossEvents UpdateBoss(float dt);
     void UpdateProjectiles(float dt);
     void ResolveCollisions(
         bool& player_hit_out, 
@@ -116,6 +116,9 @@ public:
     }
     std::size_t GetSpawnerNextEventIndex() const noexcept{
         return enemy_spawner_.GetNextEventIndex();
+    }
+    const StagePhase& GetStagePhase() const noexcept{
+        return stage_phase_;
     }
 };
 

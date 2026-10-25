@@ -11,8 +11,8 @@ namespace zimovka{
  * CollisionSystem::ResolvePlayerBulletsVsBoss()から返される
  */
 struct BossHitEvents{
-    std::size_t hit_count  = 0;     // 命中した弾の数
-    bool defeated_boss     = false; // 撃破した敵の数
+    std::size_t hit_count     = 0;     // 命中した弾の数
+    bool        defeated_boss = false; // 撃破演出開始(HPが0)
 };
 
 }   // namespace zimovka

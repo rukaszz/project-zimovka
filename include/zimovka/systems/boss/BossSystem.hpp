@@ -7,6 +7,7 @@
 #include "zimovka/systems/boss/BossConfig.hpp"
 #include "zimovka/systems/boss/BossEvents.hpp"
 #include "zimovka/systems/boss/BossDamageResult.hpp"
+#include "zimovka/systems/boss/BossAttackStep.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
 #include "zimovka/systems/pattern/PatternSystem.hpp"
 

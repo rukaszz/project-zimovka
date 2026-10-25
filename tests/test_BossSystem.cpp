@@ -624,6 +624,115 @@ TEST(BossSystemTest, EnteringDuration_TransitionsToFightingExactlyOnce){
 }
 
 // ──────────────────────────────────────────────────────
+// 撃破演出 (Defeating state countdown)
+// ──────────────────────────────────────────────────────
+/**
+ * @brief Defeating状態でUpdateTickを呼ぶごとに defeating_ticks_remaining が1減ることを確認
+ */
+TEST(BossSystemTest, Defeating_DecrementsTicksEachUpdate){
+    BossSystem bs;
+    BulletSystem enemy_bullets(100);
+    PatternSystem patterns;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
+    cfg.max_hp = 1;
+    bs.Start(cfg);
+    AdvanceToFighting(bs, enemy_bullets, patterns);
+    bs.TakeDamage(1);  // HP→0, Defeating遷移
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Defeating);
+
+    const std::uint64_t initial = bs.GetBoss().defeating_ticks_remaining;
+    ASSERT_GT(initial, 0u);
+
+    const Vec2 player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets);
+    EXPECT_EQ(bs.GetBoss().defeating_ticks_remaining, initial - 1u);
+
+    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets);
+    EXPECT_EQ(bs.GetBoss().defeating_ticks_remaining, initial - 2u);
+}
+
+/**
+ * @brief defeating_ticks_remaining > 0 の間は Defeated イベントを返すことを確認
+ */
+TEST(BossSystemTest, Defeating_ReturnsDefeatedWhileTicksRemaining){
+    BossSystem bs;
+    BulletSystem enemy_bullets(100);
+    PatternSystem patterns;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
+    cfg.max_hp = 1;
+    bs.Start(cfg);
+    AdvanceToFighting(bs, enemy_bullets, patterns);
+    bs.TakeDamage(1);
+
+    const Vec2 player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+    // 残り tick が減っている間は Defeated を返す
+    EXPECT_EQ(
+        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets),
+        BossEvents::Defeated
+    );
+    EXPECT_GT(bs.GetBoss().defeating_ticks_remaining, 0u);
+}
+
+/**
+ * @brief defeating_ticks_remaining が 0 になると DefeatAnimationComplete を返すことを確認
+ */
+TEST(BossSystemTest, Defeating_ReturnsAnimationCompleteAtZero){
+    BossSystem bs;
+    BulletSystem enemy_bullets(100);
+    PatternSystem patterns;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks  = 1;
+    cfg.max_hp                   = 1;
+    cfg.aimed_fire_interval      = 999;
+    cfg.circle_fire_interval     = 999;
+    const std::uint64_t DEFEAT_TICKS = 3;
+    cfg.defeating_duration_ticks = DEFEAT_TICKS;  // 短く設定
+    bs.Start(cfg);
+    AdvanceToFighting(bs, enemy_bullets, patterns);
+    bs.TakeDamage(1);
+    ASSERT_EQ(bs.GetBoss().defeating_ticks_remaining, DEFEAT_TICKS);
+
+    const Vec2 player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+    // DEFEAT_TICKS 回は Defeated を返す
+    for(std::uint64_t i = 0; i < DEFEAT_TICKS; ++i){
+        EXPECT_EQ(
+            bs.UpdateTick(dt, player_pos, patterns, enemy_bullets),
+            BossEvents::Defeated
+        ) << "tick " << i;
+    }
+    EXPECT_EQ(bs.GetBoss().defeating_ticks_remaining, 0u);
+    // 次のtickで DefeatAnimationComplete
+    EXPECT_EQ(
+        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets),
+        BossEvents::DefeatAnimationComplete
+    );
+}
+
+/**
+ * @brief TakeDamage でハードコード値でなく config の defeating_duration_ticks が使われることを確認
+ */
+TEST(BossSystemTest, TakeDamage_SetsDefeatDurationFromConfig){
+    BossSystem bs;
+    BulletSystem enemy_bullets(100);
+    PatternSystem patterns;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks  = 1;
+    cfg.max_hp                   = 1;
+    const std::uint64_t EXPECTED_TICKS = 42;
+    cfg.defeating_duration_ticks = EXPECTED_TICKS;
+    bs.Start(cfg);
+    AdvanceToFighting(bs, enemy_bullets, patterns);
+
+    bs.TakeDamage(1);
+    EXPECT_EQ(bs.GetBoss().defeating_ticks_remaining, EXPECTED_TICKS);
+}
+
+// ──────────────────────────────────────────────────────
 // UpdatePipeline レベルのボス遷移テスト
 // ──────────────────────────────────────────────────────
 /**

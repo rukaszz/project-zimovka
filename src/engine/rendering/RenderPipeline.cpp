@@ -1,6 +1,8 @@
 #include "zimovka/engine/rendering/RenderPipeline.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <numbers>
 
 #include "zimovka/config/ScreenLayout.hpp"
 #include "zimovka/rendering/Renderer.hpp"
@@ -9,6 +11,7 @@
 #include "zimovka/rendering/hud/HudRenderer.hpp"
 #include "zimovka/rendering/hud/HudViewModel.hpp"
 #include "zimovka/rendering/texture/TextureId.hpp"
+#include "zimovka/systems/boss/BossStatus.hpp"
 
 namespace zimovka{
 // 仮定数
@@ -84,16 +87,42 @@ void RenderPipeline::RenderFrame(
             );
         }
     }
-    // Boss(Inactive時は描画しない)
+    // Boss
     if(gameplay.GetBossSystem().IsNotInactive()){
-        const auto& boss = gameplay.GetBossSystem().GetBoss();
-        sprites.Draw(
-            textures.GetTexture(TextureId::BossPrototype),
-            {   // SpriteDrawParams
-                .center = boss.position,
-                .size   = boss.render_size,
-            }
-        );
+        const auto&  boss = gameplay.GetBossSystem().GetBoss();
+        Vec2         draw_size  = boss.render_size;
+        std::uint8_t draw_alpha = 255;
+        // 敗北時の演出
+        if(boss.status == BossStatus::Defeating && boss.defeating_duration_ticks > 0){
+            // 縮小率: 残tick割合でサイズを1.0→0.0に縮める
+            // defeating_duration_ticks > 0はBossSystem::Start()で保証
+            const float t = static_cast<float>(boss.defeating_ticks_remaining)
+                          / static_cast<float>(boss.defeating_duration_ticks);
+            draw_size = { 
+                boss.render_size.x * t, 
+                boss.render_size.y * t 
+            };
+
+            // アルファ点滅: cos波で0〜255を8tick周期で往復(2π/λでλは波長)
+            const std::uint64_t defeating_tick_elapsed = boss.defeating_duration_ticks
+                                                         - boss.defeating_ticks_remaining;
+            const float phase = static_cast<float>(defeating_tick_elapsed)
+                              * (2.0f * std::numbers::pi_v<float> / 8.0f);
+            draw_alpha = static_cast<std::uint8_t>(
+                255.0f * (0.5f + 0.5f * std::cos(phase))
+            );
+        }
+        // 敗北演出でサイズ縮小処理が入るため0より大きい場合のみ描画
+        if(draw_size.x > 0.0f && draw_size.y > 0.0f){
+            sprites.Draw(
+                textures.GetTexture(TextureId::BossPrototype),
+                {
+                    .center = boss.position,
+                    .size   = draw_size,
+                    .alpha  = draw_alpha,
+                }
+            );
+        }
         if(draw_debug_collision){
             const Circle hurtbox = boss.GetHurtboxCircle();
             primitives.DrawFilledCircle(

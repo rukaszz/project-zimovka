@@ -27,7 +27,14 @@ void SpriteRenderer::Draw(
     // flip_xがtrueで反転
     const SDL_RendererFlip flip =
         params.flip_x ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-    // dstがfloatなのでFを仕様
+    // alpha < 255 の場合にアルファモジュレーションを適用
+    // デフォルトは255なので255の場合は何もしない
+    const bool use_alpha = (params.alpha != 255);
+    if(use_alpha){
+        SDL_SetTextureBlendMode(texture.Get(), SDL_BLENDMODE_BLEND);
+        SDL_SetTextureAlphaMod(texture.Get(), params.alpha);
+    }
+    // dstがfloatなのでFを使用
     SDL_RenderCopyExF(
         renderer_,
         texture.Get(),
@@ -37,6 +44,10 @@ void SpriteRenderer::Draw(
         nullptr,        // center: nullptr = dst矩形の中心
         flip
     );
+    // 他の描画に影響させないようにalphaを255に復元
+    if(use_alpha){
+        SDL_SetTextureAlphaMod(texture.Get(), 255);
+    }
 }
 
 } // namespace zimovka

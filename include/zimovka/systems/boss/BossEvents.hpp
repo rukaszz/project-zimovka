@@ -7,10 +7,11 @@ namespace zimovka{
  * 
  */
 enum class BossEvents{
-    None, 
-    WaitingTrigger, 
-    Active, 
-    Defeated, 
+    None,
+    WaitingTrigger,
+    Active,
+    Defeated,                // 撃破演出進行中
+    DefeatAnimationComplete, // 撃破演出完了(ステージクリアのトリガ)
 };
 } // namespace zimovka
 

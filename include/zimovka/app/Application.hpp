@@ -4,6 +4,8 @@
 #include <chrono>
 #include <cstddef>
 
+#include <SDL2/SDL_ttf.h>
+
 #include "zimovka/config/ScreenLayout.hpp"
 #include "zimovka/engine/rendering/RenderPipeline.hpp"
 #include "zimovka/engine/update/UpdatePipeline.hpp"
@@ -12,6 +14,7 @@
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 #include "zimovka/rendering/sprite/SpriteDrawParams.hpp"
 #include "zimovka/rendering/sprite/SpriteRenderer.hpp"
+#include "zimovka/rendering/texture/TextTexture.hpp"
 #include "zimovka/rendering/texture/TextureStore.hpp"
 
 #include "zimovka/debug/DebugStats.hpp"
@@ -54,6 +57,9 @@ private:
     DebugStats debug_stats_;
     // デバッグ統計の累積(0.25s毎にflushして平均・最大値を計算)
     DebugAccumulator debug_acc_;
+    // ステージクリアテキスト表示用(Run()内でフォントをロード・アンロード)
+    TTF_Font*   ui_font_          = nullptr;
+    TextTexture stage_clear_text_;
 
     // イベントの処理
     void ProcessEvents();

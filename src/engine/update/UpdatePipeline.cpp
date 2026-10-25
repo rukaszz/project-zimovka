@@ -41,7 +41,8 @@ void UpdatePipeline::Initialize(float width, float height){
     enemy_system_.Clear();
     enemy_spawner_ = EnemySpawner{Stage1::PROTOTYPE_EVENTS};
     // ステージ
-    stage_phase_ = StagePhase::Normal;
+    stage_phase_.stage_state = StageStatement::Normal;
+    stage_phase_.stage_clear_ticks_elapsed = 0;
     // ボス
     boss_system_.Reset();
     // BulletSystem初期化
@@ -89,9 +90,15 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     // 7. Collision
     // 8. State resolution
     
+    // StageClear中は戦闘を更新しない
+    if (stage_phase_.stage_state == StageStatement::Cleared) {
+        ++stage_phase_.stage_clear_ticks_elapsed;
+        ++tick_index_;
+        return events;
+    }
     // NormalフェーズからBossフェーズへの遷移を監視
     // NOTE: 現状は強制移行，WAVE処理による移行も検討
-    if(stage_phase_ == StagePhase::Normal){
+    if(stage_phase_.stage_state == StageStatement::Normal){
         // ボス戦開始のTick
         if(tick_index_ >= Stage1::BOSS_SPAWN_TICK){
             StartBossPhase();
@@ -102,12 +109,16 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     }
     UpdatePlayer(dt, input);
     events.weapon = UpdateWeapons(input);
+
     UpdateEnemy(dt);
-    UpdateBoss(dt);
+    const BossEvents boss_event = UpdateBoss(dt);
+
     UpdateProjectiles(dt);
+
     bool raw_player_hit = false;
     // 被弾したかどうかのみを見る(raw_palyer_hitは参照で渡す)
     ResolveCollisions(raw_player_hit, events.enemy_hit, events.boss_hit, events.bullet_cancel);
+    
     // ボム処理開始
     events.bomb = UpdateBomb(input, raw_player_hit);
     // 被弾確定時の後処理
@@ -118,14 +129,22 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
         player_weapon_system_.Reset();
         events.player_hit = true;
     }
-    
-    // ボス撃破判定
+    // ボス撃破
     if(events.boss_hit.defeated_boss){
+        player_bullets_.Clear();
         enemy_bullets_.Clear();
-        stage_phase_ = StagePhase::Cleared;
+    }
+    // 撃破演出完了 → ステージクリア遷移
+    // NOTE: DefeatAnimationComplete発火時にboss_.status=Inactiveになるため
+    //       IsDefeated()はfalseになる。IsDefeated()チェックは使えない。
+    if(stage_phase_.stage_state == StageStatement::Boss
+    && boss_event == BossEvents::DefeatAnimationComplete){
+        stage_phase_.stage_state = StageStatement::Cleared;
+        stage_phase_.stage_clear_ticks_elapsed = 0;
+        events.stage_clear_started = true;
     }
 
-    // 最後に伝搬したイベントを返す
+    // 伝搬したイベントを返す
     ++tick_index_;
     return events;
 }
@@ -256,15 +275,16 @@ PlayerBombEvents UpdatePipeline::UpdateBomb(const InputState& input, bool player
  * 
  * @param dt 
  */
-void UpdatePipeline::UpdateBoss(float dt){
+BossEvents UpdatePipeline::UpdateBoss(float dt){
     if(boss_system_.IsNotInactive()){
-        boss_system_.UpdateTick(
-            dt, 
-            player_system_.GetPlayerPosition(), 
-            pattern_system_, 
+        return boss_system_.UpdateTick(
+            dt,
+            player_system_.GetPlayerPosition(),
+            pattern_system_,
             enemy_bullets_
         );
     }
+    return BossEvents::None;
 }
 
 /**
@@ -275,7 +295,7 @@ void UpdatePipeline::StartBossPhase(){
     enemy_system_.Clear();
     enemy_bullets_.Clear();
     boss_system_.Start(boss_config_);
-    stage_phase_ = StagePhase::Boss;
+    stage_phase_.stage_state = StageStatement::Boss;
 }
 
 }   // namespace zimovka

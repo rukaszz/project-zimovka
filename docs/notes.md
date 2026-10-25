@@ -3386,3 +3386,43 @@ Defeating     ↓
 このようにfightingの状態を拡張したいが，BossStatusに追加してしまうと`IsFighting()`が複雑になる．なぜならfightingではないがNormalAttackはIsFighting()がtrueになるべきで......と場合分けが難しくなる．
 
 そこで，BossStatusはライフサイクルの管理，BossAttackStepでボスの攻撃状態を管理する方針で進めたい．
+
+### 2026/10/23
+
+#### ボスの撃破について
+
+① Boss撃破とPlayer被弾が同じtickに発生したら？
+
+現在の衝突判定順序では，PlayerBullet vs Bossの被弾判定→Playerの被弾判定である．しかしボスの敗北イベント伝搬はCollisionSystemの後段で処理される．つまりステージクリアとPlayerの被弾が同時に発生してしまう可能性がある．
+
+zimovkaの仕様として，「Bossの撃破が発生したタイミングでの被弾は無効として，プレイヤーの勝利を優先する」という仕様で決定したい．
+違和感や理不尽感が少なくなると考えている．
+
+② StageClear後に何が動くのか？
+
+ステージクリアとなったとき，敵や弾が動き続けるとゲームの状態にメリハリがない．そのため，描画するオブジェクトや更新するオブジェクトの対象を選定しないといけない．また，この段階ではステージ1のクリアの後は何もない．そのため，ゲームクリアの演出のみを描画・処理するようにすれば良いと考える．
+
+### 2026/10/24
+
+#### Bossの状態遷移
+
+ボスの状態遷移は，Defeatingで負け状態を開始するところから始める．DefeatingはHPが0になった際に判定される．このとき，Boss内で敗北演出状態を計測するメンバ変数`defeating_ticks_remaining`を用いて，演出時刻を管理する．
+
+このDefeatingが完了した時点で，BossEventsがDefeatAnimationComplete状態へ遷移する．これはStageStatement::Clearedの状態であり，またクリア演出の開始のトリガでもある．
+
+```text
+UpdatePipeline
+         │
+         ↓
+    BossSystem::Defeating
+         │
+         │ 演出終了
+         ↓
+    BossEvents::DefeatAnimationComplete
+         │
+         ↓
+    UpdatePipeline
+         │
+         ├── StageStatement::Cleared
+         └── GameplayTickEvents::stage_clear_started
+```
