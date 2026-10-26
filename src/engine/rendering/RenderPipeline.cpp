@@ -103,9 +103,9 @@ void RenderPipeline::RenderFrame(
                 boss.render_size.y * t 
             };
 
+            const std::uint64_t defeating_tick_elapsed 
+                = boss.defeating_duration_ticks - boss.defeating_ticks_remaining;
             // アルファ点滅: cos波で0〜255を8tick周期で往復(2π/λでλは波長)
-            const std::uint64_t defeating_tick_elapsed = boss.defeating_duration_ticks
-                                                         - boss.defeating_ticks_remaining;
             const float phase = static_cast<float>(defeating_tick_elapsed)
                               * (2.0f * std::numbers::pi_v<float> / 8.0f);
             draw_alpha = static_cast<std::uint8_t>(
@@ -174,7 +174,7 @@ void RenderPipeline::RenderFrame(
         const auto& boss_sys = gameplay.GetBossSystem();
         BossHudViewModel boss_hud;
         boss_hud.visible = 
-            (boss_sys.IsNotInactive() && !boss_sys.IsDefeated());
+            (boss_sys.IsNotInactive() && !boss_sys.IsDefeating());
         boss_hud.hp      = boss_sys.GetBoss().hp;
         boss_hud.max_hp  = boss_sys.GetBoss().max_hp;
         BossHudRenderer boss_hud_renderer;

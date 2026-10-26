@@ -5,6 +5,7 @@
 #include "zimovka/events/BulletCancelEvents.hpp"
 #include "zimovka/events/GameplayTickEvents.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
+#include "zimovka/events/BossTickEvents.hpp"
 #include "zimovka/input/InputState.hpp"
 #include "zimovka/stages/StagePhase.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
@@ -60,7 +61,7 @@ private:
     void UpdatePlayer(float dt, const InputState& input);
     PlayerWeaponEvents UpdateWeapons(const InputState& input);
     void UpdateEnemy(float dt);
-    BossEvents UpdateBoss(float dt);
+    BossTickEvents UpdateBoss(float dt);
     void UpdateProjectiles(float dt);
     void ResolveCollisions(
         bool& player_hit_out, 
@@ -80,7 +81,7 @@ public:
     // 固定タイムステップ更新
     GameplayTickEvents UpdateTick(float dt, const InputState& input);
 
-    // ── デバッグ/統計用 getter ───────────────────────────
+    // ── getter ───────────────────────────
     const PlayerSystem& GetPlayerSystem() const noexcept{
         return player_system_;
     }

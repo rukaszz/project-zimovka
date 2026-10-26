@@ -72,7 +72,7 @@ TEST(BossSystemTest, InitialStateIsInactive){
     BossSystem bs;
     EXPECT_FALSE(bs.IsNotInactive());
     EXPECT_FALSE(bs.IsFighting());
-    EXPECT_FALSE(bs.IsDefeated());
+    EXPECT_FALSE(bs.IsDefeating());
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Inactive);
 }
 
@@ -343,7 +343,7 @@ TEST(BossSystemTest, UpdateTickReturnsDefeatedWhenDefeating){
     AdvanceToFighting(bs, enemy_bullets, patterns);
     bs.TakeDamage(1);  // HP→0, Defeating遷移
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
-    EXPECT_TRUE(bs.IsDefeated());
+    EXPECT_TRUE(bs.IsDefeating());
 
     const Vec2 player_pos{320.0f, 400.0f};
     EXPECT_EQ(
@@ -481,7 +481,7 @@ TEST(BossSystemTest, TakeDamageTransitionsToDefeating){
     // max_hp=10に対して10ダメージ与える→Destroyed
     EXPECT_EQ(bs.TakeDamage(10), BossDamageResult::Destroyed);
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
-    EXPECT_TRUE(bs.IsDefeated());
+    EXPECT_TRUE(bs.IsDefeating());
 }
 
 /**

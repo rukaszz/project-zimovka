@@ -3426,3 +3426,36 @@ UpdatePipeline
          ├── StageStatement::Cleared
          └── GameplayTickEvents::stage_clear_started
 ```
+
+### 2026/10/26
+
+#### Boss関係の状態・イベント群の整理
+
+Boss関係の処理はステージ進行と関わっている部分が多く，複数のイベントを持っている．現状の区分けとしては次の通り：
+
+- BossStatus
+  - Bossの状態
+- BossDamageResult
+  - Bossの1回のダメージ処理の結果
+- BossHitEvents
+  - BossのCollision処理の結果
+- BossEvents
+  - 更新処理でBossがどのように変化するか
+- GameplayTickEvents
+  - ゲーム全体の状態
+
+#### ボスの状態とUpdatePipelineの更新について
+
+ゲームクリア時は各種の演出等を実施し，次ステージへの遷移等を行うため更新処理を制限する．次のような更新を想定している：
+
+| 処理 | Normal | Fighting | Defeating | Cleared |
+| :---: | :---: | :---: | :---: | :---: |
+| Player | ○ | ○ | × | × |
+| PlayerWeapon | ○ | ○ | × | × |
+| Enemy | ○ | ○ | × | × |
+| Projectile | ○ | ○ | × | × |
+| Collision | ○ | ○ | × | × |
+| Bomb | ○ | ○ | × | × |
+| Boss | 必要時 | ○ | **演出タイマーのみ** | × |
+| StageClearタイマー | × | × | × | ○ |
+| 描画 | ○ | ○ | ○ | ○ |

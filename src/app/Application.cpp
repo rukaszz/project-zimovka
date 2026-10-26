@@ -4,6 +4,7 @@
 #include <chrono>
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 #include "zimovka/config/SimulationConfig.hpp"
 #include "zimovka/events/GameplayTickEvents.hpp"
@@ -14,6 +15,7 @@
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 #include "zimovka/rendering/sprite/SpriteRenderer.hpp"
 #include "zimovka/rendering/texture/TextureStore.hpp"
+#include "zimovka/stages/StagePhase.hpp"
 
 #include "zimovka/debug/DebugOverlay.hpp"
 
@@ -50,9 +52,14 @@ int Application::Run(int argc, char* argv[]){
     // デバッグ情報
     // フォントのパスはとりあえずシステムフォントを使う(※環境依存なので最終的には修正する)
     DebugOverlay debug_overlay(
-        renderer.Get(), 
-        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf", 
+        renderer.Get(),
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
         14
+    );
+    // ゲームUI用フォント(ステージクリアテキストなど)
+    ui_font_ = TTF_OpenFont(
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+        48
     );
     // デバッグ用にナノ秒をミリ秒へ変換するラムダ式to_msの定義
     auto to_ms = [](std::chrono::nanoseconds d) -> float {
@@ -184,6 +191,10 @@ int Application::Run(int argc, char* argv[]){
     }
     // 終了処理
     run_recorder_.Stop();
+    if(ui_font_){
+        TTF_CloseFont(ui_font_);
+        ui_font_ = nullptr;
+    }
     return 0;
 }
 
@@ -218,6 +229,15 @@ void Application::Update(float dt, const InputState& input){
     (void)events;   // NOTE: のちのちSE再生などで使用する
 }
 
+/**
+ * @brief 描画処理
+ * RenderPipelineへ渡す
+ * 
+ * @param renderer 
+ * @param sprites 
+ * @param primitives 
+ * @param textures 
+ */
 void Application::Render(
     Renderer&           renderer,
     SpriteRenderer&     sprites,
@@ -233,6 +253,18 @@ void Application::Render(
         textures,
         true
     );
+    // ステージクリアテキスト(プレイフィールド中央に重ねて表示)
+    const auto& phase = update_pipeline_.GetStagePhase();
+    if(phase.stage_state == StageStatement::Cleared && ui_font_){
+        stage_clear_text_.Update(
+            renderer.Get(),
+            ui_font_,
+            "STAGE CLEAR",
+            {255, 255, 128, 255}
+        );
+        // プレイフィールド(640x720)中央付近: LiberationMono 48pt "STAGE CLEAR" ≈ 330x55px
+        stage_clear_text_.Render(155, 330);
+    }
 }
 
 /**

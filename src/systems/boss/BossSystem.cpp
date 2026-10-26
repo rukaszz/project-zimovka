@@ -123,7 +123,7 @@ void BossSystem::Reset() noexcept{
  * @param enemy_bullets
  * @return BossEvents
  */
-BossEvents BossSystem::UpdateTick(
+BossTickEvents BossSystem::UpdateTick(
     float dt,
     const Vec2& player_position,
     PatternSystem& patterns,
@@ -132,21 +132,21 @@ BossEvents BossSystem::UpdateTick(
 {
     // 処理しないパターン
     if(boss_.status == BossStatus::Inactive){
-        return BossEvents::None;
+        return {};
     }
     // ボスが敗北したとき
     if(boss_.status == BossStatus::Defeating){
         if(boss_.defeating_ticks_remaining > 0){
             --boss_.defeating_ticks_remaining;
-
         }
-        // 敗北演出が完了した
+        // remaining == 0: 敗北演出が完了
         if(boss_.defeating_ticks_remaining == 0){
-            boss_.status = BossStatus::Inactive;    // Inactiveにして終了
-            return BossEvents::DefeatAnimationComplete;
+            boss_.status = BossStatus::Inactive;
+            return BossTickEvents{
+                .defeat_animation_completed = true
+            };
         }
-        
-        return BossEvents::Defeated;
+        return {};
     }
     // 座標更新
     boss_.position += boss_.velocity * dt;
@@ -161,7 +161,7 @@ BossEvents BossSystem::UpdateTick(
         if(boss_.entering_ticks_remaining == 0){
             boss_.status = BossStatus::Fighting;
         }
-        return BossEvents::WaitingTrigger;
+        return {};
     }
 
     // ─── Fighting ─────────────────────────────
@@ -197,7 +197,7 @@ BossEvents BossSystem::UpdateTick(
         boss_.circle_fire_timer = boss_.circle_fire_interval;
     }
 
-    return BossEvents::Active;
+    return {};
 }
 
 /**

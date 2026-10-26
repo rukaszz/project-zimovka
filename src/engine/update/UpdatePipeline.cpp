@@ -7,6 +7,7 @@
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/events/PlayerWeaponEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
+#include "zimovka/events/BossTickEvents.hpp"
 #include "zimovka/systems/bomb/PlayerBombEvents.hpp"
 #include "zimovka/systems/boss/BossConfig.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
@@ -90,9 +91,21 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     // 7. Collision
     // 8. State resolution
     
-    // StageClear中は戦闘を更新しない
-    if (stage_phase_.stage_state == StageStatement::Cleared) {
+    // StageClear中は戦闘を更新しないので早期リターン
+    if(stage_phase_.stage_state == StageStatement::Cleared){
         ++stage_phase_.stage_clear_ticks_elapsed;
+        ++tick_index_;
+        return events;
+    }
+    // ボスの敗北演出中の処理
+    if(stage_phase_.stage_state == StageStatement::Boss && boss_system_.IsDefeating()){
+        const BossTickEvents boss_events = UpdateBoss(dt);
+        // 演出が完了したらステージの状態を遷移
+        if(boss_events.defeat_animation_completed){
+            stage_phase_.stage_state = StageStatement::Cleared;
+            stage_phase_.stage_clear_ticks_elapsed = 0;
+            events.stage_clear_started = true;
+        }
         ++tick_index_;
         return events;
     }
@@ -111,14 +124,24 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     events.weapon = UpdateWeapons(input);
 
     UpdateEnemy(dt);
-    const BossEvents boss_event = UpdateBoss(dt);
+    const BossTickEvents boss_event = UpdateBoss(dt);
 
     UpdateProjectiles(dt);
 
     bool raw_player_hit = false;
     // 被弾したかどうかのみを見る(raw_palyer_hitは参照で渡す)
     ResolveCollisions(raw_player_hit, events.enemy_hit, events.boss_hit, events.bullet_cancel);
-    
+
+    // ボスの撃破処理をBombの被弾処理より優先する
+    // Playerの被弾とボスの撃破が同時に生じたらボスの撃破を優先する
+    if(events.boss_hit.defeated_boss){
+        player_bullets_.Clear();
+        enemy_bullets_.Clear();
+
+        ++tick_index_;
+        return events;
+    }
+
     // ボム処理開始
     events.bomb = UpdateBomb(input, raw_player_hit);
     // 被弾確定時の後処理
@@ -129,16 +152,13 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
         player_weapon_system_.Reset();
         events.player_hit = true;
     }
-    // ボス撃破
-    if(events.boss_hit.defeated_boss){
-        player_bullets_.Clear();
-        enemy_bullets_.Clear();
-    }
-    // 撃破演出完了 → ステージクリア遷移
-    // NOTE: DefeatAnimationComplete発火時にboss_.status=Inactiveになるため
-    //       IsDefeated()はfalseになる。IsDefeated()チェックは使えない。
+
+    // 撃破演出完了時(ステージクリア時)の処理
+    // DefeatAnimationComplete発火時(ステージクリア時)はboss_.status=Inactive
+    // →IsDefeating()はfalseになるので条件に使えない。
     if(stage_phase_.stage_state == StageStatement::Boss
-    && boss_event == BossEvents::DefeatAnimationComplete){
+    && boss_event.defeat_animation_completed)
+    {
         stage_phase_.stage_state = StageStatement::Cleared;
         stage_phase_.stage_clear_ticks_elapsed = 0;
         events.stage_clear_started = true;
@@ -275,7 +295,7 @@ PlayerBombEvents UpdatePipeline::UpdateBomb(const InputState& input, bool player
  * 
  * @param dt 
  */
-BossEvents UpdatePipeline::UpdateBoss(float dt){
+BossTickEvents UpdatePipeline::UpdateBoss(float dt){
     if(boss_system_.IsNotInactive()){
         return boss_system_.UpdateTick(
             dt,
@@ -284,7 +304,7 @@ BossEvents UpdatePipeline::UpdateBoss(float dt){
             enemy_bullets_
         );
     }
-    return BossEvents::None;
+    return {};
 }
 
 /**
