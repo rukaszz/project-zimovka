@@ -47,7 +47,7 @@ void BossSystem::Start(const BossConfig& config){
     // 引数configのチェック
     if(config.name.empty()){
         throw std::invalid_argument(
-            "Invalid Boss config: name is empty."
+            "Invalid Boss config: name is empty. "
         );
     }
     if(!IsFinite(config.position)
@@ -64,6 +64,8 @@ void BossSystem::Start(const BossConfig& config){
                            && std::isfinite(config.hurtbox_radius)
                            && std::isfinite(config.contact_radius);
     const bool valid_timers = config.entering_duration_ticks > 0
+                           && config.attack_step_duration_ticks > 0
+                           && config.defeating_duration_ticks > 0
                            && config.aimed_fire_interval > 0
                            && config.circle_fire_interval > 0;
     if(!valid_radius || !valid_timers || config.max_hp <= 0){
@@ -84,21 +86,24 @@ void BossSystem::Start(const BossConfig& config){
     boss_.hp     = config.max_hp;
     boss_.max_hp = config.max_hp;
 
-    boss_.entering_ticks_remaining = config.entering_duration_ticks;
+    boss_.entering_ticks_remaining    = config.entering_duration_ticks;
+    boss_.attack_step_ticks_remaining = config.attack_step_duration_ticks;
+    boss_.defeating_duration_ticks    = config.defeating_duration_ticks;
+    boss_.defeating_ticks_remaining   = config.defeating_duration_ticks;
 
-    // タイマー: 最初の発射はinterval後に来るよう初期化
+    // タイマー: 最初の発射はinterval経過後に来るよう初期化
     boss_.aimed_fire_interval  = config.aimed_fire_interval;
     boss_.aimed_fire_timer     = config.aimed_fire_interval;
     boss_.circle_fire_interval = config.circle_fire_interval;
     boss_.circle_fire_timer    = config.circle_fire_interval;
 
     boss_.status = BossStatus::Entering;
+    boss_.attack_step = BossAttackStep::AimedPressure;
 }
 
 /**
  * @brief ボスのリセット
  *
- * 現状はHPのみ
  */
 void BossSystem::Reset() noexcept{
     boss_ = Boss{};
@@ -118,7 +123,7 @@ void BossSystem::Reset() noexcept{
  * @param enemy_bullets
  * @return BossEvents
  */
-BossEvents BossSystem::UpdateTick(
+BossTickEvents BossSystem::UpdateTick(
     float dt,
     const Vec2& player_position,
     PatternSystem& patterns,
@@ -127,10 +132,21 @@ BossEvents BossSystem::UpdateTick(
 {
     // 処理しないパターン
     if(boss_.status == BossStatus::Inactive){
-        return BossEvents::None;
+        return {};
     }
+    // ボスが敗北したとき
     if(boss_.status == BossStatus::Defeating){
-        return BossEvents::Defeated;
+        if(boss_.defeating_ticks_remaining > 0){
+            --boss_.defeating_ticks_remaining;
+        }
+        // remaining == 0: 敗北演出が完了
+        if(boss_.defeating_ticks_remaining == 0){
+            boss_.status = BossStatus::Inactive;
+            return BossTickEvents{
+                .defeat_animation_completed = true
+            };
+        }
+        return {};
     }
     // 座標更新
     boss_.position += boss_.velocity * dt;
@@ -145,7 +161,7 @@ BossEvents BossSystem::UpdateTick(
         if(boss_.entering_ticks_remaining == 0){
             boss_.status = BossStatus::Fighting;
         }
-        return BossEvents::WaitingTrigger;
+        return {};
     }
 
     // ─── Fighting ─────────────────────────────
@@ -181,7 +197,7 @@ BossEvents BossSystem::UpdateTick(
         boss_.circle_fire_timer = boss_.circle_fire_interval;
     }
 
-    return BossEvents::Active;
+    return {};
 }
 
 /**
@@ -199,6 +215,8 @@ BossDamageResult BossSystem::TakeDamage(std::int32_t damage){
     if(damage >= boss_.hp){
         boss_.hp = 0;
         boss_.status = BossStatus::Defeating;
+        // 敗北演出処理時間セット
+        boss_.defeating_ticks_remaining = boss_.defeating_duration_ticks;
         return BossDamageResult::Destroyed;
     }
     // ダメージ処理

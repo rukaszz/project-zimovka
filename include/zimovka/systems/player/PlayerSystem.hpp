@@ -27,8 +27,6 @@ public:
     void Initialize(float screen_width, float screen_height);
     // 更新
     void Update(float dt, const InputState& input);
-    // 描画
-    void Render(PrimitiveRenderer& renderer) const;
     // getter
     const Player& GetPlayer() const noexcept{
         return player_;

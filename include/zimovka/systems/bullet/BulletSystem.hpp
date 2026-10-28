@@ -74,8 +74,6 @@ public:
 
     // 更新処理（移動・画面外消去）
     void Update(float dt, float screen_width, float screen_height);
-    // 描画（active な弾のみ）
-    void Render(PrimitiveRenderer& renderer) const;
     // 弾の消去
     void Clear() noexcept;
     // インデックス指定で弾を非活性化(外部向けAPI: CollisionSystemなどから呼び出す)

@@ -43,8 +43,6 @@ public:
     void Update(float dt, float world_width, float world_height);
     // 発射タイマー更新 + パターン発射
     void UpdateFire(PatternSystem& pattern, BulletSystem& enemy_bullets, const Vec2& player_pos);
-    // 描画
-    void Render(PrimitiveRenderer& renderer) const;
     // ダメージを受ける
     EnemyDamageResult TakeDamage(std::size_t index, std::int32_t damage);
 

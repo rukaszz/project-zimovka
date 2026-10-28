@@ -67,6 +67,24 @@ jobs:
 ## 3. リモートへpush
 ### $ git push -u origin feature/boss-system
 ### gh pr create --base main --title "add <new feature>"
+#### ※--bodyでサマリーを添えると良い：
+#### gh pr create --base main --title "feat: add XXXSystem" --body "$(cat <<'EOF'
+#### ## Summary
+#### ...
+#### EOF
+#### )"
+## 4. GithubのページでPull requestを確認(CI)とマージを実施
+### マージしたらfeatureは削除して整理してOK
+## 5. 次の作業へ
+### $ git switch main # mainブランチに変える
+### $ git pull origin main  # マージ後の最新状態を取り込む
+### $ git switch -c feature/<another feature>
 ## ex) もしもmainが進んでしまったら
 ### $ git fetch origin
 ### $ git rebase origin/main  # featureブランチを最新のmainに乗せる
+## ex) もしも gh pr を初めて使う or 認証情報が切れたら
+### $ gh auth login # 対話式で色々聞かれる
+#### ? What account do you want to log into?  → GitHub.com
+#### ? What is your preferred protocol?       → HTTPS
+#### ? How would you like to authenticate?    → Login with a web browser
+#### 表示されたワンタイムコードをブラウザで入力するだけ

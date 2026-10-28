@@ -12,7 +12,7 @@ namespace zimovka{
  */
 Renderer::Renderer(SDL_Window* window){
     // windowのnullチェック(引数をWindow&にしてもいい)
-    if (!window) {
+    if(!window){
         throw std::invalid_argument("Renderer requires a valid SDL_Window.");
     }   
     // レンダラ作成(ハードウェアアクセラレーション指定)

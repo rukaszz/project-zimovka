@@ -3344,3 +3344,118 @@ enum class BossStatus : std::uint8_t{
 #endif  // ZIMOVKA_SYSTEMS_BOSS_BOSSSTATUS_HPP_
 
 ```
+
+### 2026/10/22
+
+#### ボスの"戦闘の"状態遷移
+
+BossSystemを作成したため，CI→pull request→Mergeのステップを経てmainブランチへ取り込んだ．
+次のfeatureではボスの撃破演出とステージクリアを実装してステージのサイクルを完成させ，面白さを高めていきたい．
+
+ボスの現状の状態遷移(BossStatus)は次の通り：
+
+```text
+Inactive
+    ↓
+Entering
+    ↓
+Fighting
+    ↓
+Defeating
+    ↓
+終了
+```
+
+これはボスそのものの状態遷移である．戦闘状態の遷移，例として通常攻撃→必殺技→通常攻撃→......というような状況の変化をボス戦の基盤として，ボスのパターンを変化させたい．この状態遷移は，Fightingの状態を細分化した状態とも言える．つまりこんな感じ：
+
+```text
+Inactive
+    ↓
+Entering
+    ↓
+Fighting→→→↓
+    ↓        ↓
+    ↓      NormalAttack
+    ↓        ↓
+    ↓      SpecialAttack
+Defeating     ↓  
+    ↓         
+終了         
+```
+
+このようにfightingの状態を拡張したいが，BossStatusに追加してしまうと`IsFighting()`が複雑になる．なぜならfightingではないがNormalAttackはIsFighting()がtrueになるべきで......と場合分けが難しくなる．
+
+そこで，BossStatusはライフサイクルの管理，BossAttackStepでボスの攻撃状態を管理する方針で進めたい．
+
+### 2026/10/23
+
+#### ボスの撃破について
+
+① Boss撃破とPlayer被弾が同じtickに発生したら？
+
+現在の衝突判定順序では，PlayerBullet vs Bossの被弾判定→Playerの被弾判定である．しかしボスの敗北イベント伝搬はCollisionSystemの後段で処理される．つまりステージクリアとPlayerの被弾が同時に発生してしまう可能性がある．
+
+zimovkaの仕様として，「Bossの撃破が発生したタイミングでの被弾は無効として，プレイヤーの勝利を優先する」という仕様で決定したい．
+違和感や理不尽感が少なくなると考えている．
+
+② StageClear後に何が動くのか？
+
+ステージクリアとなったとき，敵や弾が動き続けるとゲームの状態にメリハリがない．そのため，描画するオブジェクトや更新するオブジェクトの対象を選定しないといけない．また，この段階ではステージ1のクリアの後は何もない．そのため，ゲームクリアの演出のみを描画・処理するようにすれば良いと考える．
+
+### 2026/10/24
+
+#### Bossの状態遷移
+
+ボスの状態遷移は，Defeatingで負け状態を開始するところから始める．DefeatingはHPが0になった際に判定される．このとき，Boss内で敗北演出状態を計測するメンバ変数`defeating_ticks_remaining`を用いて，演出時刻を管理する．
+
+このDefeatingが完了した時点で，BossEventsがDefeatAnimationComplete状態へ遷移する．これはStageStatement::Clearedの状態であり，またクリア演出の開始のトリガでもある．
+
+```text
+UpdatePipeline
+         │
+         ↓
+    BossSystem::Defeating
+         │
+         │ 演出終了
+         ↓
+    BossEvents::DefeatAnimationComplete
+         │
+         ↓
+    UpdatePipeline
+         │
+         ├── StageStatement::Cleared
+         └── GameplayTickEvents::stage_clear_started
+```
+
+### 2026/10/26
+
+#### Boss関係の状態・イベント群の整理
+
+Boss関係の処理はステージ進行と関わっている部分が多く，複数のイベントを持っている．現状の区分けとしては次の通り：
+
+- BossStatus
+  - Bossの状態
+- BossDamageResult
+  - Bossの1回のダメージ処理の結果
+- BossHitEvents
+  - BossのCollision処理の結果
+- BossEvents
+  - 更新処理でBossがどのように変化するか
+- GameplayTickEvents
+  - ゲーム全体の状態
+
+#### ボスの状態とUpdatePipelineの更新について
+
+ゲームクリア時は各種の演出等を実施し，次ステージへの遷移等を行うため更新処理を制限する．次のような更新を想定している：
+
+| 処理 | Normal | Fighting | Defeating | Cleared |
+| :---: | :---: | :---: | :---: | :---: |
+| Player | ○ | ○ | × | × |
+| PlayerWeapon | ○ | ○ | × | × |
+| Enemy | ○ | ○ | × | × |
+| Projectile | ○ | ○ | × | × |
+| Collision | ○ | ○ | × | × |
+| Bomb | ○ | ○ | × | × |
+| Boss | 必要時 | ○ | **演出タイマーのみ** | × |
+| StageClearタイマー | × | × | × | ○ |
+| 描画 | ○ | ○ | ○ | ○ |

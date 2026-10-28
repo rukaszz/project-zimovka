@@ -142,30 +142,6 @@ void BulletSystem::Update(float dt, float screen_width, float screen_height){
 }
 
 /**
- * @brief 描画処理
- *
- * activeな弾のみ描く
- *
- * @param renderer PrimitiveRenderer への参照
- */
-void BulletSystem::Render(PrimitiveRenderer& renderer) const{
-    // bullet線形全探索
-    for(const auto& b : bullets_){
-        // inactiveは飛ばす
-        if(!b.active){
-            continue;
-        }
-        // activeは描画
-        renderer.DrawFilledCircle(
-            b.position.x,
-            b.position.y,
-            static_cast<int>(b.radius),
-            b.color
-        );
-    }
-}
-
-/**
  * @brief 弾を全部消去する関数
  * 
  * 配列を消すのではなくすべての弾を非活性にする

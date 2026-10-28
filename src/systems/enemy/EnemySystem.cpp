@@ -179,41 +179,6 @@ void EnemySystem::Update(float dt, float world_width, float world_height){
 }
 
 /**
- * @brief 敵の描画処理
- * 現状は暫定的に矩形で描画する
- * 
- * @param renderer 
- */
-void EnemySystem::Render(PrimitiveRenderer& renderer) const{
-    // enemies_線形全探索
-    for(const auto& e : enemies_){
-        // inactiveは飛ばす
-        if(!e.active){
-            continue;
-        }
-        // activeな敵は描画
-        Color enemy_color{64, 64, 255, 255};
-        // enemy.positionは中心座標
-        renderer.DrawFilledRect(
-            e.position.x - e.render_size.x * 0.5f,
-            e.position.y - e.render_size.y * 0.5f,
-            e.render_size.x,
-            e.render_size.y,
-            enemy_color
-        );
-        // 当たり判定(自機弾)
-        Color enemy_center{255, 64, 64, 255};
-        const Vec2 hurtbox_center = e.position + e.hurtbox_offset;
-        renderer.DrawFilledCircle(
-            hurtbox_center.x,
-            hurtbox_center.y,
-            static_cast<int>(e.hurtbox_radius),
-            enemy_center
-        );
-    }
-}
-
-/**
  * @brief 敵がダメージを受ける際の処理
  * 結果はEnemyDamageResultによるいずれかも戻り地を受け取り判定する
  * 

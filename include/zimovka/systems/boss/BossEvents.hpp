@@ -5,12 +5,13 @@ namespace zimovka{
 /**
  * @brief ボスのイベント管理用
  * 
+ * DefeatAnimationCompleteのような1Tickのみのイベントはここで管理しない
  */
 enum class BossEvents{
-    None, 
-    WaitingTrigger, 
-    Active, 
-    Defeated, 
+    None,
+    WaitingTrigger,
+    Active,
+    Defeated,                // 撃破演出進行中
 };
 } // namespace zimovka
 
