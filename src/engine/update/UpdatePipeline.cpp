@@ -153,17 +153,6 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
         events.player_hit = true;
     }
 
-    // 撃破演出完了時(ステージクリア時)の処理
-    // DefeatAnimationComplete発火時(ステージクリア時)はboss_.status=Inactive
-    // →IsDefeating()はfalseになるので条件に使えない。
-    if(stage_phase_.stage_state == StageStatement::Boss
-    && boss_event.defeat_animation_completed)
-    {
-        stage_phase_.stage_state = StageStatement::Cleared;
-        stage_phase_.stage_clear_ticks_elapsed = 0;
-        events.stage_clear_started = true;
-    }
-
     // 伝搬したイベントを返す
     ++tick_index_;
     return events;

@@ -11,6 +11,9 @@
 #include "zimovka/input/InputState.hpp"
 #include "zimovka/stages/Stage1Data.hpp"
 #include "zimovka/systems/boss/BossConfig.hpp"
+#include "zimovka/events/BossTickEvents.hpp"
+#include "zimovka/input/Action.hpp"
+#include "zimovka/stages/StagePhase.hpp"
 #include "zimovka/systems/boss/BossDamageResult.hpp"
 #include "zimovka/systems/boss/BossEvents.hpp"
 #include "zimovka/systems/boss/BossStatus.hpp"
@@ -23,9 +26,11 @@ using zimovka::BossDamageResult;
 using zimovka::BossEvents;
 using zimovka::BossStatus;
 using zimovka::BossSystem;
+using zimovka::BossTickEvents;
 using zimovka::BulletSystem;
 using zimovka::InputState;
 using zimovka::PatternSystem;
+using zimovka::StageStatement;
 using zimovka::UpdatePipeline;
 using zimovka::Vec2;
 
@@ -247,25 +252,25 @@ TEST(BossSystemTest, Reset_RestoresInactiveState){
 // UpdateTick()状態遷移
 // ──────────────────────────────────────────────────────
 /**
- * @brief Inactive時はNoneを返す
+ * @brief Inactive時はFalseを返す
  * 
  */
-TEST(BossSystemTest, UpdateTickReturnsNoneWhenInactive){
+TEST(BossSystemTest, UpdateTickReturnsFalseWhenInactive){
     BossSystem bs;
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
     const Vec2 player_pos{320.0f, 400.0f};
-    EXPECT_EQ(
-        bs.UpdateTick(1.0f/60.0f, player_pos, patterns, enemy_bullets),
-        BossEvents::None
+    EXPECT_FALSE(
+        bs.UpdateTick(1.0f/60.0f, player_pos, patterns, enemy_bullets).defeat_animation_completed
     );
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Inactive);
 }
 
 /**
- * @brief Entering中はWaitingTriggerを返す
+ * @brief Entering中，UpdateTickはfalseを返す
  * 
  */
-TEST(BossSystemTest, UpdateTickReturnsWaitingTriggerDuringEntering){
+TEST(BossSystemTest, UpdateTickReturnsFalseDuringEntering){
     BossSystem bs;
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
@@ -275,10 +280,10 @@ TEST(BossSystemTest, UpdateTickReturnsWaitingTriggerDuringEntering){
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Entering);
 
     const Vec2 player_pos{320.0f, 400.0f};
-    EXPECT_EQ(
-        bs.UpdateTick(1.0f/60.0f, player_pos, patterns, enemy_bullets),
-        BossEvents::WaitingTrigger
+    EXPECT_FALSE(
+        bs.UpdateTick(1.0f/60.0f, player_pos, patterns, enemy_bullets).defeat_animation_completed
     );
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Entering);
 }
 
 /**
@@ -305,10 +310,10 @@ TEST(BossSystemTest, UpdateTickTransitionsEnteringToFighting){
 }
 
 /**
- * @brief Fighting中はActiveを返す
+ * @brief Fighting中，UpdateTickはfalseを返す
  * 
  */
-TEST(BossSystemTest, UpdateTickReturnsActiveWhenFighting){
+TEST(BossSystemTest, UpdateTickReturnsFalseWhenFighting){
     BossSystem bs;
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
@@ -322,17 +327,17 @@ TEST(BossSystemTest, UpdateTickReturnsActiveWhenFighting){
     const float dt = 1.0f / 60.0f;
 
     bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); // Entering→Fighting
-    EXPECT_EQ(
-        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets),
-        BossEvents::Active
+    EXPECT_FALSE(
+        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets).defeat_animation_completed
     );
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Fighting);
 }
 
 /**
  * @brief Defeating状態はDefeatedを返す
  * 
  */
-TEST(BossSystemTest, UpdateTickReturnsDefeatedWhenDefeating){
+TEST(BossSystemTest, UpdateTickReturnsFalseWhenDefeating){
     BossSystem bs;
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
@@ -346,11 +351,42 @@ TEST(BossSystemTest, UpdateTickReturnsDefeatedWhenDefeating){
     EXPECT_TRUE(bs.IsDefeating());
 
     const Vec2 player_pos{320.0f, 400.0f};
-    EXPECT_EQ(
-        bs.UpdateTick(1.0f/60.0f, player_pos, patterns, enemy_bullets),
-        BossEvents::Defeated
+    EXPECT_FALSE(
+        bs.UpdateTick(1.0f/60.0f, player_pos, patterns, enemy_bullets).defeat_animation_completed
     );
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
 }
+
+/**
+ * @brief 敗北演出完了時，UpdateTickはfalseを返す
+ * 
+ */
+TEST(BossSystemTest, UpdateTickReturnsFalseWhenDefeating){
+    BossSystem bs;
+    BulletSystem enemy_bullets(100);
+    PatternSystem patterns;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
+    cfg.max_hp = 1;
+    bs.Start(cfg);
+    AdvanceToFighting(bs, enemy_bullets, patterns);
+    bs.TakeDamage(1);  // HP→0, Defeating遷移
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
+    EXPECT_TRUE(bs.IsDefeating());
+    // Defeating中
+    const Vec2 player_pos{320.0f, 400.0f};
+    EXPECT_FALSE(
+        bs.UpdateTick(1.0f/60.0f, player_pos, patterns, enemy_bullets).defeat_animation_completed
+    );
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
+
+    // 敗北演出完了時
+    EXPECT_TRUE(
+        bs.UpdateTick(1.0f/60.0f, player_pos, patterns, enemy_bullets).defeat_animation_completed
+    );
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
+}
+
 
 // ──────────────────────────────────────────────────────
 // UpdateTick()弾発射
@@ -500,7 +536,7 @@ TEST(BossSystemTest, TakeDamageOverkillReturnsDestroyed){
 }
 
 // ──────────────────────────────────────────────────────
-// 当たり判定円
+// 当たり判定
 // ──────────────────────────────────────────────────────
 /**
  * @brief GetHurtboxCircle/GetContactCircleがpositionとradiusを正しく返すか
@@ -521,7 +557,7 @@ TEST(BossSystemTest, GetCirclesReturnCorrectValues){
 }
 
 // ──────────────────────────────────────────────────────
-// 追加テスト
+// 追加テスト: ボスの状態遷移関係
 // ──────────────────────────────────────────────────────
 
 /**
@@ -573,7 +609,7 @@ TEST(BossSystemTest, DefeatedBoss_CannotTakeFurtherDamage){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    cfg.max_hp = 1;
+    cfg.max_hp = 1; // HPを1で設定
     bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
 
@@ -589,7 +625,8 @@ TEST(BossSystemTest, DefeatedBoss_CannotTakeFurtherDamage){
 
 /**
  * @brief entering_duration_ticks：1→0の境界でWaitingTriggerを返し，
- * 続く1tickでActiveに遷移することを確認(tick境界を固定)
+ * 次の1tickでActiveに遷移することを確認(tickの境界を確認)
+ * 
  */
 TEST(BossSystemTest, EnteringDuration_TransitionsToFightingExactlyOnce){
     BossSystem bs;
@@ -605,20 +642,18 @@ TEST(BossSystemTest, EnteringDuration_TransitionsToFightingExactlyOnce){
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
 
-    // ENTER_TICKS回分すべてWaitingTriggerが返る
+    // ENTER_TICKS回分すべてdefeated_animation_completed=falseかつEntering状態
     for(std::uint64_t i = 0; i < ENTER_TICKS; ++i){
-        EXPECT_EQ(
-            bs.UpdateTick(dt, player_pos, patterns, enemy_bullets),
-            BossEvents::WaitingTrigger
+        EXPECT_FALSE(
+            bs.UpdateTick(dt, player_pos, patterns, enemy_bullets).defeat_animation_completed
         ) << "tick " << (i + 1);
     }
     // ENTER_TICKS回消費後にFightingへ遷移していること
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Fighting);
 
-    // 次のtickはActiveを返す(再度WaitingTriggerには戻らない)
-    EXPECT_EQ(
-        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets),
-        BossEvents::Active
+    // 次のtickもdefeated_animation_completed=false, Fightingのまま
+    EXPECT_FALSE(
+        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets).defeat_animation_completed
     );
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Fighting);
 }
@@ -627,7 +662,8 @@ TEST(BossSystemTest, EnteringDuration_TransitionsToFightingExactlyOnce){
 // 撃破演出 (Defeating state countdown)
 // ──────────────────────────────────────────────────────
 /**
- * @brief Defeating状態でUpdateTickを呼ぶごとに defeating_ticks_remaining が1減ることを確認
+ * @brief Defeating状態でUpdateTickを呼ぶごとにdefeating_ticks_remainingが1ずつ減るか
+ * 
  */
 TEST(BossSystemTest, Defeating_DecrementsTicksEachUpdate){
     BossSystem bs;
@@ -640,21 +676,23 @@ TEST(BossSystemTest, Defeating_DecrementsTicksEachUpdate){
     AdvanceToFighting(bs, enemy_bullets, patterns);
     bs.TakeDamage(1);  // HP→0, Defeating遷移
     ASSERT_EQ(bs.GetBoss().status, BossStatus::Defeating);
-
+    // defeating_ticks_remainingを記録
     const std::uint64_t initial = bs.GetBoss().defeating_ticks_remaining;
     ASSERT_GT(initial, 0u);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
-    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets);
+    // defeating_tickが-1される
+    bs.UpdateTick(dt, player_pos, patterns, enemy_bullets); 
     EXPECT_EQ(bs.GetBoss().defeating_ticks_remaining, initial - 1u);
-
+    // defeating_tickが-1され合計-2
     bs.UpdateTick(dt, player_pos, patterns, enemy_bullets);
     EXPECT_EQ(bs.GetBoss().defeating_ticks_remaining, initial - 2u);
 }
 
 /**
- * @brief defeating_ticks_remaining > 0 の間は Defeated イベントを返すことを確認
+ * @brief defeating_ticks_remaining > 0の間はDefeatedイベントを返すことを確認
+ * 
  */
 TEST(BossSystemTest, Defeating_ReturnsDefeatedWhileTicksRemaining){
     BossSystem bs;
@@ -663,22 +701,23 @@ TEST(BossSystemTest, Defeating_ReturnsDefeatedWhileTicksRemaining){
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
     cfg.max_hp = 1;
+    // 1ダメージで撃破
     bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
     bs.TakeDamage(1);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
-    // 残り tick が減っている間は Defeated を返す
-    EXPECT_EQ(
-        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets),
-        BossEvents::Defeated
+    // remaining > 0 の間は defeat_animation_completed = false
+    EXPECT_FALSE(
+        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets).defeat_animation_completed
     );
     EXPECT_GT(bs.GetBoss().defeating_ticks_remaining, 0u);
 }
 
 /**
- * @brief defeating_ticks_remaining が 0 になると DefeatAnimationComplete を返すことを確認
+ * @brief defeating_ticks_remaining==0でDefeatAnimationCompleteを返すか
+ * 
  */
 TEST(BossSystemTest, Defeating_ReturnsAnimationCompleteAtZero){
     BossSystem bs;
@@ -689,47 +728,29 @@ TEST(BossSystemTest, Defeating_ReturnsAnimationCompleteAtZero){
     cfg.max_hp                   = 1;
     cfg.aimed_fire_interval      = 999;
     cfg.circle_fire_interval     = 999;
+    // 演出時間は短く設定
     const std::uint64_t DEFEAT_TICKS = 3;
-    cfg.defeating_duration_ticks = DEFEAT_TICKS;  // 短く設定
+    cfg.defeating_duration_ticks = DEFEAT_TICKS;
     bs.Start(cfg);
+    // 1ダメージを与え撃破
     AdvanceToFighting(bs, enemy_bullets, patterns);
     bs.TakeDamage(1);
     ASSERT_EQ(bs.GetBoss().defeating_ticks_remaining, DEFEAT_TICKS);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
-    // DEFEAT_TICKS 回は Defeated を返す
-    for(std::uint64_t i = 0; i < DEFEAT_TICKS; ++i){
-        EXPECT_EQ(
-            bs.UpdateTick(dt, player_pos, patterns, enemy_bullets),
-            BossEvents::Defeated
+    // (DEFEAT_TICKS-1)回は defeat_animation_completed = false
+    for(std::uint64_t i = 0; i < DEFEAT_TICKS - 1; ++i){
+        EXPECT_FALSE(
+            bs.UpdateTick(dt, player_pos, patterns, enemy_bullets).defeat_animation_completed
         ) << "tick " << i;
     }
-    EXPECT_EQ(bs.GetBoss().defeating_ticks_remaining, 0u);
-    // 次のtickで DefeatAnimationComplete
-    EXPECT_EQ(
-        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets),
-        BossEvents::DefeatAnimationComplete
+    // DEFEAT_TICKS回目のtickでremainingが0になりdefeat_animation_completed = true
+    EXPECT_EQ(bs.GetBoss().defeating_ticks_remaining, 1u);
+    EXPECT_TRUE(
+        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets).defeat_animation_completed
     );
-}
-
-/**
- * @brief TakeDamage でハードコード値でなく config の defeating_duration_ticks が使われることを確認
- */
-TEST(BossSystemTest, TakeDamage_SetsDefeatDurationFromConfig){
-    BossSystem bs;
-    BulletSystem enemy_bullets(100);
-    PatternSystem patterns;
-    BossConfig cfg = MakeDefaultConfig();
-    cfg.entering_duration_ticks  = 1;
-    cfg.max_hp                   = 1;
-    const std::uint64_t EXPECTED_TICKS = 42;
-    cfg.defeating_duration_ticks = EXPECTED_TICKS;
-    bs.Start(cfg);
-    AdvanceToFighting(bs, enemy_bullets, patterns);
-
-    bs.TakeDamage(1);
-    EXPECT_EQ(bs.GetBoss().defeating_ticks_remaining, EXPECTED_TICKS);
+    EXPECT_EQ(bs.GetBoss().defeating_ticks_remaining, 0u);
 }
 
 // ──────────────────────────────────────────────────────
@@ -738,6 +759,7 @@ TEST(BossSystemTest, TakeDamage_SetsDefeatDurationFromConfig){
 /**
  * @brief BOSS_SPAWN_TICKに達するとボスが一度だけStartされ，
  * 以降はEnemySpawnerも含め二重起動されない
+ * 
  */
 TEST(UpdatePipelineBossTest, StageBossTransition_StartsOnce){
     UpdatePipeline pipeline;
@@ -767,4 +789,231 @@ TEST(UpdatePipelineBossTest, StageBossTransition_StartsOnce){
     EXPECT_TRUE(pipeline.GetBossSystem().IsNotInactive());
     // EnemySpawnerはBossフェーズでは呼ばれないためカーソルが凍結している
     EXPECT_EQ(pipeline.GetSpawnerNextEventIndex(), spawner_idx_after_boss);
+}
+
+// ──────────────────────────────────────────────────────
+// BossSystem: 撃破演出の完了タイミング
+// ──────────────────────────────────────────────────────
+/**
+ * @brief defeating_duration_ticksで指定したtick数で演出が完了することを確認
+ *
+ * BossSystem::UpdateTick()をdefeating_duration_ticks回呼んだ最後のtickで
+ * defeat_animation_completed = true，BossState::Inactiveに遷移
+ */
+TEST(BossSystemTest, Defeating_CompletesAtExactTick){
+    // 設定
+    BossSystem bs;
+    BulletSystem enemy_bullets(100);
+    PatternSystem patterns;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks  = 1;
+    cfg.max_hp                   = 1;
+    cfg.aimed_fire_interval      = 999;
+    cfg.circle_fire_interval     = 999;
+    const std::uint64_t DEFEAT_TICKS = 5;
+    cfg.defeating_duration_ticks = DEFEAT_TICKS;
+    // ボス戦→敗北
+    bs.Start(cfg);
+    AdvanceToFighting(bs, enemy_bullets, patterns);
+    bs.TakeDamage(1);
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Defeating);
+    ASSERT_EQ(bs.GetBoss().defeating_ticks_remaining, DEFEAT_TICKS);
+
+    const Vec2 player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+    // (DEFEAT_TICKS-1)回まで消費→defeat_animation_completedはfalse
+    for(std::uint64_t i = 0; i < DEFEAT_TICKS - 1; ++i){
+        EXPECT_FALSE(
+            bs.UpdateTick(dt, player_pos, patterns, enemy_bullets).defeat_animation_completed
+        ) << "tick " << i;
+        EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
+    }
+    // DEFEAT_TICKS回目で完了のタイミングでdefeat_animation_completed=true, BossStatus::Inactiveへ遷移
+    const BossTickEvents last = bs.UpdateTick(dt, player_pos, patterns, enemy_bullets);
+    EXPECT_TRUE(last.defeat_animation_completed);
+    EXPECT_EQ(bs.GetBoss().defeating_ticks_remaining, 0u);
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Inactive);
+}
+
+/**
+ * @brief defeat_animation_completedは演出完了tickに1度だけ立つことを確認
+ *
+ * ※完了後はボスがInactiveになるためUpdateTickは空のイベントを返す
+ */
+TEST(BossSystemTest, DefeatAnimationComplete_EmittedOnce){
+    BossSystem bs;
+    BulletSystem enemy_bullets(100);
+    PatternSystem patterns;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks  = 1;
+    cfg.max_hp                   = 1;
+    cfg.defeating_duration_ticks = 1;   // 1tickで即完了
+    bs.Start(cfg);
+    AdvanceToFighting(bs, enemy_bullets, patterns);
+    bs.TakeDamage(1);
+
+    const Vec2 player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+    // 1tick目: 完了通知
+    EXPECT_TRUE(
+        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets).defeat_animation_completed
+    );
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Inactive);
+    // 2tick目以降: Inactiveなので空のイベント
+    EXPECT_FALSE(
+        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets).defeat_animation_completed
+    );
+    EXPECT_FALSE(
+        bs.UpdateTick(dt, player_pos, patterns, enemy_bullets).defeat_animation_completed
+    );
+}
+
+// ──────────────────────────────────────────────────────
+// UpdatePipeline: 撃破演出・ステージクリアの状態遷移
+// ──────────────────────────────────────────────────────
+namespace{
+/**
+ * @brief Normal → Boss(defeating) まで進めるヘルパ
+ *
+ * BOSS_SPAWN_TICK まで進め，SHOOTを押し続けてボスを撃破する。
+ * 撃破イベント(defeated_boss)が発火したtickで停止する。
+ * @return true  撃破成功
+ * @return false タイムアウト
+ */
+bool AdvancePipelineToDefeating(UpdatePipeline& pipeline){
+    const float dt = 1.0f / 60.0f;
+    InputState no_input{};
+    const std::uint32_t shoot_bit = zimovka::ActionBit(zimovka::Action::Shoot);
+    InputState shoot_input = InputState::FromBits(shoot_bit, shoot_bit, 0);
+    // Normal フェーズ: BOSS_SPAWN_TICK まで進める
+    for(std::uint64_t i = 0; i <= zimovka::Stage1::BOSS_SPAWN_TICK; ++i){
+        pipeline.UpdateTick(dt, no_input);
+    }
+    // Boss フェーズ: SHOOTを押し続けてボスを撃破
+    constexpr std::uint64_t TIMEOUT = 5000;
+    for(std::uint64_t i = 0; i < TIMEOUT; ++i){
+        const auto ev = pipeline.UpdateTick(dt, shoot_input);
+        if(ev.boss_hit.defeated_boss){
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * @brief Normal → Cleared まで進めるヘルパ
+ *
+ * AdvancePipelineToDefeating 後に撃破演出が完了するまで続ける。
+ * @return true  クリア成功
+ * @return false タイムアウト
+ */
+bool AdvancePipelineToCleared(UpdatePipeline& pipeline){
+    const float dt = 1.0f / 60.0f;
+    InputState no_input{};
+    const std::uint32_t shoot_bit = zimovka::ActionBit(zimovka::Action::Shoot);
+    InputState shoot_input = InputState::FromBits(shoot_bit, shoot_bit, 0);
+    // Normal フェーズ
+    for(std::uint64_t i = 0; i <= zimovka::Stage1::BOSS_SPAWN_TICK; ++i){
+        pipeline.UpdateTick(dt, no_input);
+    }
+    // Boss フェーズ → Cleared まで
+    constexpr std::uint64_t TIMEOUT = 5500;
+    for(std::uint64_t i = 0; i < TIMEOUT; ++i){
+        const auto ev = pipeline.UpdateTick(dt, shoot_input);
+        if(ev.stage_clear_started){
+            return true;
+        }
+    }
+    return false;
+}
+}   // anonymous namespace
+
+/**
+ * @brief 撃破演出中はPlayer・Weapon・Bulletの戦闘更新が行われないことを確認
+ *
+ * Defeating中にUpdateTickを呼んでも
+ * →移動入力を渡してもプレイヤー位置が変わらない
+ * →SHOOT入力を渡しても自機弾が増えない
+ */
+TEST(UpdatePipelineBossTest, Defeating_StopsCombatUpdates){
+    UpdatePipeline pipeline;
+    pipeline.StartRun(640.0f, 720.0f, 42);
+    ASSERT_TRUE(AdvancePipelineToDefeating(pipeline));
+    // この時点でボスはDefeating状態
+    ASSERT_TRUE(pipeline.GetBossSystem().IsDefeating());
+
+    const float dt = 1.0f / 60.0f;
+    // 撃破直後に敵弾・自機弾がClearされる
+    EXPECT_EQ(pipeline.GetPlayerBullets().CountActive(), 0u);
+    EXPECT_EQ(pipeline.GetEnemyBullets().CountActive(), 0u);
+
+    // 移動 + SHOOTを渡しても状態は変化しない
+    InputState move_shoot = InputState::FromBits(
+        zimovka::ActionBit(zimovka::Action::MoveLeft)
+        | zimovka::ActionBit(zimovka::Action::Shoot),
+        0, 0
+    );
+    const Vec2 pos_before = pipeline.GetPlayerSystem().GetPlayerPosition();
+    pipeline.UpdateTick(dt, move_shoot);
+    const Vec2 pos_after  = pipeline.GetPlayerSystem().GetPlayerPosition();
+    EXPECT_EQ(pos_before.x, pos_after.x);
+    EXPECT_EQ(pos_before.y, pos_after.y);
+    // SHOOT 入力があっても自機弾は0のまま
+    EXPECT_EQ(pipeline.GetPlayerBullets().CountActive(), 0u);
+}
+
+/**
+ * @brief ステージクリア後も戦闘更新が再開しないことを確認
+ *
+ * Cleared状態に入ると:
+ * stage_clear_ticks_elapsed がtick毎にインクリメントされる
+ * 移動入力・射撃入力を渡してもプレイヤー位置・弾数に変化がない
+ */
+TEST(UpdatePipelineBossTest, Cleared_StopsCombatUpdates){
+    UpdatePipeline pipeline;
+    pipeline.StartRun(640.0f, 720.0f, 42);
+    ASSERT_TRUE(AdvancePipelineToCleared(pipeline));
+    ASSERT_EQ(pipeline.GetStagePhase().stage_state, StageStatement::Cleared);
+
+    const float dt = 1.0f / 60.0f;
+    InputState move_shoot = InputState::FromBits(
+        zimovka::ActionBit(zimovka::Action::MoveLeft)
+        | zimovka::ActionBit(zimovka::Action::Shoot),
+        0, 0
+    );
+    // クリア直後のカウンタ
+    const std::uint64_t elapsed_before = pipeline.GetStagePhase().stage_clear_ticks_elapsed;
+    const Vec2 pos_before = pipeline.GetPlayerSystem().GetPlayerPosition();
+
+    // 3tick進める
+    for(int i = 0; i < 3; ++i){
+        pipeline.UpdateTick(dt, move_shoot);
+    }
+    // stage_clear_ticks_elapsed が 3 増えている
+    EXPECT_EQ(pipeline.GetStagePhase().stage_clear_ticks_elapsed, elapsed_before + 3u);
+    // プレイヤー位置は変わっていない
+    const Vec2 pos_after = pipeline.GetPlayerSystem().GetPlayerPosition();
+    EXPECT_EQ(pos_before.x, pos_after.x);
+    EXPECT_EQ(pos_before.y, pos_after.y);
+    // 自機弾も増えていない
+    EXPECT_EQ(pipeline.GetPlayerBullets().CountActive(), 0u);
+}
+
+/**
+ * @brief 同一のUpdatePipelineでStartRunを再実行するとNormal状態から再スタートできることを確認
+ *
+ * ステージクリア後に再実行した場合でも初期状態に戻る。
+ */
+TEST(UpdatePipelineBossTest, StartRun_ResetsStageState){
+    UpdatePipeline pipeline;
+    pipeline.StartRun(640.0f, 720.0f, 42);
+    ASSERT_TRUE(AdvancePipelineToCleared(pipeline));
+    ASSERT_EQ(pipeline.GetStagePhase().stage_state, StageStatement::Cleared);
+
+    // 再実行
+    pipeline.StartRun(640.0f, 720.0f, 42);
+    EXPECT_EQ(pipeline.GetStagePhase().stage_state, StageStatement::Normal);
+    EXPECT_EQ(pipeline.GetStagePhase().stage_clear_ticks_elapsed, 0u);
+    EXPECT_FALSE(pipeline.GetBossSystem().IsNotInactive());
+    EXPECT_EQ(pipeline.GetTickIndex(), 0u);
 }
