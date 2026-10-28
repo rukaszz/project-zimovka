@@ -334,7 +334,7 @@ TEST(BossSystemTest, UpdateTickReturnsFalseWhenFighting){
 }
 
 /**
- * @brief Defeating状態はDefeatedを返す
+ * @brief Defeating状態はdefeating_duration_ticksを消費するまでfalseを返す
  * 
  */
 TEST(BossSystemTest, UpdateTickReturnsFalseWhenDefeating){
@@ -358,15 +358,16 @@ TEST(BossSystemTest, UpdateTickReturnsFalseWhenDefeating){
 }
 
 /**
- * @brief 敗北演出完了時，UpdateTickはfalseを返す
+ * @brief 敗北演出完了時，UpdateTickはtrueを返す
  * 
  */
-TEST(BossSystemTest, UpdateTickReturnsFalseWhenDefeating){
+TEST(BossSystemTest, UpdateTickReturnsTrueWhenTicksConsumed){
     BossSystem bs;
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
+    cfg.defeating_duration_ticks = 2;
     cfg.max_hp = 1;
     bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
@@ -384,7 +385,7 @@ TEST(BossSystemTest, UpdateTickReturnsFalseWhenDefeating){
     EXPECT_TRUE(
         bs.UpdateTick(1.0f/60.0f, player_pos, patterns, enemy_bullets).defeat_animation_completed
     );
-    EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Inactive);
 }
 
 
