@@ -22,7 +22,24 @@ namespace{
     constexpr Vec2 ENEMY_BULLET_SIZE{
         14.0f, 14.0f
     };
+    constexpr int FONT_SIZE = 48;
 }   // anonymous namespace
+
+/**
+ * @brief 初期化関数
+ * 
+ * GameTextOverlayへのフォント読み込み
+ * 
+ * @param renderer 
+ * @param font_path 
+ */
+void RenderPipeline::Initialize(
+    SDL_Renderer* renderer, 
+    const std::string& font_path
+)
+{
+    text_overlay_.Load(renderer, font_path, FONT_SIZE);
+}
 
 /**
  * @brief 規定の順序で各種の描画処理を行う
@@ -51,7 +68,7 @@ void RenderPipeline::RenderFrame(
     PrimitiveRenderer&    primitives,
     const TextureStore&   textures,
     bool draw_debug_collision
-) const
+)
 {
     using namespace ScreenLayout;
 
@@ -179,6 +196,16 @@ void RenderPipeline::RenderFrame(
         boss_hud.max_hp  = boss_sys.GetBoss().max_hp;
         BossHudRenderer boss_hud_renderer;
         boss_hud_renderer.Render(boss_hud, primitives);
+    }
+    
+    // GameTextOverlay(プレイフィールドへの文字描画)
+    {
+        GameTextOverlayViewModel overlay_view{};
+        overlay_view.show_stage_clear = 
+            (gameplay.GetStagePhase().stage_state == StageStatement::Cleared);
+        overlay_view.stage_clear_duration_ticks = 360;  // TODO: ハードコード除去
+        text_overlay_.Update(overlay_view);
+        text_overlay_.Render();
     }
 
     // ── HUD描画 ──────────────────────────────────────────────

@@ -56,11 +56,12 @@ int Application::Run(int argc, char* argv[]){
         "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
         14
     );
-    // ゲームUI用フォント(ステージクリアテキストなど)
-    ui_font_ = TTF_OpenFont(
-        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
-        48
+    // 描画管理システム初期化
+    render_pipeline_.Initialize(
+        renderer.Get(),
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
     );
+    
     // デバッグ用にナノ秒をミリ秒へ変換するラムダ式to_msの定義
     auto to_ms = [](std::chrono::nanoseconds d) -> float {
         return static_cast<float>(d.count()) / 1'000'000.0f;
@@ -191,10 +192,7 @@ int Application::Run(int argc, char* argv[]){
     }
     // 終了処理
     run_recorder_.Stop();
-    if(ui_font_){
-        TTF_CloseFont(ui_font_);
-        ui_font_ = nullptr;
-    }
+    
     return 0;
 }
 
@@ -253,18 +251,6 @@ void Application::Render(
         textures,
         true
     );
-    // ステージクリアテキスト(プレイフィールド中央に重ねて表示)
-    const auto& phase = update_pipeline_.GetStagePhase();
-    if(phase.stage_state == StageStatement::Cleared && ui_font_){
-        stage_clear_text_.Update(
-            renderer.Get(),
-            ui_font_,
-            "STAGE CLEAR",
-            {255, 255, 128, 255}
-        );
-        // プレイフィールド(640x720)中央付近: LiberationMono 48pt "STAGE CLEAR" ≈ 330x55px
-        stage_clear_text_.Render(155, 330);
-    }
 }
 
 /**

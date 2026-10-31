@@ -8,42 +8,43 @@
 
 namespace zimovka{
 /**
- * @brief Construct a new Game Text Overlay:: Game Text Overlay object
+ * @brief Destroy the Game Text Overlay:: Game Text Overlay object
+ * 
+ * フォントはこのクラスで所有するので開放する
+ */
+GameTextOverlay::~GameTextOverlay(){
+    if(font_){
+        TTF_CloseFont(font_);
+    }
+}
+
+/**
+ * @brief フォント読み込みなどの初期化
  * 
  * @param renderer  : ポインタで参照し所有しない
  * @param font_path : フォントのパス
  * @param font_size : フォントサイズ
  */
-GameTextOverlay::GameTextOverlay(
+void GameTextOverlay::Load(
     SDL_Renderer* renderer, 
     const std::string& font_path, 
     int font_size = 48
-) : renderer_(renderer)
-  , font_(nullptr)
+)
 {
     // rendererのnullptrチェック
-    if(!renderer_){
+    if(!renderer){
         throw std::invalid_argument(
             "GameTextOverlay requires a valid SDL_Renderer. "
         );
     }
+    renderer_ = renderer;
+
     // フォントオープン(rendererチェックでthrowが生じると開放されない可能性があるためここで確保)
     font_ = TTF_OpenFont(font_path.c_str(), font_size);
     // フォント読み込みエラーでもゲームは続ける
     if(!font_){
         SDL_Log("TTF_OpenFont failed: %s", TTF_GetError());
         return;
-    }
-}
-
-/**
- * @brief Destroy the Game Text Overlay:: Game Text Overlay object
- * 
- * フォントはこのクラスで所有するので開放する
- */
-GameTextOverlay::~GameTextOverlay(){
-    if(!font_){
-        TTF_CloseFont(font_);
     }
 }
 
@@ -87,7 +88,7 @@ void GameTextOverlay::Render() const{
         return;
     }
     // 描画位置
-    const float X = ScreenLayout::PLAYFIELD_WIDTH  / 2;
+    const float X = ScreenLayout::PLAYFIELD_WIDTH  / 4;
     const float Y = ScreenLayout::PLAYFIELD_HEIGHT / 2;
 
     overlay_text_.Render(X, Y);

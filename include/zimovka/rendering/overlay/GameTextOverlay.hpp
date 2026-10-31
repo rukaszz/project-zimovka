@@ -21,16 +21,20 @@ private:
 
     TextTexture overlay_text_;
 public:
-    GameTextOverlay(
-        SDL_Renderer* renderer, 
-        const std::string& font_path, 
-        int font_size = 48
-    );
+    // RenderPipelineで所有するのでデフォルトコンストラクタ
+    GameTextOverlay() = default;    
     ~GameTextOverlay();
+
     // TTF_Font所有の関係でコピー禁止
     GameTextOverlay(const GameTextOverlay&) = delete;
     GameTextOverlay& operator=(const GameTextOverlay&) = delete;
 
+    // フォント等読み込み
+    void Load(
+        SDL_Renderer* renderer, 
+        const std::string& font_path, 
+        int font_size
+    );
     // 更新関数(TextTexture.Update()の戻り値に従う)
     bool Update(GameTextOverlayViewModel& model);
     // 描画関数
