@@ -32,8 +32,7 @@ int Application::Run(int argc, char* argv[]){
     (void)argc;
     (void)argv;
 
-    // SDLの初期化
-    SdlContext sdl;
+    // ウィンドウ・レンダラー生成(SDL初期化はsdl_context_メンバで済み)
     Window window(
         "Zimovka", 
         ScreenLayout::LOGICAL_WIDTH, 
@@ -47,6 +46,12 @@ int Application::Run(int argc, char* argv[]){
     TextureStore texture_store;
     texture_store.LoadAll(renderer.Get(), "./assets_stub/");
 
+    // エンジン関係
+    // 更新順序管理(サブシステムを所有する)
+    UpdatePipeline update_pipeline;
+    // 描画順序管理
+    RenderPipeline render_pipeline;
+
     const auto seed = INITIAL_SEED;
     run_recorder_.Start(seed);
     // デバッグ情報
@@ -57,18 +62,18 @@ int Application::Run(int argc, char* argv[]){
         14
     );
     // 描画管理システム初期化
-    render_pipeline_.Initialize(
+    render_pipeline.Initialize(
         renderer.Get(),
         "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
     );
-    
+
     // デバッグ用にナノ秒をミリ秒へ変換するラムダ式to_msの定義
     auto to_ms = [](std::chrono::nanoseconds d) -> float {
         return static_cast<float>(d.count()) / 1'000'000.0f;
     };
 
     // パイプライン初期化(内部の全サブシステムを初期化する)
-    update_pipeline_.StartRun(
+    update_pipeline.StartRun(
         ScreenLayout::PLAYFIELD_WIDTH, 
         ScreenLayout::PLAYFIELD_HEIGHT, 
         seed
@@ -149,7 +154,7 @@ int Application::Run(int argc, char* argv[]){
             debug_stats_.recording = run_recorder_.IsRecording();
             debug_stats_.recorded_frames = run_recorder_.GetRecord().frames.size();
 
-            Update(fixed_delta, tick_input);
+            Update(fixed_delta, tick_input, update_pipeline);
             update_time_acc -= fixed_ns;
             ++update_steps;
         }
@@ -161,7 +166,7 @@ int Application::Run(int argc, char* argv[]){
         // ────────────────────────────────
         auto render_start = Clock::now();
         renderer.Clear();
-        Render(renderer, sprite_renderer, prim, texture_store);
+        Render(renderer, sprite_renderer, prim, texture_store, update_pipeline, render_pipeline);
         const float raw_render_ms = to_ms(Clock::now() - render_start);
 
         // ────────────────────────────────
@@ -169,7 +174,7 @@ int Application::Run(int argc, char* argv[]){
         // ────────────────────────────────
         debug_refresh_acc += frame_elapsed;
         if(debug_refresh_acc > DEBUG_REFRESH_INTERVAL){
-            FlushDebugStats();
+            FlushDebugStats(update_pipeline);
             (void)debug_overlay.Update(debug_stats_);
             debug_refresh_acc -= DEBUG_REFRESH_INTERVAL;
         }
@@ -222,8 +227,13 @@ void Application::ProcessEvents(){
  *
  * @param dt 固定タイムステップ(秒)
  */
-void Application::Update(float dt, const InputState& input){
-    const GameplayTickEvents events = update_pipeline_.UpdateTick(dt, input);
+void Application::Update(
+    float dt, 
+    const InputState& input,
+    UpdatePipeline& update_pipeline 
+)
+{
+    const GameplayTickEvents events = update_pipeline.UpdateTick(dt, input);
     (void)events;   // NOTE: のちのちSE再生などで使用する
 }
 
@@ -235,16 +245,21 @@ void Application::Update(float dt, const InputState& input){
  * @param sprites 
  * @param primitives 
  * @param textures 
+ * @param update_pipeline 
+ * @param render_pipeline 
+ * @return * void 
  */
 void Application::Render(
     Renderer&           renderer,
     SpriteRenderer&     sprites,
     PrimitiveRenderer&  primitives,
-    const TextureStore& textures
+    const TextureStore& textures, 
+    UpdatePipeline&     update_pipeline, 
+    RenderPipeline&     render_pipeline
 )
 {
-    render_pipeline_.RenderFrame(
-        update_pipeline_,
+    render_pipeline.RenderFrame(
+        update_pipeline,
         renderer,
         sprites,
         primitives,
@@ -292,25 +307,27 @@ void Application::CapFrameRate(std::chrono::steady_clock::time_point frame_start
  *
  * タイミング情報(avg/max)はDebugAccumulator::FlushTo()に委譲する
  * ゲーム固有の値(bullets, collision)はApplicationが設定する
+ * 
+ * @param update_pipeline 
  */
-void Application::FlushDebugStats(){
+void Application::FlushDebugStats(const UpdatePipeline& update_pipeline){
     // タイミング情報のavg/max計算 + debug_acc_のリセットをFlushToに委譲
     debug_acc_.FlushTo(debug_stats_);
     // ゲーム固有の値はpipelineから取得して設定する
-    debug_stats_.active_enemy_bullets = update_pipeline_.GetEnemyBullets().CountActive();
-    debug_stats_.enemy_bullet_capacity = update_pipeline_.GetEnemyBullets().GetCapacity();
+    debug_stats_.active_enemy_bullets = update_pipeline.GetEnemyBullets().CountActive();
+    debug_stats_.enemy_bullet_capacity = update_pipeline.GetEnemyBullets().GetCapacity();
     {
-        const auto& cs = update_pipeline_.GetCollisionSystem().GetStats();
+        const auto& cs = update_pipeline.GetCollisionSystem().GetStats();
         debug_stats_.player_vs_enemy_bullet_checks = cs.player_vs_enemy_bullet_checks;
         debug_stats_.player_bullet_vs_enemy_checks = cs.player_bullet_vs_enemy_checks;
     }
     // PlayerWeapon関係
-    debug_stats_.active_player_bullets    = update_pipeline_.GetPlayerBullets().CountActive();
-    debug_stats_.player_bullet_capacity   = update_pipeline_.GetPlayerBullets().GetCapacity();
-    debug_stats_.ammo                     = update_pipeline_.GetPlayerWeaponSystem().GetState().ammo;
-    debug_stats_.max_ammo                 = update_pipeline_.GetPlayerWeaponSystem().GetConfig().max_ammo;
-    debug_stats_.cooldown_ticks_remaining = update_pipeline_.GetPlayerWeaponSystem().GetState().cooldown_ticks_remaining;
-    debug_stats_.reload_ticks_remaining   = update_pipeline_.GetPlayerWeaponSystem().GetState().reload_ticks_remaining;
+    debug_stats_.active_player_bullets    = update_pipeline.GetPlayerBullets().CountActive();
+    debug_stats_.player_bullet_capacity   = update_pipeline.GetPlayerBullets().GetCapacity();
+    debug_stats_.ammo                     = update_pipeline.GetPlayerWeaponSystem().GetState().ammo;
+    debug_stats_.max_ammo                 = update_pipeline.GetPlayerWeaponSystem().GetConfig().max_ammo;
+    debug_stats_.cooldown_ticks_remaining = update_pipeline.GetPlayerWeaponSystem().GetState().cooldown_ticks_remaining;
+    debug_stats_.reload_ticks_remaining   = update_pipeline.GetPlayerWeaponSystem().GetState().reload_ticks_remaining;
 }
 
 }   // namespace zimovka

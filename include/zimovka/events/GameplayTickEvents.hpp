@@ -13,8 +13,9 @@ namespace zimovka{
  *
  */
 struct GameplayTickEvents{
-    bool               player_hit = false;          // 被弾確定フラグ(ボム解決後)
-    bool               stage_clear_started = false; // ステージクリア演出開始フラグ
+    bool               player_hit = false;           // 被弾確定フラグ(ボム解決後)
+    bool               stage_clear_started  = false; // ステージクリア演出開始フラグ
+    bool               stage_clear_finished = false; // クリア演出完了フラグ
     BulletCancelEvents bullet_cancel{};
     EnemyHitEvents     enemy_hit{};
     BossHitEvents      boss_hit{};

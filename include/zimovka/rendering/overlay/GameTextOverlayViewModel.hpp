@@ -7,7 +7,7 @@ namespace zimovka{
 /**
  * @brief 描画用にデータを構成するView
  * 
- * UpdatePipelineに渡してデータを構築してRenderPipelineへ渡す
+ * RenderPipeline→UpdatePipelineを参照しViewへデータを渡す
  */
 struct GameTextOverlayViewModel{
     bool show_stage_clear = false;

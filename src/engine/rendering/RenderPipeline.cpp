@@ -11,6 +11,7 @@
 #include "zimovka/rendering/hud/HudRenderer.hpp"
 #include "zimovka/rendering/hud/HudViewModel.hpp"
 #include "zimovka/rendering/texture/TextureId.hpp"
+#include "zimovka/stages/Stage1Data.hpp"
 #include "zimovka/systems/boss/BossStatus.hpp"
 
 namespace zimovka{
@@ -140,7 +141,8 @@ void RenderPipeline::RenderFrame(
                 }
             );
         }
-        if(draw_debug_collision){
+        // 当たり判定用の円の描画
+        if(draw_debug_collision && boss.status == BossStatus::Fighting){
             const Circle hurtbox = boss.GetHurtboxCircle();
             primitives.DrawFilledCircle(
                 hurtbox.center.x,
@@ -200,12 +202,19 @@ void RenderPipeline::RenderFrame(
     
     // GameTextOverlay(プレイフィールドへの文字描画)
     {
+        const auto& phase    = gameplay.GetStagePhase();
+        const bool  in_clear = (phase.stage_state == StageStatement::Cleared);
+        constexpr std::uint64_t duration = Stage1::STAGE_CLEAR_DURATION_TICKS;
+        // 演出時間内のみ表示(elapsed >= duration になると show_stage_clear = false)
+        const bool within_duration =
+            in_clear && (phase.stage_clear_ticks_elapsed < duration);
+        // クリア演出用View構成
         GameTextOverlayViewModel overlay_view{};
-        overlay_view.show_stage_clear = 
-            (gameplay.GetStagePhase().stage_state == StageStatement::Cleared);
-        overlay_view.stage_clear_duration_ticks = 360;  // TODO: ハードコード除去
-        text_overlay_.Update(overlay_view);
-        text_overlay_.Render();
+        overlay_view.show_stage_clear             = within_duration;
+        overlay_view.stage_clear_duration_ticks   = duration;
+        overlay_view.stage_clear_ticks_remaining  =
+            within_duration ? (duration - phase.stage_clear_ticks_elapsed) : 0;
+        (void)text_overlay_.Render(overlay_view);
     }
 
     // ── HUD描画 ──────────────────────────────────────────────

@@ -45,6 +45,17 @@ public:
     bool Render(int x, int y) const;
     // リセット関数
     void Reset() noexcept;
+
+    // getter
+    [[nodiscard]]
+    int Width() const noexcept{
+        return width_;
+    }
+    [[nodiscard]]
+    int Height() const noexcept{
+        return height_;
+    }
+
 };
 
 }   // namespace zimovka

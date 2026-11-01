@@ -94,6 +94,10 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     // StageClear中は戦闘を更新しないので早期リターン
     if(stage_phase_.stage_state == StageStatement::Cleared){
         ++stage_phase_.stage_clear_ticks_elapsed;
+        // 演出時間を超過したらクリア完了イベントを発行
+        if(stage_phase_.stage_clear_ticks_elapsed >= Stage1::STAGE_CLEAR_DURATION_TICKS){
+            events.stage_clear_finished = true; // クリア演出エンド
+        }
         ++tick_index_;
         return events;
     }
@@ -104,7 +108,7 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
         if(boss_events.defeat_animation_completed){
             stage_phase_.stage_state = StageStatement::Cleared;
             stage_phase_.stage_clear_ticks_elapsed = 0;
-            events.stage_clear_started = true;
+            events.stage_clear_started = true;  // クリア演出スタート
         }
         ++tick_index_;
         return events;

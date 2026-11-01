@@ -18,8 +18,8 @@ private:
     // fontはこのクラスが所有するので開放する義務を負う
     SDL_Renderer* renderer_ = nullptr;  // 所有しない
     TTF_Font*     font_     = nullptr;  // 所有する
-
-    TextTexture overlay_text_;
+    // 描画する文字列
+    TextTexture stage_clear_text_;
 public:
     // RenderPipelineで所有するのでデフォルトコンストラクタ
     GameTextOverlay() = default;    
@@ -29,16 +29,17 @@ public:
     GameTextOverlay(const GameTextOverlay&) = delete;
     GameTextOverlay& operator=(const GameTextOverlay&) = delete;
 
+    // 再読込時などのフォントの解放処理
+    void Reset() noexcept;
     // フォント等読み込み
     void Load(
-        SDL_Renderer* renderer, 
-        const std::string& font_path, 
-        int font_size
+        SDL_Renderer* renderer,
+        const std::string& font_path,
+        int font_size = 48
     );
-    // 更新関数(TextTexture.Update()の戻り値に従う)
-    bool Update(GameTextOverlayViewModel& model);
+
     // 描画関数
-    void Render() const;
+    bool Render(const GameTextOverlayViewModel& model);
     // TTF_Fontが有効化
     bool IsLoaded() const noexcept{
         return font_ != nullptr;
