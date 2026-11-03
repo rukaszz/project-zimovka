@@ -3606,3 +3606,28 @@ private:
     // デバッグ統計の累積(0.25s毎にflushして平均・最大値を計算)
     DebugAccumulator debug_acc_;
 ```
+
+### 2026/11/03
+
+#### ボスの攻撃パターンについて
+
+ボスの攻撃パターンを増やして戦いがいのあるボスにする．
+現状は次のようなenumがある：
+
+```cpp
+enum class BossAttackStep : std::int8_t{
+    AimedPressure,
+    SpecialWarning,
+    CircleBarrage,
+    Recovery
+};
+```
+
+次のような意味をもたせて戦闘を切り替える：
+
+| 攻撃状態 | 遷移時間 | Bossの行動 | 想定するPlayerの行動 |
+| ---- | ---- | ---- | ---- |
+| AimedPressure | 180tick | 自機狙い弾を複数回発射 | 移動して避ける，避けられない場合は相殺 |
+| SpecialWarning | 90tick | 発射を停止し，形態移行演出を表示 | リロード，自機位置の調整 |
+| CircleBarrage | 180tick | 全方向弾を複数回発射 | 回避，相殺，ボムを使って弾を避け，隙間を縫って攻撃 |
+| Recovery | 75tick | 激しい攻撃の停止，休憩 | リロードや集中攻撃を実施 |

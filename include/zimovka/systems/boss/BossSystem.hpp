@@ -36,6 +36,12 @@ public:
     );
     // ダメージを受ける処理
     BossDamageResult TakeDamage(std::int32_t damage);
+    // ボスの戦闘パターン制御
+    void UpdateFighting(
+        const Vec2& player_position, 
+        PatternSystem& patterns, 
+        BulletSystem& enemy_bullets
+    );
     
     // getter
     [[nodiscard]]

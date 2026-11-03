@@ -224,4 +224,54 @@ BossDamageResult BossSystem::TakeDamage(std::int32_t damage){
     return BossDamageResult::Damaged;
 }
 
+/**
+ * @brief ボスの攻撃パターン制御
+ * 
+ * BossStatus::Fightingの際に実行される
+ * 契約として，残り時間0になった次の更新で状態を移行する
+ * 
+ * @param player_position 
+ * @param patterns 
+ * @param enemy_bullets 
+ */
+void BossSystem::UpdateFighting(
+    const Vec2& player_position, 
+    PatternSystem& patterns, 
+    BulletSystem& enemy_bullets
+)
+{
+    // 攻撃ステップの残時間0で次の攻撃状態へ
+    if(boss_.attack_step_ticks_remaining == 0){
+        AdvenceAttackStap();
+    }
+    // BossAttackStepに応じて行動パターンを返る
+    switch(boss_.attack_step){
+    // 自機狙い弾攻撃
+    case BossAttackStep::AimedPressure:
+        UpdateAimedAttack(
+            player_position, 
+            patterns, 
+            enemy_bullets
+        );
+        break;
+    // 形態移行中
+    case BossAttackStep::SpecialWarning:
+        break;  // 攻撃しない
+    // 全包囲攻撃
+    case BossAttackStep::CircleBarrage:
+        UpdateCircleAttack(
+            player_position, 
+            patterns, 
+            enemy_bullets
+        );
+    // フェーズの初期化
+    case BossAttackStep::Recovery:
+        break;  // 攻撃しない
+    default:
+        // 不正なenum
+        break;
+    }
+    --boss_.attack_step_ticks_remaining;
+}
+
 }   // namespace zimovka
