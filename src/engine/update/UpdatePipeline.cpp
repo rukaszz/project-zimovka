@@ -95,7 +95,7 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     if(stage_phase_.stage_state == StageStatement::Cleared){
         ++stage_phase_.stage_clear_ticks_elapsed;
         // 演出時間を超過したらクリア完了イベントを発行
-        if(stage_phase_.stage_clear_ticks_elapsed >= Stage1::STAGE_CLEAR_DURATION_TICKS){
+        if(stage_phase_.stage_clear_ticks_elapsed == Stage1::STAGE_CLEAR_DURATION_TICKS){
             events.stage_clear_finished = true; // クリア演出エンド
         }
         ++tick_index_;

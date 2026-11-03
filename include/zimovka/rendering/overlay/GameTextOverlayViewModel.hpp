@@ -11,8 +11,8 @@ namespace zimovka{
  */
 struct GameTextOverlayViewModel{
     bool show_stage_clear = false;
-    std::uint64_t stage_clear_duration_ticks    = 0; // クリア演出時間
-    std::uint64_t stage_clear_ticks_remaining   = 0; // クリア演出のカウントダウン
+    std::uint64_t stage_clear_duration_ticks  = 0; // クリア演出時間
+    std::uint64_t stage_clear_ticks_remaining = 0; // クリア演出のカウントダウン
 }; 
 } // namespace zimovka
 
