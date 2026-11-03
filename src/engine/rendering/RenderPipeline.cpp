@@ -11,6 +11,7 @@
 #include "zimovka/rendering/hud/HudRenderer.hpp"
 #include "zimovka/rendering/hud/HudViewModel.hpp"
 #include "zimovka/rendering/texture/TextureId.hpp"
+#include "zimovka/stages/Stage1Data.hpp"
 #include "zimovka/systems/boss/BossStatus.hpp"
 
 namespace zimovka{
@@ -22,7 +23,24 @@ namespace{
     constexpr Vec2 ENEMY_BULLET_SIZE{
         14.0f, 14.0f
     };
+    constexpr int FONT_SIZE = 48;
 }   // anonymous namespace
+
+/**
+ * @brief 初期化関数
+ * 
+ * GameTextOverlayへのフォント読み込み
+ * 
+ * @param renderer 
+ * @param font_path 
+ */
+void RenderPipeline::Initialize(
+    SDL_Renderer* renderer, 
+    const std::string& font_path
+)
+{
+    text_overlay_.Load(renderer, font_path, FONT_SIZE);
+}
 
 /**
  * @brief 規定の順序で各種の描画処理を行う
@@ -51,7 +69,7 @@ void RenderPipeline::RenderFrame(
     PrimitiveRenderer&    primitives,
     const TextureStore&   textures,
     bool draw_debug_collision
-) const
+)
 {
     using namespace ScreenLayout;
 
@@ -123,7 +141,8 @@ void RenderPipeline::RenderFrame(
                 }
             );
         }
-        if(draw_debug_collision){
+        // 当たり判定用の円の描画
+        if(draw_debug_collision && boss.status == BossStatus::Fighting){
             const Circle hurtbox = boss.GetHurtboxCircle();
             primitives.DrawFilledCircle(
                 hurtbox.center.x,
@@ -179,6 +198,23 @@ void RenderPipeline::RenderFrame(
         boss_hud.max_hp  = boss_sys.GetBoss().max_hp;
         BossHudRenderer boss_hud_renderer;
         boss_hud_renderer.Render(boss_hud, primitives);
+    }
+    
+    // GameTextOverlay(プレイフィールドへの文字描画)
+    {
+        const auto& phase    = gameplay.GetStagePhase();
+        const bool  in_clear = (phase.stage_state == StageStatement::Cleared);
+        constexpr std::uint64_t duration = Stage1::STAGE_CLEAR_DURATION_TICKS;
+        // 演出時間内のみ表示(elapsed >= duration になると show_stage_clear = false)
+        const bool within_duration =
+            in_clear && (phase.stage_clear_ticks_elapsed < duration);
+        // クリア演出用View構成
+        GameTextOverlayViewModel overlay_view{};
+        overlay_view.show_stage_clear             = within_duration;
+        overlay_view.stage_clear_duration_ticks   = duration;
+        overlay_view.stage_clear_ticks_remaining  =
+            within_duration ? (duration - phase.stage_clear_ticks_elapsed) : 0;
+        (void)text_overlay_.Render(overlay_view);
     }
 
     // ── HUD描画 ──────────────────────────────────────────────

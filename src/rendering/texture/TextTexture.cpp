@@ -90,13 +90,13 @@ bool TextTexture::Update(
     zimovka::Color      color
 )
 {
-    if (!renderer) {
+    if(!renderer){
         throw std::invalid_argument(
-            "TextTexture requires a valid SDL_Renderer."
+            "TextTexture requires a valid SDL_Renderer. "
         );
     }
-    if (!font) {
-        SDL_Log("TextTexture::Update received a null font.");
+    if(!font){
+        SDL_Log("TextTexture::Update received a null font. ");
         return false;
     }
 

@@ -3459,3 +3459,150 @@ Boss関係の処理はステージ進行と関わっている部分が多く，�
 | Boss | 必要時 | ○ | **演出タイマーのみ** | × |
 | StageClearタイマー | × | × | × | ○ |
 | 描画 | ○ | ○ | ○ | ○ |
+
+### 2026/10/29
+
+#### ステージクリア演出
+
+ステージクリア演出を実装した．当初は既存の仕組みへ乗せるために当初はApplicationに強引に実装していた：
+
+```cpp
+// ゲームUI用フォント(ステージクリアテキストなど)
+ui_font_ = TTF_OpenFont(
+    "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+    48
+);
+...
+// ステージクリアテキスト(プレイフィールド中央に重ねて表示)
+const auto& phase = update_pipeline_.GetStagePhase();
+if(phase.stage_state == StageStatement::Cleared && ui_font_){
+    stage_clear_text_.Update(
+        renderer.Get(),
+        ui_font_,
+        "STAGE CLEAR",
+        {255, 255, 128, 255}
+    );
+    // プレイフィールド(640x720)中央付近: LiberationMono 48pt "STAGE CLEAR" ≈ 330x55px
+    stage_clear_text_.Render(155, 330);
+}
+```
+
+もちろん「STAGE CLEAR」の文字列を表示する責務は，Applicationの埒外である．
+簡易的な実装では問題ないが，ゲーム中の文字列描画処理をApplicationに乗せておくと，後々の改修にコストがかかると考え`GameTextOverlay`を実装した．
+
+#### GameTextOverlayについて
+
+`DebugOverlay`のシステムを踏襲し，当該システムにフォントを持ってもらう方針にしている．
+当初はフォントの読み込みをコンストラクタで実装していたが，文字列描画処理をRenderPipelineに乗せる都合上，デフォルトコンストラクタでインスタンス化→フォントの読み込みという手順に沿うことが自然であると考えた．
+そのため，Load()をクラスを使用する前に呼び出す．
+
+```cpp
+#ifndef ZIMOVKA_RENDERING_OVERLAY_GAMETEXTOVERLAY_HPP_
+#define ZIMOVKA_RENDERING_OVERLAY_GAMETEXTOVERLAY_HPP_
+
+#include <string>
+
+#include <SDL2/SDL_ttf.h>
+
+#include "zimovka/rendering/overlay/GameTextOverlayViewModel.hpp"
+#include "zimovka/rendering/texture/TextTexture.hpp"
+
+namespace zimovka{
+/**
+ * @brief 主にプレイフィールドに文字を描画するためのクラス
+ * 
+ */
+class GameTextOverlay{
+private:
+    // fontはこのクラスが所有するので開放する義務を負う
+    SDL_Renderer* renderer_ = nullptr;  // 所有しない
+    TTF_Font*     font_     = nullptr;  // 所有する
+
+    TextTexture overlay_text_;
+public:
+    // RenderPipelineで所有するのでデフォルトコンストラクタ
+    GameTextOverlay() = default;    
+    ~GameTextOverlay();
+
+    // TTF_Font所有の関係でコピー禁止
+    GameTextOverlay(const GameTextOverlay&) = delete;
+    GameTextOverlay& operator=(const GameTextOverlay&) = delete;
+
+    // フォント等読み込み
+    void Load(
+        SDL_Renderer* renderer, 
+        const std::string& font_path, 
+        int font_size
+    );
+    // 更新関数(TextTexture.Update()の戻り値に従う)
+    bool Update(GameTextOverlayViewModel& model);
+    // 描画関数
+    void Render() const;
+    // TTF_Fontが有効化
+    bool IsLoaded() const noexcept{
+        return font_ != nullptr;
+    }
+
+};
+} // namespace zimovka
+
+#endif  // ZIMOVKA_RENDERING_OVERLAY_GAMETEXTOVERLAY_HPP_
+
+```
+
+#### コアダンプの発生
+
+GameTextOverlayを実装し組み込んだ際に，「STAGE CLEAR」表示後にESCキー押下でゲームを終了した際に，コアダンプが発生した．
+クラッシュダンプの解析の前にGameTextOverlay関係の処理を追いかけた結果，原因が判明した．
+
+理由としては，SDL_TTFのライフタイムの不一致である．SDLのライブラリ関係は`SdlContext`で管理している．
+ただ`SdlContext`はApplication::Run()のローカル変数で管理しており，Run()の終了後にSDLのリソースがRAIIに準じて解放される：
+
+```text
+Application::Run()内ローカル変数(LIFO順に破棄)：
+SdlContext sdl            ← 最後に破棄: TTF_Quit()が呼ばれる
+        ↓
+Window window
+        ↓
+Renderer renderer
+        ↓
+DebugOverlay debug_overlay ← 最初に破棄: TTF_CloseFont()が完了(TTFまだ生きている)
+```
+
+しかしGameTextOverlayはRenderPipelineのメンバ変数でtext_overlay_を持っている．このため，Applicationの終了時にGameTextOverlay::~GameTextOverlay()が呼ばれる．
+このときにTTF_CloseFont()を呼ぶのだが，SDL_TTFが解放されているためクラッシュとなる：
+
+```text
+Application::Run()返却後、Applicationのメンバが破棄: 
+  RenderPipeline render_pipeline_
+    └─ GameTextOverlay text_overlay_
+         └─ ~GameTextOverlay() → TTF_CloseFont(font_)←クラッシュ(TTFがすでに解放されているため)
+```
+
+DebugOverlayはApplication::Run()のローカル変数であるためRun()終了時にSdlContextより早く解放され安全である．
+
+#### 対処方法
+
+`SdlContext`をメンバ変数で最初に宣言し，Application終了時の最後に解放されるようにした：
+
+```cpp
+class Application{
+...
+private:
+    // SDLサブシステム(最初に初期化・最後に破棄することで全SDLリソースより長生きする)
+    SdlContext sdl_context_;
+    // メインゲームループ制御
+    bool running_ = true;
+    // 更新順序管理(サブシステムを所有する)
+    UpdatePipeline update_pipeline_;
+    // 描画順序管理
+    RenderPipeline render_pipeline_;
+    // 入力
+    InputSystem input_system_;
+    // 入力記録
+    RunRecorder run_recorder_;
+    // デバッグ情報
+    DebugStats debug_stats_;
+    // デバッグ統計の累積(0.25s毎にflushして平均・最大値を計算)
+    DebugAccumulator debug_acc_;
+```

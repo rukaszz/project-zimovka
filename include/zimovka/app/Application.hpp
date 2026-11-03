@@ -4,10 +4,9 @@
 #include <chrono>
 #include <cstddef>
 
-#include <SDL2/SDL_ttf.h>
-
 #include "zimovka/config/ScreenLayout.hpp"
 #include "zimovka/engine/rendering/RenderPipeline.hpp"
+#include "zimovka/platform/SdlContext.hpp"
 #include "zimovka/engine/update/UpdatePipeline.hpp"
 #include "zimovka/input/InputSystem.hpp"
 #include "zimovka/replay/RunRecorder.hpp"
@@ -43,12 +42,10 @@ public:
     int Run(int argc, char* argv[]);
 
 private:
+    // SDLサブシステム(最初に初期化・最後に破棄することで全SDLリソースより長生きする)
+    SdlContext sdl_context_;
     // メインゲームループ制御
     bool running_ = true;
-    // 更新順序管理(サブシステムを所有する)
-    UpdatePipeline update_pipeline_;
-    // 描画順序管理
-    RenderPipeline render_pipeline_;
     // 入力
     InputSystem input_system_;
     // 入力記録
@@ -57,25 +54,28 @@ private:
     DebugStats debug_stats_;
     // デバッグ統計の累積(0.25s毎にflushして平均・最大値を計算)
     DebugAccumulator debug_acc_;
-    // ステージクリアテキスト表示用(Run()内でフォントを読み込む)
-    TTF_Font*   ui_font_ = nullptr;
-    TextTexture stage_clear_text_;
 
     // イベントの処理
     void ProcessEvents();
     // ゲームの更新
-    void Update(float dt, const InputState& input);
+    void Update(
+        float dt, 
+        const InputState& input, 
+        UpdatePipeline& update_pipeline 
+    );
     // 描画処理
     void Render(
         Renderer&           renderer,
         SpriteRenderer&     sprites,
         PrimitiveRenderer&  primitives,
-        const TextureStore& textures
+        const TextureStore& textures, 
+        UpdatePipeline&     update_pipeline, 
+        RenderPipeline&     render_pipeline
     );
     // fpsキャップ
     void CapFrameRate(std::chrono::steady_clock::time_point frame_start_ms);
     // デバッグ情報をdebug_acc_からdebug_stats_へ書き出す
-    void FlushDebugStats();
+    void FlushDebugStats(const UpdatePipeline& update_pipeline);
 
 };
 
