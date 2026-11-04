@@ -2,6 +2,7 @@
 #define ZIMOVKA_SYSTEMS_BOSS_BOSSSYSTEM_HPP_
 
 #include <cstdint>
+#include <cstddef>
 
 #include "zimovka/events/BossTickEvents.hpp"
 #include "zimovka/systems/boss/Boss.hpp"
@@ -22,6 +23,28 @@ class BossSystem{
 private: 
     Boss boss_;
 
+    // ボスの戦闘パターン制御
+    void UpdateFighting(
+        const Vec2& player_position, 
+        PatternSystem& patterns, 
+        BulletSystem& enemy_bullets
+    );
+
+    // BossAttackStepの進行管理
+    void AdvanceAttackStep();
+    // 攻撃関数
+    // 自機狙い扇形弾
+    std::size_t UpdateAimedAttack(
+        const Vec2& player_position, 
+        PatternSystem& patterns, 
+        BulletSystem& enemy_bullets
+    );
+    // 全包囲弾
+    std::size_t UpdateCircleAttack(
+        PatternSystem& patterns, 
+        BulletSystem& enemy_bullets
+    );
+
 public:
     // ボス戦開始処理
     void Start(const BossConfig& config);
@@ -36,12 +59,6 @@ public:
     );
     // ダメージを受ける処理
     BossDamageResult TakeDamage(std::int32_t damage);
-    // ボスの戦闘パターン制御
-    void UpdateFighting(
-        const Vec2& player_position, 
-        PatternSystem& patterns, 
-        BulletSystem& enemy_bullets
-    );
     
     // getter
     [[nodiscard]]

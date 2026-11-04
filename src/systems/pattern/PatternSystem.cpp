@@ -12,7 +12,7 @@ namespace zimovka{
  * 
  * @param pattern 
  * @param bullets 
- * @return std::size_t 
+ * @return std::size_t 発射した弾数
  */
 std::size_t PatternSystem::EmitSpread(
     const PatternEmitRequest& pattern, 

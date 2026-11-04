@@ -91,6 +91,11 @@ void BossSystem::Start(const BossConfig& config){
     boss_.defeating_duration_ticks    = config.defeating_duration_ticks;
     boss_.defeating_ticks_remaining   = config.defeating_duration_ticks;
 
+    boss_.aimed_duration_ticks        = config.aimed_duration_ticks;
+    boss_.waiting_duration_ticks      = config.waiting_duration_ticks;
+    boss_.circle_duration_ticks       = config.circle_duration_ticks;
+    boss_.recovery_duration_ticks     = config.recovery_duration_ticks;
+
     // タイマー: 最初の発射はinterval経過後に来るよう初期化
     boss_.aimed_fire_interval  = config.aimed_fire_interval;
     boss_.aimed_fire_timer     = config.aimed_fire_interval;
@@ -171,14 +176,7 @@ BossTickEvents BossSystem::UpdateTick(
         --boss_.aimed_fire_timer;
     }
     if(boss_.aimed_fire_timer == 0){
-        PatternEmitRequest req{};
-        req.origin         = boss_.position;
-        req.base_angle_rad = GameplayMath::AimAngleRad(boss_.position, player_position);
-        req.bullet_count   = AimedBulletCount;
-        req.spread_rad     = AimedSpreadRad;
-        req.bullet_speed   = AimedBulletSpeed;
-        req.bullet_radius  = AimedBulletRadius;
-        (void)patterns.EmitSpread(req, enemy_bullets);
+        UpdateAimedAttack(player_position, patterns, enemy_bullets);
         boss_.aimed_fire_timer = boss_.aimed_fire_interval;
     }
 
@@ -187,13 +185,7 @@ BossTickEvents BossSystem::UpdateTick(
         --boss_.circle_fire_timer;
     }
     if(boss_.circle_fire_timer == 0){
-        PatternEmitRequest req{};
-        req.origin         = boss_.position;
-        req.base_angle_rad = 0.0f;
-        req.bullet_count   = CircleBulletCount;
-        req.bullet_speed   = CircleBulletSpeed;
-        req.bullet_radius  = CircleBulletRadius;
-        (void)patterns.EmitCircle(req, enemy_bullets);
+        UpdateCircleAttack(patterns, enemy_bullets);
         boss_.circle_fire_timer = boss_.circle_fire_interval;
     }
 
@@ -227,6 +219,81 @@ BossDamageResult BossSystem::TakeDamage(std::int32_t damage){
 /**
  * @brief ボスの攻撃パターン制御
  * 
+ * attack_step_ticksによるBossAttackStepの切り替え
+ */
+void BossSystem::AdvanceAttackStep(){
+    switch(boss_.attack_step){
+    case BossAttackStep::AimedPressure:
+        boss_.attack_step = BossAttackStep::SpecialWarning;
+        boss_.attack_step_ticks_remaining = boss_.waiting_duration_ticks;
+        break;
+    case BossAttackStep::SpecialWarning:
+        boss_.attack_step = BossAttackStep::CircleBarrage;
+        boss_.attack_step_ticks_remaining = boss_.circle_duration_ticks;
+        break;
+    case BossAttackStep::CircleBarrage:
+        boss_.attack_step = BossAttackStep::Recovery;
+        boss_.attack_step_ticks_remaining = boss_.recovery_duration_ticks;
+        break;
+    case BossAttackStep::Recovery:
+        boss_.attack_step = BossAttackStep::AimedPressure;
+        boss_.attack_step_ticks_remaining = boss_.aimed_duration_ticks;
+        break;
+    default:
+        // 不正なenum
+        break;
+    }
+}
+
+/**
+ * @brief 自機狙い扇形弾
+ * 
+ * @param player_position 
+ * @param patterns 
+ * @param enemy_bullets 
+ * @return std::size_t 発射した弾数
+ */
+std::size_t BossSystem::UpdateAimedAttack(
+    const Vec2& player_position, 
+    PatternSystem& patterns, 
+    BulletSystem& enemy_bullets
+)
+{
+    PatternEmitRequest req{};
+    req.origin         = boss_.position;
+    req.base_angle_rad = GameplayMath::AimAngleRad(boss_.position, player_position);
+    req.bullet_count   = AimedBulletCount;
+    req.spread_rad     = AimedSpreadRad;
+    req.bullet_speed   = AimedBulletSpeed;
+    req.bullet_radius  = AimedBulletRadius;
+    return patterns.EmitSpread(req, enemy_bullets);
+}
+
+/**
+ * @brief 全包囲弾発射
+ * 
+ * @param player_position 
+ * @param patterns 
+ * @param enemy_bullets 
+ * @return std::size_t 
+ */
+std::size_t BossSystem::UpdateCircleAttack(
+    PatternSystem& patterns, 
+    BulletSystem& enemy_bullets
+)
+{
+    PatternEmitRequest req{};
+    req.origin         = boss_.position;
+    req.base_angle_rad = 0.0f;
+    req.bullet_count   = CircleBulletCount;
+    req.bullet_speed   = CircleBulletSpeed;
+    req.bullet_radius  = CircleBulletRadius;
+    return patterns.EmitCircle(req, enemy_bullets);
+}
+
+/**
+ * @brief 戦闘時のパターン別攻撃制御
+ * 
  * BossStatus::Fightingの際に実行される
  * 契約として，残り時間0になった次の更新で状態を移行する
  * 
@@ -242,7 +309,7 @@ void BossSystem::UpdateFighting(
 {
     // 攻撃ステップの残時間0で次の攻撃状態へ
     if(boss_.attack_step_ticks_remaining == 0){
-        AdvenceAttackStap();
+        AdvanceAttackStep();
     }
     // BossAttackStepに応じて行動パターンを返る
     switch(boss_.attack_step){
@@ -260,7 +327,6 @@ void BossSystem::UpdateFighting(
     // 全包囲攻撃
     case BossAttackStep::CircleBarrage:
         UpdateCircleAttack(
-            player_position, 
             patterns, 
             enemy_bullets
         );

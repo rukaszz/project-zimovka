@@ -36,6 +36,12 @@ struct Boss{
     std::uint64_t defeating_duration_ticks    = 0; // 撃破演出の総tick数(描画のscale計算用)
     std::uint64_t defeating_ticks_remaining   = 0; // 敗北フェーズのカウントダウン
 
+    // ボスの攻撃パターン切り替え定義
+    std::uint64_t aimed_duration_ticks        = 0;
+    std::uint64_t waiting_duration_ticks      = 0;
+    std::uint64_t circle_duration_ticks       = 0;
+    std::uint64_t recovery_duration_ticks     = 0;
+
     std::uint32_t aimed_fire_timer     = 0;        // 自機狙い発射カウントダウン
     std::uint32_t aimed_fire_interval  = 0;        // 自機狙い発射リセット間隔
     std::uint32_t circle_fire_timer    = 0;        // 全方向発射カウントダウン
