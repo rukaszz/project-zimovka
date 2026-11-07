@@ -3,8 +3,10 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "zimovka/core/Vec2.hpp"
+#include "zimovka/systems/boss/BossAttackSequenceDef.hpp"
 
 namespace zimovka{
 /**
@@ -28,10 +30,12 @@ struct BossConfig{
     std::uint64_t defeating_duration_ticks   = 180;  // 撃破演出時間
 
     // ボスの攻撃パターン切り替え定義
-    std::uint64_t aimed_duration_ticks       = 180;
-    std::uint64_t waiting_duration_ticks     = 90;
-    std::uint64_t circle_duration_ticks      = 180;
-    std::uint64_t recovery_duration_ticks    = 75;
+    std::vector<BossAttackSequenceDef> attack_sequence{
+        {BossAttackStep::AimedPressure, 180},
+        {BossAttackStep::SpecialWarning, 90},
+        {BossAttackStep::CircleBarrage, 180},
+        {BossAttackStep::Recovery,       75}, 
+    };
 
     std::uint32_t aimed_fire_interval        = 90;   // 自機狙い発射間隔(tick)
     std::uint32_t circle_fire_interval       = 180;  // 全方向発射間隔(tick)

@@ -1,6 +1,7 @@
 #include "zimovka/systems/boss/BossSystem.hpp"
 
 #include <cmath>
+#include <memory>
 #include <numbers>
 #include <stdexcept>
 
@@ -91,10 +92,8 @@ void BossSystem::Start(const BossConfig& config){
     boss_.defeating_duration_ticks    = config.defeating_duration_ticks;
     boss_.defeating_ticks_remaining   = config.defeating_duration_ticks;
 
-    boss_.aimed_duration_ticks        = config.aimed_duration_ticks;
-    boss_.waiting_duration_ticks      = config.waiting_duration_ticks;
-    boss_.circle_duration_ticks       = config.circle_duration_ticks;
-    boss_.recovery_duration_ticks     = config.recovery_duration_ticks;
+    // vectorのmove
+    boss_.attack_sequence = std::move(config.attack_sequence);
 
     // タイマー: 最初の発射はinterval経過後に来るよう初期化
     boss_.aimed_fire_interval  = config.aimed_fire_interval;
@@ -171,23 +170,7 @@ BossTickEvents BossSystem::UpdateTick(
 
     // ─── Fighting ─────────────────────────────
     // Fighting: パターン発射
-    // 自機狙い拡散弾 (EmitSpread)
-    if(boss_.aimed_fire_timer > 0){
-        --boss_.aimed_fire_timer;
-    }
-    if(boss_.aimed_fire_timer == 0){
-        UpdateAimedAttack(player_position, patterns, enemy_bullets);
-        boss_.aimed_fire_timer = boss_.aimed_fire_interval;
-    }
-
-    // 全方向弾 (EmitCircle)
-    if(boss_.circle_fire_timer > 0){
-        --boss_.circle_fire_timer;
-    }
-    if(boss_.circle_fire_timer == 0){
-        UpdateCircleAttack(patterns, enemy_bullets);
-        boss_.circle_fire_timer = boss_.circle_fire_interval;
-    }
+    (void)UpdateFighting(player_position, patterns, enemy_bullets);
 
     return {};
 }
@@ -222,27 +205,13 @@ BossDamageResult BossSystem::TakeDamage(std::int32_t damage){
  * attack_step_ticksによるBossAttackStepの切り替え
  */
 void BossSystem::AdvanceAttackStep(){
-    switch(boss_.attack_step){
-    case BossAttackStep::AimedPressure:
-        boss_.attack_step = BossAttackStep::SpecialWarning;
-        boss_.attack_step_ticks_remaining = boss_.waiting_duration_ticks;
-        break;
-    case BossAttackStep::SpecialWarning:
-        boss_.attack_step = BossAttackStep::CircleBarrage;
-        boss_.attack_step_ticks_remaining = boss_.circle_duration_ticks;
-        break;
-    case BossAttackStep::CircleBarrage:
-        boss_.attack_step = BossAttackStep::Recovery;
-        boss_.attack_step_ticks_remaining = boss_.recovery_duration_ticks;
-        break;
-    case BossAttackStep::Recovery:
-        boss_.attack_step = BossAttackStep::AimedPressure;
-        boss_.attack_step_ticks_remaining = boss_.aimed_duration_ticks;
-        break;
-    default:
-        // 不正なenum
-        break;
-    }
+    // 攻撃パターンの定義取得
+    boss_.attack_step_index = 
+        (boss_.attack_step_index + 1) % (boss_.attack_sequence.size());
+    const auto& def = boss_.attack_sequence[boss_.attack_step_index];
+    // 定義の代入
+    boss_.attack_step                 = def.step;
+    boss_.attack_step_ticks_remaining = def.duration_ticks;
 }
 
 /**
@@ -311,25 +280,33 @@ void BossSystem::UpdateFighting(
     if(boss_.attack_step_ticks_remaining == 0){
         AdvanceAttackStep();
     }
-    // BossAttackStepに応じて行動パターンを返る
+    // BossAttackStepに応じて行動パターンを変える
     switch(boss_.attack_step){
     // 自機狙い弾攻撃
     case BossAttackStep::AimedPressure:
-        UpdateAimedAttack(
-            player_position, 
-            patterns, 
-            enemy_bullets
-        );
+        // 自機狙い拡散弾 (EmitSpread)
+        if(boss_.aimed_fire_timer > 0){
+            --boss_.aimed_fire_timer;
+        }
+        if(boss_.aimed_fire_timer == 0){
+            UpdateAimedAttack(player_position, patterns, enemy_bullets);
+            boss_.aimed_fire_timer = boss_.aimed_fire_interval;
+        }
         break;
     // 形態移行中
     case BossAttackStep::SpecialWarning:
         break;  // 攻撃しない
     // 全包囲攻撃
     case BossAttackStep::CircleBarrage:
-        UpdateCircleAttack(
-            patterns, 
-            enemy_bullets
-        );
+        // 全方向弾 (EmitCircle)
+        if(boss_.circle_fire_timer > 0){
+            --boss_.circle_fire_timer;
+        }
+        if(boss_.circle_fire_timer == 0){
+            UpdateCircleAttack(patterns, enemy_bullets);
+            boss_.circle_fire_timer = boss_.circle_fire_interval;
+        }
+        break;
     // フェーズの初期化
     case BossAttackStep::Recovery:
         break;  // 攻撃しない
