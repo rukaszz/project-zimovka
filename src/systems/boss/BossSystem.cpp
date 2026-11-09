@@ -65,7 +65,6 @@ void BossSystem::Start(const BossConfig& config){
                            && std::isfinite(config.hurtbox_radius)
                            && std::isfinite(config.contact_radius);
     const bool valid_timers = config.entering_duration_ticks > 0
-                           && config.attack_step_duration_ticks > 0
                            && config.defeating_duration_ticks > 0
                            && config.aimed_fire_interval > 0
                            && config.circle_fire_interval > 0;
@@ -73,6 +72,25 @@ void BossSystem::Start(const BossConfig& config){
         throw std::invalid_argument(
             "Invalid Boss config: invalid integer values."
         );
+    }
+    if(config.attack_sequence.empty()){
+        throw std::invalid_argument(
+            "Boss attack sequence must not be empty. "
+        );
+    }
+    for(const auto& def : config.attack_sequence){
+        if(def.duration_ticks == 0){
+            throw std::invalid_argument(
+                "Boss attack step duration must be positive. "
+            );
+        }
+        if(def.step < BossAttackStep::AimedPressure
+        || def.step >= BossAttackStep::Count)
+        {
+            throw std::invalid_argument(
+                "Boss attack step is not valid. "
+            );
+        }
     }
     // configの適用
     boss_.name        = config.name;
@@ -88,12 +106,16 @@ void BossSystem::Start(const BossConfig& config){
     boss_.max_hp = config.max_hp;
 
     boss_.entering_ticks_remaining    = config.entering_duration_ticks;
-    boss_.attack_step_ticks_remaining = config.attack_step_duration_ticks;
     boss_.defeating_duration_ticks    = config.defeating_duration_ticks;
     boss_.defeating_ticks_remaining   = config.defeating_duration_ticks;
-
-    // vectorのmove
-    boss_.attack_sequence = std::move(config.attack_sequence);
+    
+    // vectorのコピー
+    boss_.attack_sequence = config.attack_sequence;
+    // 最初の攻撃状態に初期化
+    boss_.attack_step_index = 0;
+    const auto& first = boss_.attack_sequence.front();
+    boss_.attack_step = first.step;
+    boss_.attack_step_ticks_remaining = first.duration_ticks;
 
     // タイマー: 最初の発射はinterval経過後に来るよう初期化
     boss_.aimed_fire_interval  = config.aimed_fire_interval;
@@ -103,6 +125,9 @@ void BossSystem::Start(const BossConfig& config){
 
     boss_.status = BossStatus::Entering;
     boss_.attack_step = BossAttackStep::AimedPressure;
+
+    // BossAttackSequence開始
+    EnterAttackStep(0);
 }
 
 /**
@@ -206,12 +231,24 @@ BossDamageResult BossSystem::TakeDamage(std::int32_t damage){
  */
 void BossSystem::AdvanceAttackStep(){
     // 攻撃パターンの定義取得
-    boss_.attack_step_index = 
-        (boss_.attack_step_index + 1) % (boss_.attack_sequence.size());
-    const auto& def = boss_.attack_sequence[boss_.attack_step_index];
-    // 定義の代入
-    boss_.attack_step                 = def.step;
+    const std::size_t next = (boss_.attack_step_index + 1) % boss_.attack_sequence.size();
+    EnterAttackStep(next);
+}
+
+/**
+ * @brief ボスが攻撃状態に入った際に発射タイマーをリセットする
+ * 
+ * @param index 
+ */
+void BossSystem::EnterAttackStep(std::size_t index){
+    // 攻撃状態の定義を取得
+    boss_.attack_step_index = index;
+    const auto& def = boss_.attack_sequence[index];
+    boss_.attack_step = def.step;
     boss_.attack_step_ticks_remaining = def.duration_ticks;
+    // タイマーを初期化
+    boss_.aimed_fire_timer = boss_.aimed_fire_interval;
+    boss_.circle_fire_timer = boss_.circle_fire_interval;
 }
 
 /**

@@ -32,6 +32,7 @@ private:
 
     // BossAttackStepの進行管理
     void AdvanceAttackStep();
+    void EnterAttackStep(std::size_t index);
     // 攻撃関数
     // 自機狙い扇形弾
     std::size_t UpdateAimedAttack(

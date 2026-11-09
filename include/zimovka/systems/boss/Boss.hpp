@@ -37,7 +37,7 @@ struct Boss{
     std::uint64_t defeating_duration_ticks    = 0; // 撃破演出の総tick数(描画のscale計算用)
     std::uint64_t defeating_ticks_remaining   = 0; // 敗北フェーズのカウントダウン
 
-// ボスの攻撃パターン切り替え定義
+    // ボスの攻撃パターン切り替え定義
     std::size_t   attack_step_index           = 0; // 攻撃パターン切り替えよう添字
     std::uint64_t attack_step_ticks_remaining = 0; // 戦闘状態遷移のカウントダウン
     // 攻撃パターン設定用vector
