@@ -13,7 +13,7 @@ on:
 jobs: 
   # 1. 通常のビルド・テスト(Debug/Releaseビルド両方)
   build-and-test:
-    runs-on: ubuntu-latest  # Ubuntuのコマンドを使う
+    runs-on: ubuntu-24.04  # LTSバージョン固定（ubuntu-latestはリポジトリ未安定の新バージョンに切り替わる場合がある）
     strategy:
       matrix:   # strategy.matrixでジョブを並列実行できる
         build_type: [Debug, Release]
@@ -32,7 +32,7 @@ jobs:
 
   # 2. サニタイザービルド(UBやメモリ安全性検証)
   sanitizer:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Initialize
