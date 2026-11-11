@@ -109,24 +109,17 @@ void BossSystem::Start(const BossConfig& config){
     boss_.defeating_duration_ticks    = config.defeating_duration_ticks;
     boss_.defeating_ticks_remaining   = config.defeating_duration_ticks;
     
-    // vectorのコピー
+    // シーケンスを保持
     boss_.attack_sequence = config.attack_sequence;
-    // 最初の攻撃状態に初期化
-    boss_.attack_step_index = 0;
-    const auto& first = boss_.attack_sequence.front();
-    boss_.attack_step = first.step;
-    boss_.attack_step_ticks_remaining = first.duration_ticks;
 
-    // タイマー: 最初の発射はinterval経過後に来るよう初期化
+    // 発射設定
     boss_.aimed_fire_interval  = config.aimed_fire_interval;
-    boss_.aimed_fire_timer     = config.aimed_fire_interval;
     boss_.circle_fire_interval = config.circle_fire_interval;
-    boss_.circle_fire_timer    = config.circle_fire_interval;
 
+    // ライフサイクル初期化
     boss_.status = BossStatus::Entering;
-    boss_.attack_step = BossAttackStep::AimedPressure;
 
-    // BossAttackSequence開始
+    // 最初の攻撃状態を設定
     EnterAttackStep(0);
 }
 

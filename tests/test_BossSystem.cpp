@@ -65,9 +65,14 @@ static void AdvanceToFighting(
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
     // duration_tickの消費
-    while(bs.GetBoss().status == BossStatus::Entering){
+    const auto enter_ticks = bs.GetBoss().entering_ticks_remaining;
+    for(std::uint64_t i = 0;i < enter_ticks; ++i){
         bs.UpdateTick(dt, player_pos, patterns, bullets);
     }
+    ASSERT_EQ(
+        bs.GetBoss().status,
+        BossStatus::Fighting
+    );
 }
 
 // ──────────────────────────────────────────────────────
@@ -1392,9 +1397,9 @@ TEST(BossAttackSequenceTest, Recovery_EmitsNoNewBullets){
  *   2. Reset → Start(同一 onfig) → Run B: 同じKtick分を記録
  *   3. 両者が完全一致することを検証
  */
-TEST(BossAttackSequenceTest, AttackSequence_ResetAndReplayDeterministic){
-    const int K = 20;  // 検証するtick数 (ステップ遷移を複数含む長さ)
-
+TEST(BossAttackSequenceTest, AttackSequence_ReplayDeterministic){
+    const int K = 20;  // 検証するtick数(ステップ遷移を複数含む長さ)
+    // Boss設定
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks    = 1;
     cfg.aimed_fire_interval        = 2;
@@ -1406,7 +1411,7 @@ TEST(BossAttackSequenceTest, AttackSequence_ResetAndReplayDeterministic){
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
-
+    // TickごとのBossAttackStep/弾数を記録する用構造体
     struct TickSnapshot{
         BossAttackStep step;
         std::size_t    bullet_count;
@@ -1416,8 +1421,8 @@ TEST(BossAttackSequenceTest, AttackSequence_ResetAndReplayDeterministic){
     BossSystem bs_a;
     BulletSystem bullets_a(500);
     PatternSystem patterns_a;
-    bs_a.Start(cfg);  // cfg は move されるため Run B 用に別途作成
-
+    bs_a.Start(cfg);
+    // Run Aを走らせる
     std::vector<TickSnapshot> run_a;
     run_a.reserve(K);
     for(int i = 0; i < K; ++i){
@@ -1425,7 +1430,7 @@ TEST(BossAttackSequenceTest, AttackSequence_ResetAndReplayDeterministic){
         run_a.push_back({bs_a.GetBoss().attack_step, bullets_a.CountActive()});
     }
 
-    // Run B: Run Aと同一configを再構築して Reset → Start
+    // Run B: Run Aと同一configを再構築してReset → Start
     BossConfig cfg2 = MakeDefaultConfig();
     cfg2.entering_duration_ticks    = 1;
     cfg2.aimed_fire_interval        = 2;
@@ -1439,7 +1444,7 @@ TEST(BossAttackSequenceTest, AttackSequence_ResetAndReplayDeterministic){
     BulletSystem bullets_b(500);
     PatternSystem patterns_b;
     bs_b.Start(cfg2);
-
+    // Run Bを走らせる
     std::vector<TickSnapshot> run_b;
     run_b.reserve(K);
     for(int i = 0; i < K; ++i){

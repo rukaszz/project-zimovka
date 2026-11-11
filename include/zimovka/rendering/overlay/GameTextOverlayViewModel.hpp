@@ -13,6 +13,11 @@ struct GameTextOverlayViewModel{
     bool show_stage_clear = false;
     std::uint64_t stage_clear_duration_ticks  = 0; // クリア演出時間
     std::uint64_t stage_clear_ticks_remaining = 0; // クリア演出のカウントダウン
+
+    bool show_warning     = false;
+    std::uint64_t warning_duration_ticks  = 0;     // Warning演出時間
+    std::uint64_t warning_ticks_remaining = 0;     // Warning演出のカウントダウン
+
 }; 
 } // namespace zimovka
 

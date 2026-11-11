@@ -78,6 +78,11 @@ public:
     bool IsDefeating() const noexcept{
         return boss_.status == BossStatus::Defeating;
     }
+    // AttackStep
+    [[nodiscard]]
+    BossAttackStep GetAttackStep() const noexcept{
+        return boss_.attack_step;
+    }
 };
 } // namespace zimovka
 
