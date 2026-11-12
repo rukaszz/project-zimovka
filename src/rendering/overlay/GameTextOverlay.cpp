@@ -24,6 +24,7 @@ GameTextOverlay::~GameTextOverlay(){
 void GameTextOverlay::Reset() noexcept{
     // TextTextureメンバ変数をリセット※Rendererが生存していないといけない
     stage_clear_text_.Reset();
+    warning_text_.Reset();
     
     // SDL関係のリソース解放
     if(font_){
@@ -82,9 +83,8 @@ void GameTextOverlay::Load(
  * この関数内で表示判定やTextTexture.Update()を行う
  */
 bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
-    // クリア状態でなければ即return
-    // NOTE: 他の文字列を描画する際に条件は見直す
-    if(!model.show_stage_clear){
+    // 表示対象がなければSDLリソースを使わずに正常return
+    if(!model.show_warning && !model.show_stage_clear){
         return true;
     }
     if(!renderer_ || !font_){
@@ -93,24 +93,39 @@ bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
     constexpr zimovka::Color WHITE{
         255, 255, 255, 255
     };
-    // TextTexture::Update()の実施：テクスチャ生成などが失敗したらfalseを伝搬
-    if(!stage_clear_text_.Update(
-        renderer_, 
-        font_, 
-        "STAGE CLEAR", 
-        WHITE
-    ))
-    {
+
+    if(model.show_warning){
+        // TextTexture::Update()の実施：テクスチャ生成などが失敗したらfalseを伝搬
+        if(!warning_text_.Update(renderer_, font_, "WARNING", WHITE))
+        {
+            return false;
+        }
+        // 描画位置(中心)
+        const int x = static_cast<int>(
+            ScreenLayout::PLAYFIELD_X + (ScreenLayout::PLAYFIELD_WIDTH - warning_text_.Width()) / 2.0f
+        );
+        const int y = static_cast<int>(
+            ScreenLayout::PLAYFIELD_Y + (ScreenLayout::PLAYFIELD_HEIGHT - warning_text_.Height()) / 2.0f
+        );
+        return warning_text_.Render(x, y);
+
+    } else if(model.show_stage_clear){
+        // TextTexture::Update()の実施：テクスチャ生成などが失敗したらfalseを伝搬
+        if(!stage_clear_text_.Update(renderer_, font_, "STAGE CLEAR", WHITE))
+        {
+            return false;
+        }
+        // 描画位置(中心)
+        const int x = static_cast<int>(
+            ScreenLayout::PLAYFIELD_X + (ScreenLayout::PLAYFIELD_WIDTH - stage_clear_text_.Width()) / 2.0f
+        );
+        const int y = static_cast<int>(
+            ScreenLayout::PLAYFIELD_Y + (ScreenLayout::PLAYFIELD_HEIGHT - stage_clear_text_.Height()) / 2.0f
+        );
+        return stage_clear_text_.Render(x, y);
+    } else {
         return false;
     }
-    // 描画位置
-    const int x = static_cast<int>(
-        ScreenLayout::PLAYFIELD_X + (ScreenLayout::PLAYFIELD_WIDTH - stage_clear_text_.Width()) / 2.0f
-    );
-    const int y = static_cast<int>(
-        ScreenLayout::PLAYFIELD_Y + (ScreenLayout::PLAYFIELD_HEIGHT - stage_clear_text_.Height()) / 2.0f
-    );
-    return stage_clear_text_.Render(x, y);
 }
     
 } // namespace zimovka

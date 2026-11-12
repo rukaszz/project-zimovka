@@ -13,6 +13,8 @@ enum class BossAttackStep : std::int8_t{
     SpecialWarning, 
     CircleBarrage, 
     Recovery, 
+
+    Count,  // 門番
 };
 } // namespace zimovka
 

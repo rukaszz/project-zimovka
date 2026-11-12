@@ -1,6 +1,7 @@
 #include "zimovka/systems/boss/BossSystem.hpp"
 
 #include <cmath>
+#include <memory>
 #include <numbers>
 #include <stdexcept>
 
@@ -64,7 +65,6 @@ void BossSystem::Start(const BossConfig& config){
                            && std::isfinite(config.hurtbox_radius)
                            && std::isfinite(config.contact_radius);
     const bool valid_timers = config.entering_duration_ticks > 0
-                           && config.attack_step_duration_ticks > 0
                            && config.defeating_duration_ticks > 0
                            && config.aimed_fire_interval > 0
                            && config.circle_fire_interval > 0;
@@ -72,6 +72,25 @@ void BossSystem::Start(const BossConfig& config){
         throw std::invalid_argument(
             "Invalid Boss config: invalid integer values."
         );
+    }
+    if(config.attack_sequence.empty()){
+        throw std::invalid_argument(
+            "Boss attack sequence must not be empty. "
+        );
+    }
+    for(const auto& def : config.attack_sequence){
+        if(def.duration_ticks == 0){
+            throw std::invalid_argument(
+                "Boss attack step duration must be positive. "
+            );
+        }
+        if(def.step < BossAttackStep::AimedPressure
+        || def.step >= BossAttackStep::Count)
+        {
+            throw std::invalid_argument(
+                "Boss attack step is not valid. "
+            );
+        }
     }
     // configの適用
     boss_.name        = config.name;
@@ -87,18 +106,21 @@ void BossSystem::Start(const BossConfig& config){
     boss_.max_hp = config.max_hp;
 
     boss_.entering_ticks_remaining    = config.entering_duration_ticks;
-    boss_.attack_step_ticks_remaining = config.attack_step_duration_ticks;
     boss_.defeating_duration_ticks    = config.defeating_duration_ticks;
     boss_.defeating_ticks_remaining   = config.defeating_duration_ticks;
+    
+    // シーケンスを保持
+    boss_.attack_sequence = config.attack_sequence;
 
-    // タイマー: 最初の発射はinterval経過後に来るよう初期化
+    // 発射設定
     boss_.aimed_fire_interval  = config.aimed_fire_interval;
-    boss_.aimed_fire_timer     = config.aimed_fire_interval;
     boss_.circle_fire_interval = config.circle_fire_interval;
-    boss_.circle_fire_timer    = config.circle_fire_interval;
 
+    // ライフサイクル初期化
     boss_.status = BossStatus::Entering;
-    boss_.attack_step = BossAttackStep::AimedPressure;
+
+    // 最初の攻撃状態を設定
+    EnterAttackStep(0);
 }
 
 /**
@@ -166,36 +188,7 @@ BossTickEvents BossSystem::UpdateTick(
 
     // ─── Fighting ─────────────────────────────
     // Fighting: パターン発射
-    // 自機狙い拡散弾 (EmitSpread)
-    if(boss_.aimed_fire_timer > 0){
-        --boss_.aimed_fire_timer;
-    }
-    if(boss_.aimed_fire_timer == 0){
-        PatternEmitRequest req{};
-        req.origin         = boss_.position;
-        req.base_angle_rad = GameplayMath::AimAngleRad(boss_.position, player_position);
-        req.bullet_count   = AimedBulletCount;
-        req.spread_rad     = AimedSpreadRad;
-        req.bullet_speed   = AimedBulletSpeed;
-        req.bullet_radius  = AimedBulletRadius;
-        (void)patterns.EmitSpread(req, enemy_bullets);
-        boss_.aimed_fire_timer = boss_.aimed_fire_interval;
-    }
-
-    // 全方向弾 (EmitCircle)
-    if(boss_.circle_fire_timer > 0){
-        --boss_.circle_fire_timer;
-    }
-    if(boss_.circle_fire_timer == 0){
-        PatternEmitRequest req{};
-        req.origin         = boss_.position;
-        req.base_angle_rad = 0.0f;
-        req.bullet_count   = CircleBulletCount;
-        req.bullet_speed   = CircleBulletSpeed;
-        req.bullet_radius  = CircleBulletRadius;
-        (void)patterns.EmitCircle(req, enemy_bullets);
-        boss_.circle_fire_timer = boss_.circle_fire_interval;
-    }
+    (void)UpdateFighting(player_position, patterns, enemy_bullets);
 
     return {};
 }
@@ -222,6 +215,136 @@ BossDamageResult BossSystem::TakeDamage(std::int32_t damage){
     // ダメージ処理
     boss_.hp -= damage;
     return BossDamageResult::Damaged;
+}
+
+/**
+ * @brief ボスの攻撃パターン制御
+ * 
+ * attack_step_ticksによるBossAttackStepの切り替え
+ */
+void BossSystem::AdvanceAttackStep(){
+    // 攻撃パターンの定義取得
+    const std::size_t next = (boss_.attack_step_index + 1) % boss_.attack_sequence.size();
+    EnterAttackStep(next);
+}
+
+/**
+ * @brief ボスが攻撃状態に入った際に発射タイマーをリセットする
+ * 
+ * @param index 
+ */
+void BossSystem::EnterAttackStep(std::size_t index){
+    // 攻撃状態の定義を取得
+    boss_.attack_step_index = index;
+    const auto& def = boss_.attack_sequence[index];
+    boss_.attack_step = def.step;
+    boss_.attack_step_ticks_remaining = def.duration_ticks;
+    // タイマーを初期化
+    boss_.aimed_fire_timer = boss_.aimed_fire_interval;
+    boss_.circle_fire_timer = boss_.circle_fire_interval;
+}
+
+/**
+ * @brief 自機狙い扇形弾
+ * 
+ * @param player_position 
+ * @param patterns 
+ * @param enemy_bullets 
+ * @return std::size_t 発射した弾数
+ */
+std::size_t BossSystem::UpdateAimedAttack(
+    const Vec2& player_position, 
+    PatternSystem& patterns, 
+    BulletSystem& enemy_bullets
+)
+{
+    PatternEmitRequest req{};
+    req.origin         = boss_.position;
+    req.base_angle_rad = GameplayMath::AimAngleRad(boss_.position, player_position);
+    req.bullet_count   = AimedBulletCount;
+    req.spread_rad     = AimedSpreadRad;
+    req.bullet_speed   = AimedBulletSpeed;
+    req.bullet_radius  = AimedBulletRadius;
+    return patterns.EmitSpread(req, enemy_bullets);
+}
+
+/**
+ * @brief 全包囲弾発射
+ * 
+ * @param player_position 
+ * @param patterns 
+ * @param enemy_bullets 
+ * @return std::size_t 
+ */
+std::size_t BossSystem::UpdateCircleAttack(
+    PatternSystem& patterns, 
+    BulletSystem& enemy_bullets
+)
+{
+    PatternEmitRequest req{};
+    req.origin         = boss_.position;
+    req.base_angle_rad = 0.0f;
+    req.bullet_count   = CircleBulletCount;
+    req.bullet_speed   = CircleBulletSpeed;
+    req.bullet_radius  = CircleBulletRadius;
+    return patterns.EmitCircle(req, enemy_bullets);
+}
+
+/**
+ * @brief 戦闘時のパターン別攻撃制御
+ * 
+ * BossStatus::Fightingの際に実行される
+ * 契約として，残り時間0になった次の更新で状態を移行する
+ * 
+ * @param player_position 
+ * @param patterns 
+ * @param enemy_bullets 
+ */
+void BossSystem::UpdateFighting(
+    const Vec2& player_position, 
+    PatternSystem& patterns, 
+    BulletSystem& enemy_bullets
+)
+{
+    // 攻撃ステップの残時間0で次の攻撃状態へ
+    if(boss_.attack_step_ticks_remaining == 0){
+        AdvanceAttackStep();
+    }
+    // BossAttackStepに応じて行動パターンを変える
+    switch(boss_.attack_step){
+    // 自機狙い弾攻撃
+    case BossAttackStep::AimedPressure:
+        // 自機狙い拡散弾 (EmitSpread)
+        if(boss_.aimed_fire_timer > 0){
+            --boss_.aimed_fire_timer;
+        }
+        if(boss_.aimed_fire_timer == 0){
+            UpdateAimedAttack(player_position, patterns, enemy_bullets);
+            boss_.aimed_fire_timer = boss_.aimed_fire_interval;
+        }
+        break;
+    // 形態移行中
+    case BossAttackStep::SpecialWarning:
+        break;  // 攻撃しない
+    // 全包囲攻撃
+    case BossAttackStep::CircleBarrage:
+        // 全方向弾 (EmitCircle)
+        if(boss_.circle_fire_timer > 0){
+            --boss_.circle_fire_timer;
+        }
+        if(boss_.circle_fire_timer == 0){
+            UpdateCircleAttack(patterns, enemy_bullets);
+            boss_.circle_fire_timer = boss_.circle_fire_interval;
+        }
+        break;
+    // フェーズの初期化
+    case BossAttackStep::Recovery:
+        break;  // 攻撃しない
+    default:
+        // 不正なenum
+        break;
+    }
+    --boss_.attack_step_ticks_remaining;
 }
 
 }   // namespace zimovka

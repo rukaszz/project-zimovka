@@ -3,11 +3,13 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "zimovka/core/Circle.hpp"
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/systems/boss/BossStatus.hpp"
 #include "zimovka/systems/boss/BossAttackStep.hpp"
+#include "zimovka/systems/boss/BossAttackSequenceDef.hpp"
 
 namespace zimovka{
 /**
@@ -32,9 +34,14 @@ struct Boss{
     std::int32_t max_hp  = 0;       // 体力最大値
 
     std::uint64_t entering_ticks_remaining    = 0; // 登場フェーズのカウントダウン
-    std::uint64_t attack_step_ticks_remaining = 0; // 戦闘状態遷移のカウントダウン
     std::uint64_t defeating_duration_ticks    = 0; // 撃破演出の総tick数(描画のscale計算用)
     std::uint64_t defeating_ticks_remaining   = 0; // 敗北フェーズのカウントダウン
+
+    // ボスの攻撃パターン切り替え定義
+    std::size_t   attack_step_index           = 0; // 攻撃パターン切り替えよう添字
+    std::uint64_t attack_step_ticks_remaining = 0; // 戦闘状態遷移のカウントダウン
+    // 攻撃パターン設定用vector
+    std::vector<BossAttackSequenceDef> attack_sequence{};
 
     std::uint32_t aimed_fire_timer     = 0;        // 自機狙い発射カウントダウン
     std::uint32_t aimed_fire_interval  = 0;        // 自機狙い発射リセット間隔

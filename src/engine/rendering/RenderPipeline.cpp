@@ -13,6 +13,7 @@
 #include "zimovka/rendering/texture/TextureId.hpp"
 #include "zimovka/stages/Stage1Data.hpp"
 #include "zimovka/systems/boss/BossStatus.hpp"
+#include "zimovka/systems/boss/BossAttackStep.hpp"
 
 namespace zimovka{
 // 仮定数
@@ -202,18 +203,30 @@ void RenderPipeline::RenderFrame(
     
     // GameTextOverlay(プレイフィールドへの文字描画)
     {
+        const auto& boss_sys = gameplay.GetBossSystem();
         const auto& phase    = gameplay.GetStagePhase();
-        const bool  in_clear = (phase.stage_state == StageStatement::Cleared);
-        constexpr std::uint64_t duration = Stage1::STAGE_CLEAR_DURATION_TICKS;
-        // 演出時間内のみ表示(elapsed >= duration になると show_stage_clear = false)
-        const bool within_duration =
-            in_clear && (phase.stage_clear_ticks_elapsed < duration);
-        // クリア演出用View構成
+        const bool  in_warning = boss_sys.IsFighting() &&
+            (boss_sys.GetAttackStep() == BossAttackStep::SpecialWarning);
+        const bool  in_clear   = (phase.stage_state == StageStatement::Cleared);
+
         GameTextOverlayViewModel overlay_view{};
-        overlay_view.show_stage_clear             = within_duration;
-        overlay_view.stage_clear_duration_ticks   = duration;
-        overlay_view.stage_clear_ticks_remaining  =
-            within_duration ? (duration - phase.stage_clear_ticks_elapsed) : 0;
+
+        if(in_warning){
+            const auto& boss = boss_sys.GetBoss();
+            overlay_view.show_warning            = true;
+            // Bossのwarningの定義から取得
+            overlay_view.warning_duration_ticks  =
+                boss.attack_sequence[boss.attack_step_index].duration_ticks;
+            overlay_view.warning_ticks_remaining = boss.attack_step_ticks_remaining;
+        }else if(in_clear){
+            constexpr std::uint64_t duration = Stage1::STAGE_CLEAR_DURATION_TICKS;
+            const bool within_duration = phase.stage_clear_ticks_elapsed < duration;
+            overlay_view.show_stage_clear            = within_duration;
+            overlay_view.stage_clear_duration_ticks  = duration;
+            overlay_view.stage_clear_ticks_remaining =
+                within_duration ? (duration - phase.stage_clear_ticks_elapsed) : 0;
+        }
+
         (void)text_overlay_.Render(overlay_view);
     }
 

@@ -20,6 +20,7 @@ private:
     TTF_Font*     font_     = nullptr;  // 所有する
     // 描画する文字列
     TextTexture stage_clear_text_;
+    TextTexture warning_text_;
 public:
     // RenderPipelineで所有するのでデフォルトコンストラクタ
     GameTextOverlay() = default;    
