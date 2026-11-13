@@ -41,7 +41,7 @@ struct Boss{
     std::size_t   attack_step_index           = 0; // 攻撃パターン切り替えよう添字
     std::uint64_t attack_step_ticks_remaining = 0; // 戦闘状態遷移のカウントダウン
     // 攻撃パターン設定用vector
-    std::vector<BossAttackSequenceDef> attack_sequence{};
+    std::vector<BossPhaseDef> phases{};
 
     std::uint32_t aimed_fire_timer     = 0;        // 自機狙い発射カウントダウン
     std::uint32_t aimed_fire_interval  = 0;        // 自機狙い発射リセット間隔

@@ -8,9 +8,10 @@ namespace zimovka{
  * 
  */
 enum class BossDamageResult{
-    InvalidTarget, 
-    Damaged, 
-    Destroyed, 
+    InvalidTarget,      // ダメージ不成立
+    Damaged,            // 現在のフェーズのHPが減少
+    PhaseComplete,      // 現在フェーズの終了と次のフェーズ
+    Destroyed,          // 最終フェーズが終了(ボスを撃破)
 };
 
 }   // namespace zimovka
