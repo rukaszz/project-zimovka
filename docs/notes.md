@@ -3631,3 +3631,54 @@ enum class BossAttackStep : std::int8_t{
 | SpecialWarning | 90tick | 発射を停止し，形態移行演出を表示 | リロード，自機位置の調整 |
 | CircleBarrage | 180tick | 全方向弾を複数回発射 | 回避，相殺，ボムを使って弾を避け，隙間を縫って攻撃 |
 | Recovery | 75tick | 激しい攻撃の停止，休憩 | リロードや集中攻撃を実施 |
+
+### 2026/11/14
+
+#### ボスの行動パターン
+
+Bossの出現〜撃破までの状態遷移を考える．基本的な構造は次のようにする：
+
+- Inactive
+  - ボスは活動していない
+- Entering
+  - ボスの登場※演出などを行うフェーズ
+- Fighting
+  - ボスと戦う主となるフェーズ(以下は行動パターンの例)
+  - Phase1：Normal1
+    - AimedPressure
+      - 自機狙い
+    - CircleBarrage
+      - 全包囲弾(バラマキ)
+    - Recovery
+      - 体制の立て直し(最初の行動パターンへ戻るイメージ)
+    - Phase2：Spell1
+      - SpecialWarning
+        - ボス必殺技宣言
+      - BossSpell1
+        - 必殺技
+      - Recovery(Spellの突破)
+        - Phaseの遷移など
+    - Phase3：Normal2
+      - ......
+- Defeating
+  - ボスの敗北※演出などを行うフェーズ
+
+基本的には通常攻撃→必殺技を繰り返す．通常攻撃もフェーズによって行動パターンを変化させなければならない．また，最終段階ではSpell→Spellという遷移もある．
+
+#### コアダンプの調査
+
+BossPhaseDefを導入したらコアダンプしたので調査する．
+コアダンプの設定確認：
+
+```bash
+> ulimit -c
+0
+```
+
+コアファイルの出力サイズがゼロなので出力されない．出力するサイズを設定する(今回はunlimited)
+
+```bash
+> ulimit -c unlimited
+> ulimit -c
+unlimited
+```

@@ -22,29 +22,12 @@ bool IsFinite(const Vec2& value) noexcept{
     return std::isfinite(value.x) && std::isfinite(value.y);
 }
 
-// 自機狙い拡散弾パラメータ(実装確認用の仮の値)
-constexpr std::uint32_t AimedBulletCount  = 5;
-constexpr float         AimedSpreadRad    = std::numbers::pi_v<float> / 2.0f;  // 90°
-constexpr float         AimedBulletSpeed  = 200.0f;
-constexpr float         AimedBulletRadius = 3.0f;
-// 全方向弾パラメータ(プロトタイプ固定値)
-constexpr std::uint32_t CircleBulletCount  = 12;
-constexpr float         CircleBulletSpeed  = 150.0f;
-constexpr float         CircleBulletRadius = 4.0f;
-}   // namespace
-
 /**
- * @brief ボス戦開始処理
- *
- * @param config
+ * @brief Start()で呼ばれBossConfigのデータを確認する
+ * 
+ * NOTE: ボスごとに設定値が変わる場合は引数を追加しボスごとに制御するか？
  */
-void BossSystem::Start(const BossConfig& config){
-    // Inactiveな状態で一度のみ呼ばれなければならない
-    if(boss_.status!= BossStatus::Inactive){
-        throw std::logic_error(
-            "BossSystem::Start requires Inactive state. "
-        );
-    }
+void ValidateBossConfig(const BossConfig& config){
     // 引数configのチェック
     if(config.name.empty()){
         throw std::invalid_argument(
@@ -68,30 +51,95 @@ void BossSystem::Start(const BossConfig& config){
                            && config.defeating_duration_ticks > 0
                            && config.aimed_fire_interval > 0
                            && config.circle_fire_interval > 0;
-    if(!valid_radius || !valid_timers || config.max_hp <= 0){
+    if(!valid_radius || !valid_timers){
         throw std::invalid_argument(
             "Invalid Boss config: invalid integer values."
         );
     }
-    if(config.attack_sequence.empty()){
+    // BossPhaseDefを検証
+    if(config.phases.empty()){
         throw std::invalid_argument(
-            "Boss attack sequence must not be empty. "
+            "Invalid Boss config: phase definition is empty."
         );
     }
-    for(const auto& def : config.attack_sequence){
-        if(def.duration_ticks == 0){
+    for(const auto& phase : config.phases){
+        // clear_at_hpはフェーズ終了の基準値でありmax_hp以上の場合もNG
+        if(phase.max_hp      <= 0 
+        || phase.clear_at_hp <  0 
+        || phase.max_hp      <= phase.clear_at_hp){
             throw std::invalid_argument(
-                "Boss attack step duration must be positive. "
+                "Invalid HP property. "
             );
         }
-        if(def.step < BossAttackStep::AimedPressure
-        || def.step >= BossAttackStep::Count)
-        {
+        // BossAttackSequenceDef
+        if(phase.attack_sequence.empty()){
             throw std::invalid_argument(
-                "Boss attack step is not valid. "
+                "Boss attack sequence must not be empty. "
             );
+        }
+        for(const auto& def : phase.attack_sequence){
+            if(def.duration_ticks == 0){
+                throw std::invalid_argument(
+                    "Boss attack step duration must be positive. "
+                );
+            }
+            if(def.step <  BossAttackStep::AimedPressure
+            || def.step >= BossAttackStep::Count)
+            {
+                throw std::invalid_argument(
+                    "Boss attack step is not valid. "
+                );
+            }
+            // BossShotDef
+            // nulloptは早期return
+            if(!def.shot){
+                continue;
+            }
+            const auto& boss_shot = *def.shot;
+            if(boss_shot.fire_interval_tick == 0){
+                throw std::invalid_argument(
+                    "Boss fire interval must be positive. "
+                );
+            }
+            if(boss_shot.bullet_speed <= 0
+            || boss_shot.bullet_radius < 0.0f || boss_shot.spread_radius < 0.0f
+            || !std::isfinite(boss_shot.bullet_radius) || !std::isfinite(boss_shot.spread_radius)
+            )
+            {
+                throw std::invalid_argument(
+                    "Invalid Boss bullet property. "
+                );
+            }
         }
     }
+
+}
+
+// 自機狙い拡散弾パラメータ(実装確認用の仮の値)
+constexpr std::uint32_t AimedBulletCount  = 5;
+constexpr float         AimedSpreadRad    = std::numbers::pi_v<float> / 2.0f;  // 90°
+constexpr float         AimedBulletSpeed  = 200.0f;
+constexpr float         AimedBulletRadius = 3.0f;
+// 全方向弾パラメータ(プロトタイプ固定値)
+constexpr std::uint32_t CircleBulletCount  = 12;
+constexpr float         CircleBulletSpeed  = 150.0f;
+constexpr float         CircleBulletRadius = 4.0f;
+}   // namespace
+
+/**
+ * @brief ボス戦開始処理
+ *
+ * @param config
+ */
+void BossSystem::Start(const BossConfig& config){
+    // Start()はInactiveな状態で一度のみ呼ばれなければならない
+    if(boss_.status!= BossStatus::Inactive){
+        throw std::logic_error(
+            "BossSystem::Start requires Inactive state. "
+        );
+    }
+    // configの検証
+    ValidateBossConfig(config);
     // configの適用
     boss_.name        = config.name;
 
@@ -102,15 +150,13 @@ void BossSystem::Start(const BossConfig& config){
     boss_.hurtbox_radius = config.hurtbox_radius;
     boss_.contact_radius = config.contact_radius;
 
-    boss_.hp     = config.max_hp;
-    boss_.max_hp = config.max_hp;
-
     boss_.entering_ticks_remaining    = config.entering_duration_ticks;
     boss_.defeating_duration_ticks    = config.defeating_duration_ticks;
     boss_.defeating_ticks_remaining   = config.defeating_duration_ticks;
     
     // シーケンスを保持
-    boss_.attack_sequence = config.attack_sequence;
+    boss_.phases = config.phases;
+    boss_.hp     = boss_.phases[boss_.phase_index].max_hp;  // phase_index == 0
 
     // 発射設定
     boss_.aimed_fire_interval  = config.aimed_fire_interval;
@@ -129,6 +175,16 @@ void BossSystem::Start(const BossConfig& config){
  */
 void BossSystem::Reset() noexcept{
     boss_ = Boss{};
+}
+
+/**
+ * @brief 指定したインデックスのフェーズのパターンの定義を読み込む
+ * 
+ */
+void BossSystem::ChangePhase(std::size_t index) noexcept{
+    boss_.phase_index = index;
+    boss_.hp = boss_.phases[index].max_hp;
+    EnterAttackStep(0);
 }
 
 /**
@@ -204,16 +260,23 @@ BossDamageResult BossSystem::TakeDamage(std::int32_t damage){
     if(damage <= 0 || boss_.status != BossStatus::Fighting){
         return BossDamageResult::InvalidTarget;
     }
-    // hpを超えるダメージで撃破
-    if(damage >= boss_.hp){
-        boss_.hp = 0;
-        boss_.status = BossStatus::Defeating;
-        // 敗北演出処理時間セット
-        boss_.defeating_ticks_remaining = boss_.defeating_duration_ticks;
-        return BossDamageResult::Destroyed;
-    }
     // ダメージ処理
     boss_.hp -= damage;
+    // clear_at_hp以下でフェーズ遷移
+    if(boss_.hp <= GetPhase().clear_at_hp){
+        boss_.hp = GetPhase().clear_at_hp;
+        ++boss_.phase_index;
+        // 全フェーズ終了で敗北
+        if(boss_.phase_index >= boss_.phases.size()){
+            boss_.hp = 0;
+            boss_.status = BossStatus::Defeating;
+            boss_.defeating_ticks_remaining = boss_.defeating_duration_ticks;
+            return BossDamageResult::Destroyed;
+        }
+        // 次のフェーズへ遷移
+        ChangePhase(boss_.phase_index);
+        return BossDamageResult::PhaseComplete;
+    }
     return BossDamageResult::Damaged;
 }
 
@@ -224,7 +287,8 @@ BossDamageResult BossSystem::TakeDamage(std::int32_t damage){
  */
 void BossSystem::AdvanceAttackStep(){
     // 攻撃パターンの定義取得
-    const std::size_t next = (boss_.attack_step_index + 1) % boss_.attack_sequence.size();
+    const std::size_t next = 
+        (boss_.attack_step_index + 1) % GetPhase().attack_sequence.size();
     EnterAttackStep(next);
 }
 
@@ -236,7 +300,7 @@ void BossSystem::AdvanceAttackStep(){
 void BossSystem::EnterAttackStep(std::size_t index){
     // 攻撃状態の定義を取得
     boss_.attack_step_index = index;
-    const auto& def = boss_.attack_sequence[index];
+    const auto& def = GetPhase().attack_sequence[index];
     boss_.attack_step = def.step;
     boss_.attack_step_ticks_remaining = def.duration_ticks;
     // タイマーを初期化

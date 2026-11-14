@@ -14,7 +14,7 @@ struct BossShotDef{
 
     float bullet_speed  = 0.0f;
     float bullet_radius = 0.0f;
-    float spread_rad    = 0.0f;
+    float spread_radius = 0.0f;
 };
 } // namespace zimovka
 

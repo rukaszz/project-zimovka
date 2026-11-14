@@ -33,16 +33,18 @@ private:
     // BossAttackStepの進行管理
     void AdvanceAttackStep();
     void EnterAttackStep(std::size_t index);
+    // 指定のインデックスのフェーズのパターン定義を読み込む
+    void ChangePhase(std::size_t index) noexcept;
     // 攻撃関数
     // 自機狙い扇形弾
     std::size_t UpdateAimedAttack(
-        const Vec2& player_position, 
-        PatternSystem& patterns, 
+        const Vec2& player_position,
+        PatternSystem& patterns,
         BulletSystem& enemy_bullets
     );
     // 全包囲弾
     std::size_t UpdateCircleAttack(
-        PatternSystem& patterns, 
+        PatternSystem& patterns,
         BulletSystem& enemy_bullets
     );
 
@@ -82,6 +84,11 @@ public:
     [[nodiscard]]
     BossAttackStep GetAttackStep() const noexcept{
         return boss_.attack_step;
+    }
+    // 現在のフェーズの行動パターンを取得するためのアクセサ
+    [[nodiscard]]
+    const BossPhaseDef& GetPhase() const noexcept{
+        return boss_.phases[boss_.phase_index];
     }
 };
 } // namespace zimovka

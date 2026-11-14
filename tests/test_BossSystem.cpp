@@ -13,6 +13,7 @@
 #include "zimovka/systems/boss/BossAttackSequenceDef.hpp"
 #include "zimovka/systems/boss/BossAttackStep.hpp"
 #include "zimovka/systems/boss/BossConfig.hpp"
+#include "zimovka/systems/boss/BossPhaseDef.hpp"
 #include "zimovka/events/BossTickEvents.hpp"
 #include "zimovka/input/Action.hpp"
 #include "zimovka/stages/StagePhase.hpp"
@@ -26,6 +27,8 @@
 using zimovka::BossAttackSequenceDef;
 using zimovka::BossAttackStep;
 using zimovka::BossConfig;
+using zimovka::BossPhaseKind;
+using zimovka::BossPhaseDef;
 using zimovka::BossDamageResult;
 using zimovka::BossEvents;
 using zimovka::BossStatus;
@@ -50,10 +53,14 @@ static BossConfig MakeDefaultConfig(){
     cfg.render_size              = {64.0f, 64.0f};
     cfg.hurtbox_radius           = 30.0f;
     cfg.contact_radius           = 20.0f;
-    cfg.max_hp                   = 10;
     cfg.entering_duration_ticks  = 3;    // テスト用に短く設定
     cfg.aimed_fire_interval      = 5;
     cfg.circle_fire_interval     = 10;
+    // 単一フェーズ(max_hp=10, clear_at_hp=0)で単純なテストに適した構成
+    cfg.phases = {{
+        BossPhaseKind::Normal, 10, 0,
+        {{BossAttackStep::AimedPressure, 999}}
+    }};
     return cfg;
 }
 
@@ -144,10 +151,10 @@ TEST(BossSystemTest, StartRejectsInfiniteVec2){
  * 
  */
 TEST(BossSystemTest, StartRejectsInvalidNumericFields){
-    {   // max_hp=0
+    {   // phases[0].max_hp=0
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
-        cfg.max_hp = 0;
+        cfg.phases[0].max_hp = 0;
         EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // hurtbox_radius=0
@@ -183,19 +190,19 @@ TEST(BossSystemTest, StartRejectsInvalidNumericFields){
     {   // attack_sequence が空
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
-        cfg.attack_sequence.clear();
+        cfg.phases[0].attack_sequence.clear();
         EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // attack_sequence の duration_ticks = 0
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
-        cfg.attack_sequence = {{BossAttackStep::AimedPressure, 0}};
+        cfg.phases[0].attack_sequence = {{BossAttackStep::AimedPressure, 0}};
         EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // attack_sequence に不正な step (Count 以上)
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
-        cfg.attack_sequence = {{BossAttackStep::Count, 60}};
+        cfg.phases[0].attack_sequence = {{BossAttackStep::Count, 60}};
         EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
 }
@@ -208,7 +215,7 @@ TEST(BossSystemTest, StartRejectsInvalidNumericFields){
 TEST(BossSystemTest, Start_RejectsEmptyAttackSequence){
     BossSystem bs;
     BossConfig cfg = MakeDefaultConfig();
-    cfg.attack_sequence.clear();
+    cfg.phases[0].attack_sequence.clear();
     EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
 }
 
@@ -222,13 +229,13 @@ TEST(BossSystemTest, Start_RejectsZeroStepDuration){
     {   // 先頭ステップが 0
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
-        cfg.attack_sequence = {{BossAttackStep::AimedPressure, 0}};
+        cfg.phases[0].attack_sequence = {{BossAttackStep::AimedPressure, 0}};
         EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // 2番目のステップが 0 (validation は全ステップを走査する)
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
-        cfg.attack_sequence = {
+        cfg.phases[0].attack_sequence = {
             {BossAttackStep::AimedPressure, 60},
             {BossAttackStep::CircleBarrage,  0},
         };
@@ -246,19 +253,19 @@ TEST(BossSystemTest, Start_RejectsInvalidAttackStep){
     {   // Count(番兵値) = 無効
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
-        cfg.attack_sequence = {{BossAttackStep::Count, 60}};
+        cfg.phases[0].attack_sequence = {{BossAttackStep::Count, 60}};
         EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // Countより大きい値
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
-        cfg.attack_sequence = {{static_cast<BossAttackStep>(127), 60}};
+        cfg.phases[0].attack_sequence = {{static_cast<BossAttackStep>(127), 60}};
         EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // AimedPressure(0)より小さい値(負数)
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
-        cfg.attack_sequence = {{static_cast<BossAttackStep>(-1), 60}};
+        cfg.phases[0].attack_sequence = {{static_cast<BossAttackStep>(-1), 60}};
         EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
 }
@@ -302,7 +309,6 @@ TEST(BossSystemTest, StartCopiesConfig){
     EXPECT_FLOAT_EQ(boss.position.x, 320.0f);
     EXPECT_FLOAT_EQ(boss.position.y, 80.0f);
     EXPECT_EQ(boss.hp, 10);
-    EXPECT_EQ(boss.max_hp, 10);
     EXPECT_FLOAT_EQ(boss.hurtbox_radius, 30.0f);
     EXPECT_FLOAT_EQ(boss.contact_radius, 20.0f);
     EXPECT_EQ(boss.aimed_fire_interval,  5u);
@@ -320,7 +326,7 @@ TEST(BossSystemTest, StartCopiesConfig){
 TEST(BossSystemTest, Start_UsesFirstSequenceDefinition){
     BossSystem bs;
     BossConfig cfg = MakeDefaultConfig();
-    cfg.attack_sequence = {
+    cfg.phases[0].attack_sequence = {
         {BossAttackStep::CircleBarrage, 120},  // 先頭が CircleBarrage
         {BossAttackStep::AimedPressure,  60},
     };
@@ -348,7 +354,7 @@ TEST(BossSystemTest, Reset_RestoresInactiveState){
     AdvanceToFighting(bs, enemy_bullets, patterns);
 
     // ダメージを与えて撃破する
-    bs.TakeDamage(cfg.max_hp);
+    bs.TakeDamage(bs.GetBoss().hp);
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
 
     // Resetすると初期状態になっている
@@ -456,7 +462,7 @@ TEST(BossSystemTest, UpdateTickReturnsFalseWhenDefeating){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    cfg.max_hp = 1;
+    cfg.phases[0].max_hp = 1;
     bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
     bs.TakeDamage(1);  // HP→0, Defeating遷移
@@ -481,7 +487,7 @@ TEST(BossSystemTest, UpdateTickReturnsTrueWhenTicksConsumed){
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
     cfg.defeating_duration_ticks = 2;
-    cfg.max_hp = 1;
+    cfg.phases[0].max_hp = 1;
     bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
     bs.TakeDamage(1);  // HP→0, Defeating遷移
@@ -666,7 +672,7 @@ TEST(BossSystemTest, MultiplePlayerBulletsSameTick_AllApplyDamage){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    cfg.max_hp = 10;
+    cfg.phases[0].max_hp = 10;
     // fighting
     bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
@@ -689,7 +695,7 @@ TEST(BossSystemTest, DefeatedBoss_CannotTakeFurtherDamage){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    cfg.max_hp = 1; // HPを1で設定
+    cfg.phases[0].max_hp = 1; // HPを1で設定
     bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
 
@@ -751,7 +757,7 @@ TEST(BossSystemTest, Defeating_DecrementsTicksEachUpdate){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    cfg.max_hp = 1;
+    cfg.phases[0].max_hp = 1;
     bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
     bs.TakeDamage(1);  // HP→0, Defeating遷移
@@ -780,7 +786,7 @@ TEST(BossSystemTest, Defeating_ReturnsDefeatedWhileTicksRemaining){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    cfg.max_hp = 1;
+    cfg.phases[0].max_hp = 1;
     // 1ダメージで撃破
     bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
@@ -805,7 +811,7 @@ TEST(BossSystemTest, Defeating_ReturnsAnimationCompleteAtZero){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks  = 1;
-    cfg.max_hp                   = 1;
+    cfg.phases[0].max_hp         = 1;
     cfg.aimed_fire_interval      = 999;
     cfg.circle_fire_interval     = 999;
     // 演出時間は短く設定
@@ -887,7 +893,7 @@ TEST(BossSystemTest, Defeating_CompletesAtExactTick){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks  = 1;
-    cfg.max_hp                   = 1;
+    cfg.phases[0].max_hp         = 1;
     cfg.aimed_fire_interval      = 999;
     cfg.circle_fire_interval     = 999;
     const std::uint64_t DEFEAT_TICKS = 5;
@@ -926,7 +932,7 @@ TEST(BossSystemTest, DefeatAnimationComplete_EmittedOnce){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks  = 1;
-    cfg.max_hp                   = 1;
+    cfg.phases[0].max_hp         = 1;
     cfg.defeating_duration_ticks = 1;   // 1tickで即完了
     bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
@@ -1117,7 +1123,7 @@ static BossConfig MakeSequenceConfig(){
     cfg.entering_duration_ticks      = 1;
     cfg.aimed_fire_interval          = 999; // 発射を抑制
     cfg.circle_fire_interval         = 999;
-    cfg.attack_sequence = {
+    cfg.phases[0].attack_sequence = {
         {BossAttackStep::AimedPressure, 3},
         {BossAttackStep::CircleBarrage, 4},
     };
@@ -1200,7 +1206,7 @@ TEST(BossAttackSequenceTest, AimedPressure_EmitsSpreadOnly){
     cfg.entering_duration_ticks    = 1;
     cfg.aimed_fire_interval        = 2;   // 2tickに1度発射
     cfg.circle_fire_interval       = 2;   // Circleが発射されないように非ゼロの値を設定
-    cfg.attack_sequence = {
+    cfg.phases[0].attack_sequence = {
         {BossAttackStep::AimedPressure, 999},
     };
     bs.Start(cfg);
@@ -1251,7 +1257,7 @@ TEST(BossAttackSequenceTest, SpecialWarning_EmitsNoNewBullets){
     cfg.entering_duration_ticks    = 1;
     cfg.aimed_fire_interval        = 1;  // 発射される
     cfg.circle_fire_interval       = 1;
-    cfg.attack_sequence = {
+    cfg.phases[0].attack_sequence = {
         {BossAttackStep::AimedPressure,  1},
         {BossAttackStep::SpecialWarning, 10},
     };
@@ -1301,7 +1307,7 @@ TEST(BossAttackSequenceTest, CircleBarrage_EmitsCircleOnly){
     cfg.entering_duration_ticks    = 1;
     cfg.aimed_fire_interval        = 999; // 自機狙い弾を抑制
     cfg.circle_fire_interval       = 2;   // 2tickに1度発射
-    cfg.attack_sequence = {
+    cfg.phases[0].attack_sequence = {
         {BossAttackStep::AimedPressure,  1},
         {BossAttackStep::CircleBarrage, 999},
     };
@@ -1354,7 +1360,7 @@ TEST(BossAttackSequenceTest, Recovery_EmitsNoNewBullets){
     cfg.entering_duration_ticks    = 1;
     cfg.aimed_fire_interval        = 1;
     cfg.circle_fire_interval       = 1;
-    cfg.attack_sequence = {
+    cfg.phases[0].attack_sequence = {
         {BossAttackStep::AimedPressure, 1},
         {BossAttackStep::Recovery,      10},
     };
@@ -1404,7 +1410,7 @@ TEST(BossAttackSequenceTest, AttackSequence_ReplayDeterministic){
     cfg.entering_duration_ticks    = 1;
     cfg.aimed_fire_interval        = 2;
     cfg.circle_fire_interval       = 2;
-    cfg.attack_sequence = {
+    cfg.phases[0].attack_sequence = {
         {BossAttackStep::AimedPressure, 3},
         {BossAttackStep::CircleBarrage, 4},
     };
@@ -1435,7 +1441,7 @@ TEST(BossAttackSequenceTest, AttackSequence_ReplayDeterministic){
     cfg2.entering_duration_ticks    = 1;
     cfg2.aimed_fire_interval        = 2;
     cfg2.circle_fire_interval       = 2;
-    cfg2.attack_sequence = {
+    cfg2.phases[0].attack_sequence = {
         {BossAttackStep::AimedPressure, 3},
         {BossAttackStep::CircleBarrage, 4},
     };
@@ -1480,7 +1486,7 @@ TEST(BossAttackSequenceTest, AttackSequence_LoopsAroundAfterLastStep){
     cfg.entering_duration_ticks    = 1;
     cfg.aimed_fire_interval        = 999;
     cfg.circle_fire_interval       = 999;
-    cfg.attack_sequence = {
+    cfg.phases[0].attack_sequence = {
         {BossAttackStep::AimedPressure,  2},
         {BossAttackStep::SpecialWarning, 2},
         {BossAttackStep::CircleBarrage,  2},
@@ -1543,7 +1549,7 @@ TEST(BossAttackSequenceTest, AttackStep_ResetsFireTimerOnEntry){
     cfg.entering_duration_ticks = 1;
     cfg.aimed_fire_interval     = 3;
     cfg.circle_fire_interval    = 999;
-    cfg.attack_sequence = {
+    cfg.phases[0].attack_sequence = {
         {BossAttackStep::AimedPressure,  2},    // step 0: 2tickでSpecialWarning
         {BossAttackStep::SpecialWarning, 1},    // step 1: 1tickでAimedPressure
         {BossAttackStep::AimedPressure,  999},  // step 2: タイマーリセットを確認
@@ -1604,7 +1610,7 @@ TEST(BossAttackSequenceTest, AttackSequence_LoopsAtExactTick){
     cfg.entering_duration_ticks = 1;
     cfg.aimed_fire_interval     = 999;
     cfg.circle_fire_interval    = 999;
-    cfg.attack_sequence = {
+    cfg.phases[0].attack_sequence = {
         {BossAttackStep::AimedPressure, 3},
         {BossAttackStep::CircleBarrage, 2},
     };

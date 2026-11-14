@@ -4,7 +4,9 @@
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/events/BossHitEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
+#include "zimovka/systems/boss/BossAttackStep.hpp"
 #include "zimovka/systems/boss/BossConfig.hpp"
+#include "zimovka/systems/boss/BossPhaseDef.hpp"
 #include "zimovka/systems/boss/BossStatus.hpp"
 #include "zimovka/systems/boss/BossSystem.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
@@ -15,7 +17,10 @@
 #include "zimovka/systems/pattern/PatternSystem.hpp"
 #include "zimovka/systems/player/Player.hpp"
 
+using zimovka::BossAttackStep;
 using zimovka::BossConfig;
+using zimovka::BossPhaseKind;
+using zimovka::BossPhaseDef;
 using zimovka::BossSystem;
 using zimovka::BossStatus;
 using zimovka::BulletSystem;
@@ -775,10 +780,13 @@ static BossSystem MakeFightingBoss(int max_hp = 10){
     cfg.render_size             = {64.0f, 64.0f};
     cfg.hurtbox_radius          = 30.0f;
     cfg.contact_radius          = 20.0f;
-    cfg.max_hp                  = max_hp;
     cfg.entering_duration_ticks = 1;
     cfg.aimed_fire_interval     = 999;
     cfg.circle_fire_interval    = 999;
+    cfg.phases = {{
+        BossPhaseKind::Normal, max_hp, 0,
+        {{BossAttackStep::AimedPressure, 999}}
+    }};
     BossSystem bs;
     bs.Start(cfg);
     BulletSystem dummy(10);

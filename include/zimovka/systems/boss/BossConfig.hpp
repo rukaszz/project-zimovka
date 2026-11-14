@@ -27,37 +27,54 @@ struct BossConfig{
     float hurtbox_radius = 40.0f;
     float contact_radius = 24.0f;
 
-    std::int32_t max_hp  = 20;
-
     std::uint64_t entering_duration_ticks    = 180;  // 開始演出時間
     std::uint64_t defeating_duration_ticks   = 180;  // 撃破演出時間
+    std::uint32_t aimed_fire_interval        = 90;   // 自機狙い発射間隔(tick)
+    std::uint32_t circle_fire_interval       = 60;   // 全方向発射間隔(tick)
 
     // ボスの攻撃パターン切り替え定義
-    BossPhaseDef phases{
-        BossPhaseKind::Normal,  // kind
-        20, 5,                  // max_hp, clear_at_hp
-        {   // vector<BossAttackSequence>
-            {
-                BossAttackStep::AimedPressure, 180, 
-                BossShotDef{5, 90, 200.0f, 3.0f, std::numbers::pi_v<float> / 2.0f}
-            },
-            {
-                BossAttackStep::SpecialWarning, 90, 
-                std::nullopt
-            },
-            {
-                BossAttackStep::CircleBarrage, 180, 
-                BossShotDef{12, 60, 150.0f, 4.0f, 0.0f}
-            },
-            {
-                BossAttackStep::Recovery,       75, 
-                std::nullopt
+    std::vector<BossPhaseDef> phases{
+        { // Phase1 (Normal)
+            BossPhaseKind::Normal,  // kind
+            20, 5,                  // max_hp, clear_at_hp
+            {   // vector<BossAttackSequenceDef>
+                {
+                    BossAttackStep::AimedPressure, 180,
+                    BossShotDef{5, 90, 200.0f, 3.0f, std::numbers::pi_v<float> / 2.0f}
+                },
+                {
+                    BossAttackStep::SpecialWarning, 90,
+                    std::nullopt
+                },
+                {
+                    BossAttackStep::CircleBarrage, 180,
+                    BossShotDef{12, 60, 150.0f, 4.0f, 0.0f}
+                },
+                {
+                    BossAttackStep::Recovery,       75,
+                    std::nullopt
+                }
             }
-        }   // end venctor
+        },
+        { // Phase2 (Spell)
+            BossPhaseKind::Spell,   // kind
+            15, 0,                  // max_hp, clear_at_hp
+            {   // vector<BossAttackSequenceDef>
+                {
+                    BossAttackStep::SpecialWarning, 90,
+                    std::nullopt
+                },
+                {
+                    BossAttackStep::CircleBarrage, 180,
+                    BossShotDef{16, 45, 200.0f, 4.0f, 0.0f}
+                },
+                {
+                    BossAttackStep::Recovery,       60,
+                    std::nullopt
+                }
+            }
+        }
     };
-
-    std::uint32_t aimed_fire_interval        = 90;  // 自機狙い発射間隔(tick)
-    std::uint32_t circle_fire_interval       = 60;  // 全方向発射間隔(tick)
 };
 } // namespace zimovka
 

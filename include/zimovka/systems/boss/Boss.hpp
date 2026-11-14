@@ -10,6 +10,7 @@
 #include "zimovka/systems/boss/BossStatus.hpp"
 #include "zimovka/systems/boss/BossAttackStep.hpp"
 #include "zimovka/systems/boss/BossAttackSequenceDef.hpp"
+#include "zimovka/systems/boss/BossPhaseDef.hpp"
 
 namespace zimovka{
 /**
@@ -31,16 +32,18 @@ struct Boss{
     float contact_radius = 0.0f;    // 自機との衝突判定半径
 
     std::int32_t hp      = 0;       // 現体力
-    std::int32_t max_hp  = 0;       // 体力最大値
 
     std::uint64_t entering_ticks_remaining    = 0; // 登場フェーズのカウントダウン
     std::uint64_t defeating_duration_ticks    = 0; // 撃破演出の総tick数(描画のscale計算用)
     std::uint64_t defeating_ticks_remaining   = 0; // 敗北フェーズのカウントダウン
 
     // ボスの攻撃パターン切り替え定義
-    std::size_t   attack_step_index           = 0; // 攻撃パターン切り替えよう添字
+    std::size_t   attack_step_index           = 0; // 攻撃パターン切り替え用添字
     std::uint64_t attack_step_ticks_remaining = 0; // 戦闘状態遷移のカウントダウン
-    // 攻撃パターン設定用vector
+
+    // ボスのフェーズを管理するためのインデックス
+    std::size_t phase_index = 0;
+    // ボスの行動パターン設定用フェーズ管理vector
     std::vector<BossPhaseDef> phases{};
 
     std::uint32_t aimed_fire_timer     = 0;        // 自機狙い発射カウントダウン

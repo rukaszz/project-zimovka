@@ -193,10 +193,11 @@ void RenderPipeline::RenderFrame(
     {
         const auto& boss_sys = gameplay.GetBossSystem();
         BossHudViewModel boss_hud;
-        boss_hud.visible = 
+        boss_hud.visible =
             (boss_sys.IsNotInactive() && !boss_sys.IsDefeating());
         boss_hud.hp      = boss_sys.GetBoss().hp;
-        boss_hud.max_hp  = boss_sys.GetBoss().max_hp;
+        // GetPhase()はphases空のときクラッシュするためInactive時は呼ばない
+        boss_hud.max_hp  = boss_sys.IsNotInactive() ? boss_sys.GetPhase().max_hp : 0;
         BossHudRenderer boss_hud_renderer;
         boss_hud_renderer.Render(boss_hud, primitives);
     }
@@ -216,7 +217,7 @@ void RenderPipeline::RenderFrame(
             overlay_view.show_warning            = true;
             // Bossのwarningの定義から取得
             overlay_view.warning_duration_ticks  =
-                boss.attack_sequence[boss.attack_step_index].duration_ticks;
+                boss_sys.GetPhase().attack_sequence[boss.attack_step_index].duration_ticks;
             overlay_view.warning_ticks_remaining = boss.attack_step_ticks_remaining;
         }else if(in_clear){
             constexpr std::uint64_t duration = Stage1::STAGE_CLEAR_DURATION_TICKS;
