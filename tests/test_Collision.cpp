@@ -23,6 +23,7 @@ using zimovka::BossPhaseKind;
 using zimovka::BossPhaseDef;
 using zimovka::BossSystem;
 using zimovka::BossStatus;
+using zimovka::DeterministicRng;
 using zimovka::BulletSystem;
 using zimovka::Circle;
 using zimovka::CollisionSystem;
@@ -31,6 +32,14 @@ using zimovka::EnemySystem;
 using zimovka::PatternSystem;
 using zimovka::Player;
 using zimovka::Vec2;
+
+namespace{
+// テスト用RNG(テスト設定ではRandomモードを使わないため共有しても問題ない)
+DeterministicRng& GetTestRng(){
+    static DeterministicRng rng{0};
+    return rng;
+}
+}  // namespace
 
 // テスト用の最低限有効なEnemySpawnParams
 static EnemySpawnParams MakeEnemyParams(Vec2 position, float hurtbox_radius = 13.0f, int hp = 1){
@@ -788,12 +797,13 @@ static BossSystem MakeFightingBoss(int max_hp = 10){
         {{BossAttackStep::AimedPressure, 999}}
     }};
     BossSystem bs;
-    bs.Start(cfg);
+    DeterministicRng rng{0};
+    bs.Start(cfg, rng);
     BulletSystem dummy(10);
     PatternSystem patterns;
     const zimovka::Vec2 player_pos{320.0f, 400.0f};
     while(bs.GetBoss().status == BossStatus::Entering){
-        bs.UpdateTick(1.0f / 60.0f, player_pos, patterns, dummy);
+        bs.UpdateTick(1.0f / 60.0f, player_pos, rng, patterns, dummy);
     }
     return bs;
 }
@@ -812,7 +822,7 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsBoss_MultipleHits_AllApplyDamage
     ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 1
     ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 2
 
-    const auto result = cs.ResolvePlayerBulletsVsBoss(player_bullets, boss);
+    const auto result = cs.ResolvePlayerBulletsVsBoss(player_bullets, boss, {0,0}, GetTestRng());
 
     EXPECT_EQ(result.hit_count,  3u);          // 3発全てヒット
     EXPECT_FALSE(result.defeated_boss);         // 撃破なし(hp 10→7)
@@ -835,7 +845,7 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsBoss_FirstBulletKills_RemainingB
     ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 1: 残る
     ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 2: 残る
 
-    const auto result = cs.ResolvePlayerBulletsVsBoss(player_bullets, boss);
+    const auto result = cs.ResolvePlayerBulletsVsBoss(player_bullets, boss, {0,0}, GetTestRng());
 
     EXPECT_EQ(result.hit_count,  1u);            // 1発のみヒット
     EXPECT_TRUE(result.defeated_boss);           // 撃破

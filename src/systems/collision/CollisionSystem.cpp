@@ -263,8 +263,10 @@ bool CollisionSystem::CheckPlayerHitByBoss(
  * @return BossHitEvents 
  */
 BossHitEvents CollisionSystem::ResolvePlayerBulletsVsBoss(
-    BulletSystem& player_bullets, 
-    BossSystem& boss_system
+    BulletSystem& player_bullets,
+    BossSystem& boss_system,
+    const Vec2& player_position,
+    DeterministicRng& rng
 )
 {
     // 結果(戻り値)
@@ -294,7 +296,7 @@ BossHitEvents CollisionSystem::ResolvePlayerBulletsVsBoss(
             continue;
         }
         // ダメージ処理: 結果に応じてhit/killをカウント
-        const BossDamageResult damage_result = boss_system.TakeDamage(1);
+        const BossDamageResult damage_result = boss_system.TakeDamage(1, player_position, rng);
         // ダメージが通らないなら次の弾へ
         if (damage_result == BossDamageResult::InvalidTarget){
             continue;

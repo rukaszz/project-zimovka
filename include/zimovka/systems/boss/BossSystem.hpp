@@ -4,8 +4,10 @@
 #include <cstdint>
 #include <cstddef>
 
+#include "zimovka/core/DeterministicRng.hpp"
 #include "zimovka/events/BossTickEvents.hpp"
 #include "zimovka/systems/boss/Boss.hpp"
+#include "zimovka/systems/boss/BossAttackSequenceDef.hpp"
 #include "zimovka/systems/boss/BossConfig.hpp"
 #include "zimovka/systems/boss/BossEvents.hpp"
 #include "zimovka/systems/boss/BossDamageResult.hpp"
@@ -16,25 +18,34 @@
 namespace zimovka{
 /**
  * @brief ボス関係の処理(API)管理用クラス
- * 
+ *
  * Enemyとは性質が似て非なるものであるため継承はしない
  */
 class BossSystem{
-private: 
+private:
     Boss boss_;
 
     // ボスの戦闘パターン制御
     void UpdateFighting(
-        const Vec2& player_position, 
-        PatternSystem& patterns, 
+        const Vec2& player_position,
+        DeterministicRng& rng,
+        PatternSystem& patterns,
         BulletSystem& enemy_bullets
     );
 
     // BossAttackStepの進行管理
-    void AdvanceAttackStep();
-    void EnterAttackStep(std::size_t index);
+    void AdvanceAttackStep(const Vec2& player_position, DeterministicRng& rng);
+    // BossAttackSequenceDefを進める
+    void EnterAttackStep(std::size_t index, const Vec2& player_position, DeterministicRng& rng);
+    // ボスの移動やターゲット計算
+    void CalculateMovement(
+        const BossAttackSequenceDef& seq,
+        const Vec2& player_position,
+        DeterministicRng& rng
+    );
+
     // 指定のインデックスのフェーズのパターン定義を読み込む
-    void ChangePhase(std::size_t index) noexcept;
+    void ChangePhase(std::size_t index, const Vec2& player_position, DeterministicRng& rng) noexcept;
     // 攻撃関数
     // 自機狙い扇形弾
     std::size_t UpdateAimedAttack(
@@ -50,19 +61,24 @@ private:
 
 public:
     // ボス戦開始処理
-    void Start(const BossConfig& config);
+    void Start(const BossConfig& config, DeterministicRng& rng);
     // リセット処理
     void Reset() noexcept;
     // 更新
     BossTickEvents UpdateTick(
         float dt,
         const Vec2& player_position,
+        DeterministicRng& rng,
         PatternSystem& patterns,
         BulletSystem& enemy_bullets
     );
     // ダメージを受ける処理
-    BossDamageResult TakeDamage(std::int32_t damage);
-    
+    BossDamageResult TakeDamage(
+        std::int32_t damage,
+        const Vec2& player_position,
+        DeterministicRng& rng
+    );
+
     // getter
     [[nodiscard]]
     const Boss& GetBoss() const noexcept{

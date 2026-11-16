@@ -5,6 +5,7 @@
 #include <optional>
 
 #include "zimovka/systems/boss/BossAttackStep.hpp"
+#include "zimovka/systems/boss/BossMovementDef.hpp"
 #include "zimovka/systems/boss/BossShotDef.hpp"
 
 namespace zimovka{
@@ -17,7 +18,9 @@ struct BossAttackSequenceDef{
     std::uint64_t duration_ticks;   // パターン持続時間
     // 攻撃ステップごとに弾の設定をもたせる
     // 攻撃ステップが無いステップもあるため，optionalを用いる
-    std::optional<BossShotDef> shot;
+    std::optional<BossShotDef>     shot     = std::nullopt;
+    std::optional<BossMovementDef> movement = std::nullopt;
+    
 };
 } // namespace zimovka
 

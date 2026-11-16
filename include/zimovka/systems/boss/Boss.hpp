@@ -28,6 +28,12 @@ struct Boss{
     Vec2 velocity{};                // 速度
     Vec2 render_size{};             // 描画サイズ
 
+    // 移動関連の要素
+    Vec2          move_start{};
+    Vec2          move_target{};
+    std::uint32_t move_duration_ticks = 0;
+    std::uint32_t move_elapsed_ticks  = 0;
+
     float hurtbox_radius = 0.0f;    // 当たり判定半径
     float contact_radius = 0.0f;    // 自機との衝突判定半径
 

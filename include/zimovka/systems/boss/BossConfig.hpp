@@ -38,21 +38,24 @@ struct BossConfig{
             BossPhaseKind::Normal,  // kind
             20, 5,                  // max_hp, clear_at_hp
             {   // vector<BossAttackSequenceDef>
-                {
+                {   // 自機狙い拡散弾: プレイヤーの反対側へ移動しながら攻撃
                     BossAttackStep::AimedPressure, 180,
-                    BossShotDef{5, 90, 200.0f, 3.0f, std::numbers::pi_v<float> / 2.0f}
+                    BossShotDef{5, 90, 200.0f, 3.0f, std::numbers::pi_v<float> / 2.0f},
+                    BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::OppositePlayer, {}, {}, 60}
                 },
-                {
+                {   // フェーズ移行警告: 画面中央上へ移動
                     BossAttackStep::SpecialWarning, 90,
-                    std::nullopt
+                    std::nullopt,
+                    BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Fixed, {320.0f, 100.0f}, {}, 60}
                 },
-                {
+                {   // 全包囲弾: ランダムに逃げながら攻撃
                     BossAttackStep::CircleBarrage, 180,
-                    BossShotDef{12, 60, 150.0f, 4.0f, 0.0f}
+                    BossShotDef{12, 60, 150.0f, 4.0f, 0.0f},
+                    BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Random, {}, {120.0f, 60.0f}, 90}
                 },
-                {
+                {   // リカバリー: 移動なし
                     BossAttackStep::Recovery,       75,
-                    std::nullopt
+                    std::nullopt, std::nullopt
                 }
             }
         },
@@ -60,17 +63,19 @@ struct BossConfig{
             BossPhaseKind::Spell,   // kind
             15, 0,                  // max_hp, clear_at_hp
             {   // vector<BossAttackSequenceDef>
-                {
+                {   // スペルカード警告: 画面中央上へ移動
                     BossAttackStep::SpecialWarning, 90,
-                    std::nullopt
+                    std::nullopt,
+                    BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Fixed, {320.0f, 80.0f}, {}, 60}
                 },
-                {
+                {   // 全包囲弾: プレイヤーの正面へ移動しながら攻撃
                     BossAttackStep::CircleBarrage, 180,
-                    BossShotDef{16, 45, 200.0f, 4.0f, 0.0f}
+                    BossShotDef{16, 45, 200.0f, 4.0f, 0.0f},
+                    BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::FacePlayer, {}, {}, 90}
                 },
-                {
+                {   // リカバリー: 移動なし
                     BossAttackStep::Recovery,       60,
-                    std::nullopt
+                    std::nullopt, std::nullopt
                 }
             }
         }

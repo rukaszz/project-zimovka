@@ -7,7 +7,7 @@
 
 namespace zimovka{
 /**
- * @brief ボスの移動に関する動作の種類
+ * @brief ボスの移動動作の種類
  * 
  */
 enum class BossMoveType{
@@ -17,13 +17,26 @@ enum class BossMoveType{
 };
 
 /**
+ * @brief ボスの移動に対する起点
+ * 
+ */
+enum class BossMoveTarget : std::uint8_t{
+    Fixed,          // スクリプト移動(target_positionを用いる)
+    Random,         // move_range内でランダムに移動する
+    OppositePlayer, // プレイヤーの反対側へ移動する(x軸は反転・Y軸は上方向)
+    FacePlayer      // プレイヤーの正面へ移動する
+};
+
+/**
  * @brief ボスの移動に関するデータ定義
  * 
  */
 struct BossMovementDef{
     BossMoveType type = BossMoveType::Stay;
-    Vec2 target_position{};
-    std::uint32_t duration_ticks = 0;
+    BossMoveTarget target_mode = BossMoveTarget::Fixed;
+    Vec2 target_position{};             // Fixedで使用
+    Vec2 move_range{};                  // 移動の制限(Randomなどで使用)：c±range
+    std::uint32_t duration_ticks = 0;   // 移動が完了するまでの時間
 };
 
 } // namespace zimovka

@@ -250,7 +250,9 @@ void UpdatePipeline::ResolveCollisions(
     // 3. PlayerBullet vs Boss
     boss_hit_out = collision_system_.ResolvePlayerBulletsVsBoss(
         player_bullets_,
-        boss_system_
+        boss_system_,
+        player_system_.GetPlayerPosition(),
+        gameplay_rng_
     );
     // 4. Player vs EnemyBullet(検出のみ，解決はUpdateBombで行う)
     const bool bullet_hit = collision_system_.CheckPlayerHitByBullets(
@@ -293,6 +295,7 @@ BossTickEvents UpdatePipeline::UpdateBoss(float dt){
         return boss_system_.UpdateTick(
             dt,
             player_system_.GetPlayerPosition(),
+            gameplay_rng_,
             pattern_system_,
             enemy_bullets_
         );
@@ -307,7 +310,7 @@ BossTickEvents UpdatePipeline::UpdateBoss(float dt){
 void UpdatePipeline::StartBossPhase(){
     enemy_system_.Clear();
     enemy_bullets_.Clear();
-    boss_system_.Start(boss_config_);
+    boss_system_.Start(boss_config_, gameplay_rng_);
     stage_phase_.stage_state = StageStatement::Boss;
 }
 

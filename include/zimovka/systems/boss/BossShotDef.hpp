@@ -9,8 +9,8 @@ namespace zimovka{
  * 
  */
 struct BossShotDef{
-    std::uint32_t bullet_count       = 0;
-    std::uint32_t fire_interval_tick = 0;
+    std::uint32_t bullet_count       = 0;   // Bossが発射した弾数
+    std::uint32_t fire_interval_tick = 0;   // 発射間隔
 
     float bullet_speed  = 0.0f;
     float bullet_radius = 0.0f;

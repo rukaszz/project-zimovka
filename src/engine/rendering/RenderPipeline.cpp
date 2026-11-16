@@ -196,7 +196,7 @@ void RenderPipeline::RenderFrame(
         boss_hud.visible =
             (boss_sys.IsNotInactive() && !boss_sys.IsDefeating());
         boss_hud.hp      = boss_sys.GetBoss().hp;
-        // GetPhase()はphases空のときクラッシュするためInactive時は呼ばない
+        // GetPhase()はInactive時は呼ばない※phases空のときクラッシュするため
         boss_hud.max_hp  = boss_sys.IsNotInactive() ? boss_sys.GetPhase().max_hp : 0;
         BossHudRenderer boss_hud_renderer;
         boss_hud_renderer.Render(boss_hud, primitives);
