@@ -52,9 +52,9 @@ struct Boss{
     // ボスの行動パターン設定用フェーズ管理vector
     std::vector<BossPhaseDef> phases{};
 
-    std::uint32_t aimed_fire_timer     = 0;        // 自機狙い発射カウントダウン
+    std::uint32_t fire_timer     = 0;        // 発射間隔制御用タイマ
+
     std::uint32_t aimed_fire_interval  = 0;        // 自機狙い発射リセット間隔
-    std::uint32_t circle_fire_timer    = 0;        // 全方向発射カウントダウン
     std::uint32_t circle_fire_interval = 0;        // 全方向発射リセット間隔
 
     // CollisionSystemから参照するための当たり判定円

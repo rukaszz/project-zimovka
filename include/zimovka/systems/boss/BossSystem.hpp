@@ -61,7 +61,7 @@ private:
 
 public:
     // ボス戦開始処理
-    void Start(const BossConfig& config, DeterministicRng& rng);
+    void Start(const BossConfig& config);
     // リセット処理
     void Reset() noexcept;
     // 更新
@@ -105,6 +105,11 @@ public:
     [[nodiscard]]
     const BossPhaseDef& GetPhase() const noexcept{
         return boss_.phases[boss_.phase_index];
+    }
+    // AttackStepを取得するアクセサ
+    [[nodiscard]]
+    const BossAttackSequenceDef& CurrentStep() const noexcept{
+        return GetPhase().attack_sequence[boss_.attack_step_index];
     }
 };
 } // namespace zimovka

@@ -13,7 +13,9 @@ namespace zimovka{
 enum class BossMoveType{
     Stay,           // 現在位置へ留まる
     MoveTo,         // 指定した時間で目的座標へ移動
-    Telepotation,   // 一定の時間をかけて目的座標へ一瞬で移動する
+    Teleportation,  // 一定の時間をかけて目的座標へ一瞬で移動する
+
+    Count,          // 門番 
 };
 
 /**
@@ -24,7 +26,9 @@ enum class BossMoveTarget : std::uint8_t{
     Fixed,          // スクリプト移動(target_positionを用いる)
     Random,         // move_range内でランダムに移動する
     OppositePlayer, // プレイヤーの反対側へ移動する(x軸は反転・Y軸は上方向)
-    FacePlayer      // プレイヤーの正面へ移動する
+    FacePlayer,     // プレイヤーの正面へ移動する
+
+    Count,          // 門番
 };
 
 /**

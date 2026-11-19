@@ -193,11 +193,15 @@ void RenderPipeline::RenderFrame(
     {
         const auto& boss_sys = gameplay.GetBossSystem();
         BossHudViewModel boss_hud;
-        boss_hud.visible =
-            (boss_sys.IsNotInactive() && !boss_sys.IsDefeating());
-        boss_hud.hp      = boss_sys.GetBoss().hp;
-        // GetPhase()はInactive時は呼ばない※phases空のときクラッシュするため
-        boss_hud.max_hp  = boss_sys.IsNotInactive() ? boss_sys.GetPhase().max_hp : 0;
+        // HPバー表示判定
+        const bool visible = 
+            boss_sys.IsFighting() && boss_sys.GetBoss().status == BossStatus::Entering;
+        boss_hud.visible = visible;
+        if(visible){
+            boss_hud.hp      = boss_sys.GetBoss().hp;
+            // GetPhase()はInactive時は呼ばない※phasesが空のときクラッシュするため
+            boss_hud.max_hp  = boss_sys.IsNotInactive() ? boss_sys.GetPhase().max_hp : 0;
+        }
         BossHudRenderer boss_hud_renderer;
         boss_hud_renderer.Render(boss_hud, primitives);
     }
@@ -211,11 +215,11 @@ void RenderPipeline::RenderFrame(
         const bool  in_clear   = (phase.stage_state == StageStatement::Cleared);
 
         GameTextOverlayViewModel overlay_view{};
-
+        // 警告表示
         if(in_warning){
             const auto& boss = boss_sys.GetBoss();
             overlay_view.show_warning            = true;
-            // Bossのwarningの定義から取得
+            // Bossのwarningの定義から表示時間を取得
             overlay_view.warning_duration_ticks  =
                 boss_sys.GetPhase().attack_sequence[boss.attack_step_index].duration_ticks;
             overlay_view.warning_ticks_remaining = boss.attack_step_ticks_remaining;

@@ -298,17 +298,21 @@ BossHitEvents CollisionSystem::ResolvePlayerBulletsVsBoss(
         // ダメージ処理: 結果に応じてhit/killをカウント
         const BossDamageResult damage_result = boss_system.TakeDamage(1, player_position, rng);
         // ダメージが通らないなら次の弾へ
-        if (damage_result == BossDamageResult::InvalidTarget){
+        if(damage_result == BossDamageResult::InvalidTarget){
             continue;
         }
 
         ++result.hit_count;
         // 弾を非活性化
         player_bullets.Deactivate(bullet_index);
-
-        if (damage_result == BossDamageResult::Destroyed) {
+        // フェーズ遷移時は自機の処理終了
+        if(damage_result == BossDamageResult::PhaseComplete){
+            result.phase_completed = true;
+            break;
+        }
+        // ボスを撃破したら自機弾の処理を終了
+        if(damage_result == BossDamageResult::Destroyed){
             result.defeated_boss = true;
-            // ボスを撃破したら自機弾の処理を終了
             break;
         }
         // ここでbreakすると複数弾ヒットが判定されなくなる
