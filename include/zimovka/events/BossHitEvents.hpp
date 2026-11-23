@@ -12,6 +12,7 @@ namespace zimovka{
  */
 struct BossHitEvents{
     std::size_t hit_count     = 0;     // 命中した弾の数
+    bool phase_completed      = false; // ボスの行動フェーズが完了したイベント
     bool        defeated_boss = false; // 撃破演出開始(HPが0)
 };
 

@@ -1,5 +1,5 @@
-#ifndef ZIMOVKA_CPRE_SIMULATIONCONFIG_HPP_
-#define ZIMOVKA_CPRE_SIMULATIONCONFIG_HPP_
+#ifndef ZIMOVKA_CONFIG_SIMULATIONCONFIG_HPP_
+#define ZIMOVKA_CONFIG_SIMULATIONCONFIG_HPP_
 
 #include <chrono>
 #include <cstdint>
@@ -23,4 +23,4 @@ inline constexpr std::chrono::nanoseconds FIXED_STEP{
 }   // namespace SimulationConfig
 }   // namespace zimovka
 
-#endif  // ZIMOVKA_CPRE_SIMULATIONCONFIG_HPP_
+#endif  // ZIMOVKA_CONFIG_SIMULATIONCONFIG_HPP_

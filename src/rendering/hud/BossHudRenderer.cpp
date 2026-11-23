@@ -20,10 +20,12 @@ namespace zimovka{
 void BossHudRenderer::Render(
     const BossHudViewModel& model,
     PrimitiveRenderer& primitives
-) const
-{
+) const {
     // ゲームの状態チェック
     if(!model.visible){
+        return;
+    }
+    if(model.max_hp < model.clear_at_hp){
         return;
     }
     if(model.max_hp <= 0){
@@ -37,7 +39,10 @@ void BossHudRenderer::Render(
     const float bar_x = PLAYFIELD_X + BOSS_BAR_MARGIN;
     const float bar_y = PLAYFIELD_Y + BOSS_BAR_HEIGHT + BOSS_BAR_MARGIN;
     const float bar_w = PLAYFIELD_WIDTH - 2.0f * BOSS_BAR_MARGIN;
-
+    
+    // ボスのフェーズ遷移閾値用の線分
+    const float clear_ratio = static_cast<float>(model.clear_at_hp / static_cast<float>(model.max_hp));
+    const float bar_t = bar_w * clear_ratio;
     // HPの割合→[0.0, 1.0]
     const float hp_ratio = std::clamp(
         static_cast<float>(model.hp) / static_cast<float>(model.max_hp),
@@ -64,6 +69,14 @@ void BossHudRenderer::Render(
             bar_x, bar_y, 
             bar_w * hp_ratio, BOSS_BAR_HEIGHT, 
             fill_color
+        );
+    }
+    // フェーズ切り替え閾値
+    if(model.clear_at_hp > 0){
+        primitives.DrawFilledRect(
+            bar_x + bar_t, bar_y, 
+            3.0f, BOSS_BAR_HEIGHT, 
+            BOSS_PHASE_CHANGE_THRE
         );
     }
 }

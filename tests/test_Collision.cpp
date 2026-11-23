@@ -4,7 +4,9 @@
 #include "zimovka/core/Vec2.hpp"
 #include "zimovka/events/BossHitEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
+#include "zimovka/systems/boss/BossAttackStep.hpp"
 #include "zimovka/systems/boss/BossConfig.hpp"
+#include "zimovka/systems/boss/BossPhaseDef.hpp"
 #include "zimovka/systems/boss/BossStatus.hpp"
 #include "zimovka/systems/boss/BossSystem.hpp"
 #include "zimovka/systems/bullet/BulletSystem.hpp"
@@ -15,9 +17,14 @@
 #include "zimovka/systems/pattern/PatternSystem.hpp"
 #include "zimovka/systems/player/Player.hpp"
 
+using zimovka::BossAttackStep;
 using zimovka::BossConfig;
+using zimovka::BossPhaseKind;
+using zimovka::BossShotDef;
+using zimovka::BossPhaseDef;
 using zimovka::BossSystem;
 using zimovka::BossStatus;
+using zimovka::DeterministicRng;
 using zimovka::BulletSystem;
 using zimovka::Circle;
 using zimovka::CollisionSystem;
@@ -26,6 +33,9 @@ using zimovka::EnemySystem;
 using zimovka::PatternSystem;
 using zimovka::Player;
 using zimovka::Vec2;
+
+namespace{
+}  // namespace
 
 // テスト用の最低限有効なEnemySpawnParams
 static EnemySpawnParams MakeEnemyParams(Vec2 position, float hurtbox_radius = 13.0f, int hp = 1){
@@ -764,9 +774,14 @@ TEST(BulletCancelTest, OutsideCancelRadius_DoesNotCancel){
 // ──────────────────────────────────────────────────────
 // 自機弾 vs ボス (ResolvePlayerBulletsVsBoss)
 // ──────────────────────────────────────────────────────
-
-// テスト用にFighting状態のBossSystemを構築するヘルパ
-// position={320,80}, hurtbox_radius=30, contact_radius=20
+/**
+ * @brief テスト用にFighting状態のBossSystemを構築するヘルパ
+ * 
+ * position={320,80}, hurtbox_radius=30, contact_radius=20
+ * 
+ * @param max_hp 
+ * @return BossSystem 
+ */
 static BossSystem MakeFightingBoss(int max_hp = 10){
     BossConfig cfg;
     cfg.name                    = "TestBoss";
@@ -775,17 +790,19 @@ static BossSystem MakeFightingBoss(int max_hp = 10){
     cfg.render_size             = {64.0f, 64.0f};
     cfg.hurtbox_radius          = 30.0f;
     cfg.contact_radius          = 20.0f;
-    cfg.max_hp                  = max_hp;
     cfg.entering_duration_ticks = 1;
-    cfg.aimed_fire_interval     = 999;
-    cfg.circle_fire_interval    = 999;
+    cfg.phases = {{
+        BossPhaseKind::Normal, max_hp, 0,
+        {{BossAttackStep::AimedPressure, 999, BossShotDef{3, 999, 100.0f, 3.0f, 0.0f}}}
+    }};
     BossSystem bs;
+    DeterministicRng rng{0};
     bs.Start(cfg);
     BulletSystem dummy(10);
     PatternSystem patterns;
     const zimovka::Vec2 player_pos{320.0f, 400.0f};
     while(bs.GetBoss().status == BossStatus::Entering){
-        bs.UpdateTick(1.0f / 60.0f, player_pos, patterns, dummy);
+        bs.UpdateTick(1.0f / 60.0f, player_pos, rng, patterns, dummy);
     }
     return bs;
 }
@@ -815,7 +832,7 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsBoss_MultipleHits_AllApplyDamage
 /**
  * @brief 1発目でボスを撃破したとき，2発目・3発目は消費されないことを確認
  *
- * CollisionSystem::ResolvePlayerBulletsVsBoss はDestroyedでbreakするため
+ * CollisionSystem::ResolvePlayerBulletsVsBossはDestroyedでbreakするため
  * 残りの弾はinactiveにならない
  */
 TEST(CollisionSystemTest, ResolvePlayerBulletsVsBoss_FirstBulletKills_RemainingBulletsUnconsumed){

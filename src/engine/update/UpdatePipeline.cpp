@@ -293,6 +293,7 @@ BossTickEvents UpdatePipeline::UpdateBoss(float dt){
         return boss_system_.UpdateTick(
             dt,
             player_system_.GetPlayerPosition(),
+            gameplay_rng_,
             pattern_system_,
             enemy_bullets_
         );

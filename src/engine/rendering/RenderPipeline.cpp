@@ -111,6 +111,17 @@ void RenderPipeline::RenderFrame(
         const auto&  boss = gameplay.GetBossSystem().GetBoss();
         Vec2         draw_size  = boss.render_size;
         std::uint8_t draw_alpha = 255;
+        // 瞬間移動演出
+        if(boss.move_type == BossMoveType::Teleportation
+        && boss.move_duration_ticks > 0
+        && boss.move_elapsed_ticks  < boss.move_duration_ticks
+        )
+        {
+            const float t = static_cast<float>(boss.move_elapsed_ticks)
+                            / static_cast<float>(boss.move_duration_ticks);
+            // 255 → 50まで線形フェード(完全透明にはしない)
+            draw_alpha = static_cast<std::uint8_t>(255.0f * (1.0f - t * 0.8f));
+        }
         // 敗北時の演出
         if(boss.status == BossStatus::Defeating && boss.defeating_duration_ticks > 0){
             // 縮小率: 残tick割合でサイズを1.0→0.0に縮める
@@ -193,30 +204,35 @@ void RenderPipeline::RenderFrame(
     {
         const auto& boss_sys = gameplay.GetBossSystem();
         BossHudViewModel boss_hud;
-        boss_hud.visible = 
-            (boss_sys.IsNotInactive() && !boss_sys.IsDefeating());
-        boss_hud.hp      = boss_sys.GetBoss().hp;
-        boss_hud.max_hp  = boss_sys.GetBoss().max_hp;
+        // HPバー表示判定
+        const bool visible = boss_sys.IsFighting() || boss_sys.IsEntering();
+        boss_hud.visible = visible;
+        if(visible){
+            boss_hud.hp          = boss_sys.GetBoss().hp;
+            boss_hud.clear_at_hp = boss_sys.GetPhase().clear_at_hp;
+            // GetPhase()はInactive時は呼ばない※phasesが空のときクラッシュするため
+            boss_hud.max_hp      = boss_sys.IsNotInactive() ? boss_sys.GetPhase().max_hp : 0;
+        }
         BossHudRenderer boss_hud_renderer;
         boss_hud_renderer.Render(boss_hud, primitives);
     }
     
     // GameTextOverlay(プレイフィールドへの文字描画)
     {
-        const auto& boss_sys = gameplay.GetBossSystem();
-        const auto& phase    = gameplay.GetStagePhase();
+        const auto& boss_sys   = gameplay.GetBossSystem();
+        const auto& phase      = gameplay.GetStagePhase();
         const bool  in_warning = boss_sys.IsFighting() &&
             (boss_sys.GetAttackStep() == BossAttackStep::SpecialWarning);
         const bool  in_clear   = (phase.stage_state == StageStatement::Cleared);
 
         GameTextOverlayViewModel overlay_view{};
-
+        // 警告表示
         if(in_warning){
             const auto& boss = boss_sys.GetBoss();
             overlay_view.show_warning            = true;
-            // Bossのwarningの定義から取得
+            // Bossのwarningの定義から表示時間を取得
             overlay_view.warning_duration_ticks  =
-                boss.attack_sequence[boss.attack_step_index].duration_ticks;
+                boss_sys.GetPhase().attack_sequence[boss.attack_step_index].duration_ticks;
             overlay_view.warning_ticks_remaining = boss.attack_step_ticks_remaining;
         }else if(in_clear){
             constexpr std::uint64_t duration = Stage1::STAGE_CLEAR_DURATION_TICKS;
