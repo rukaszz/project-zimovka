@@ -3700,3 +3700,28 @@ Bossの行動パターンのフェーズ管理を導入し，ボスの移動も�
   - 弾幕パターンとEnemyの種類を増やす塩梅に悩む
     - 現状は許容
     - 動きは単純でも射撃のパターンで差別化が容易と思われる．
+
+### 2026/11/21
+
+#### BossのTakeDamage
+
+BossSystem::TakeDamage()がChangePhase()を持っていたのでplayer_positionやrngを持っていた．しかし引数を増やした際の影響やposition/rngの入口を絞るべく，BossSytem::UpdateTicks()に集約し，TakeDamage()はChangePhaseを呼び出すためにフラグを立てる役割を持たせた(フェーズ遷移を予約するイメージ)．
+
+契約としてはこんな感じになる：
+
+```text
+Fighting
+    │
+    ├── 通常ダメージ
+    │      └── Damaged
+    │
+    ├── 中間フェーズ終了
+    │      ├── PhaseComplete
+    │      └── phase_transition_pending = true
+    │
+    └── 最終フェーズ終了
+           ├── Destroyed
+           └── Defeatingへ
+```
+
+なお，現状の仕様はボスフェーズ遷移時はプレイヤーは被弾する，ボスの撃破時は被弾を避ける(Bombの処理を呼ばない)としている．

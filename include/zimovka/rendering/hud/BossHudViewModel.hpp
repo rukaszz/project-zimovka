@@ -10,8 +10,9 @@ namespace zimovka{
  */
 struct BossHudViewModel{
     bool visible = false;
-    std::int32_t hp = 0;
-    std::int32_t max_hp = 0;
+    std::int32_t hp          = 0;
+    std::int32_t clear_at_hp = 0;   // フェーズ切り替え用基準値
+    std::int32_t max_hp      = 0;
 };    
 } // namespace zimovka
 

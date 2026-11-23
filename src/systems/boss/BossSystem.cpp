@@ -113,7 +113,9 @@ void ValidateBossConfig(const BossConfig& config){
                     );
                 }
                 if(boss_shot.bullet_count == 0
-                || boss_shot.bullet_speed <= 0
+                || boss_shot.fire_interval_tick == 0
+                || boss_shot.bullet_speed <= 0.0f
+                || !std::isfinite(boss_shot.bullet_speed)
                 || boss_shot.bullet_radius < 0.0f || boss_shot.spread_radius < 0.0f
                 || !std::isfinite(boss_shot.bullet_radius) || !std::isfinite(boss_shot.spread_radius)
                 )
@@ -125,7 +127,8 @@ void ValidateBossConfig(const BossConfig& config){
             }
             // BossMovementDef
             if(def.movement){
-                switch(def.movement->type){
+                const auto& move = *def.movement;
+                switch(move.type){
                 case BossMoveType::Stay:
                 case BossMoveType::MoveTo:
                 case BossMoveType::Teleportation:
@@ -136,7 +139,7 @@ void ValidateBossConfig(const BossConfig& config){
                         "Invalid BossMoveType. "
                     );
                 }
-                switch(def.movement->target_mode){
+                switch(move.target_mode){
                 case BossMoveTarget::Fixed:
                 case BossMoveTarget::Random:
                 case BossMoveTarget::FacePlayer:
@@ -149,6 +152,17 @@ void ValidateBossConfig(const BossConfig& config){
                     );
                 }
                 // target_modeに応じて使用フィールドのみ検証
+                // Stayの場合は検証は不要
+                if(move.type == BossMoveType::Stay){
+                    continue;
+                }
+                // Stay以外の共通的な条件
+                if(def.movement->duration_ticks == 0){
+                    throw std::invalid_argument(
+                        "Invalid movement duration ticks. "
+                    );
+                }
+                // Fixed: 移動先の有効性
                 if(def.movement->target_mode == BossMoveTarget::Fixed){
                     if(def.movement->target_position.x <= 0.0f
                     || def.movement->target_position.y <= 0.0f
@@ -160,6 +174,7 @@ void ValidateBossConfig(const BossConfig& config){
                         );
                     }
                 }
+                // Random: ランダム移動の範囲検証
                 if(def.movement->target_mode == BossMoveTarget::Random){
                     if(def.movement->move_range.x <= 0.0f
                     || def.movement->move_range.y <= 0.0f
@@ -170,11 +185,6 @@ void ValidateBossConfig(const BossConfig& config){
                             "Invalid Vec2 elements. "
                         );
                     }
-                }
-                if(def.movement->duration_ticks == 0){
-                    throw std::invalid_argument(
-                        "Invalid movement duration ticks. "
-                    );
                 }
             }
         }
@@ -236,7 +246,8 @@ void BossSystem::Reset() noexcept{
  */
 void BossSystem::ChangePhase(
     std::size_t index, const Vec2& player_position, DeterministicRng& rng
-) noexcept {
+)
+{
     boss_.phase_index = index;
     boss_.hp = boss_.phases[index].max_hp;
     // 新フェーズの最初のステップ(0)で開始
@@ -285,22 +296,18 @@ BossTickEvents BossSystem::UpdateTick(
         return {};
     }
     // Movement
-    // 瞬間移動(特定の時間が経ったらtarget_positionへ代入)
-    if(boss_.move_type == BossMoveType::Teleportation){
+    // move_elapsed_ticksの無制限な増加を防止するために最初に判定
+    if(boss_.move_elapsed_ticks < boss_.move_duration_ticks){
         ++boss_.move_elapsed_ticks;
-        // elapsed < durationの間は位置を変えない
-        if(boss_.move_elapsed_ticks == boss_.move_duration_ticks){
-            boss_.position = boss_.move_target; // スナップ
+        // 瞬間移動(特定の時間が経ったらtarget_positionへ代入)
+        if(boss_.move_type == BossMoveType::Teleportation){
+            // elapsed < durationの間は位置を変えない
+            if(boss_.move_elapsed_ticks == boss_.move_duration_ticks){
+                boss_.position = boss_.move_target; // スナップ
+            }
         }
-    }
-    // 通常の移動(線形移動)
-    if(boss_.move_type == BossMoveType::MoveTo)
-    {
-        ++boss_.move_elapsed_ticks;
-        if(boss_.move_duration_ticks > 0
-        && boss_.move_elapsed_ticks  <= boss_.move_duration_ticks
-        )
-        {
+        // 通常の移動(線形移動)
+        else if(boss_.move_type == BossMoveType::MoveTo){
             const float t = static_cast<float>(boss_.move_elapsed_ticks)
                             / static_cast<float>(boss_.move_duration_ticks);
             // lerpによる線形補間(2点a, bを時間tで補間する)
@@ -309,6 +316,7 @@ BossTickEvents BossSystem::UpdateTick(
             boss_.position = {x, y};
         }
     }
+    
 
     // ─── Entering ─────────────────────────────
     // Entering: fight_tick消費 → Fightingへ遷移
@@ -439,6 +447,8 @@ void BossSystem::CalculateMovement(
     // optionalが有効な値を保持しているか
     // ※has_valueを用いるとnulloptのときも移動が継続するので用いない
     if(!seq.movement){
+        // 移動の状態を初期へ戻す
+        boss_.move_type = BossMoveType::Stay;
         boss_.move_duration_ticks = 0;
         boss_.move_elapsed_ticks  = 0;
         return;

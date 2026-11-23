@@ -208,9 +208,10 @@ void RenderPipeline::RenderFrame(
         const bool visible = boss_sys.IsFighting() || boss_sys.IsEntering();
         boss_hud.visible = visible;
         if(visible){
-            boss_hud.hp      = boss_sys.GetBoss().hp;
+            boss_hud.hp          = boss_sys.GetBoss().hp;
+            boss_hud.clear_at_hp = boss_sys.GetPhase().clear_at_hp;
             // GetPhase()はInactive時は呼ばない※phasesが空のときクラッシュするため
-            boss_hud.max_hp  = boss_sys.IsNotInactive() ? boss_sys.GetPhase().max_hp : 0;
+            boss_hud.max_hp      = boss_sys.IsNotInactive() ? boss_sys.GetPhase().max_hp : 0;
         }
         BossHudRenderer boss_hud_renderer;
         boss_hud_renderer.Render(boss_hud, primitives);

@@ -45,7 +45,7 @@ private:
     );
 
     // 指定のインデックスのフェーズのパターン定義を読み込む
-    void ChangePhase(std::size_t index, const Vec2& player_position, DeterministicRng& rng) noexcept;
+    void ChangePhase(std::size_t index, const Vec2& player_position, DeterministicRng& rng);
     // 攻撃関数
     // 自機狙い扇形弾
     std::size_t UpdateAimedAttack(

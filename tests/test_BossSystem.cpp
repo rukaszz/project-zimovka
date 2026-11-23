@@ -1945,36 +1945,193 @@ TEST(BossMovementTest, FirstMove_UsesActualPlayerPosition){
  * 再現性の保証: seed=42のRNG2個で独立したBossSystemを動かすと
  * move_targetが完全に一致する
  */
-TEST(BossMovementTest, RandomMove_SameSeedSameDestination){
+/**
+ * @brief 同一seed・同一configでReset後に再実行した結果が完全一致することを確認
+ *
+ * シナリオ:
+ *   Start(config)
+ *   → 同一seed/入力でN tick進める
+ *   → Boss位置・フェーズ・攻撃状態・弾の状態を記録
+ *   → Reset()
+ *   → RNGを同一seedに戻す
+ *   → Start(config)
+ *   → 同一入力でN tick進める
+ *   → スナップショットを比較
+ *
+ * 比較するフィールド:
+ *   - position / phase_index / attack_step_index
+ *   - move_target / fire_timer / move_elapsed_ticks
+ *   - アクティブ弾数・弾の座標/速度
+ *   - RNG消費回数(GetDrawCount()で直接確認)
+ */
+TEST(BossMovementTest, DeterministicReplay_SameSeedIdenticalState){
+    // ── config ──────────────────────────────────────
+    // Random移動 + 発射ありの2ステップ構成
+    // step[0]: 5tick / fire_interval=2 / Random移動(RNG消費あり)
+    // step[1]: 3tick / 発射なし / 移動なし
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    cfg.phases[0].attack_sequence = {{
-        BossAttackStep::AimedPressure, 999,
-        BossShotDef{3, 999, 100.0f, 3.0f, 0.0f},
-        BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Random, {}, {80.0f, 50.0f}, 60}
-    }};
+    cfg.phases[0].attack_sequence = {
+        {BossAttackStep::AimedPressure, 5,
+         BossShotDef{3, 2, 100.0f, 3.0f, 0.0f},
+         BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Random, {}, {80.0f, 50.0f}, 4}},
+        {BossAttackStep::Recovery, 3,
+         std::nullopt, std::nullopt},
+    };
 
-    BossSystem bs1, bs2;
-    BulletSystem bullets(100);
-    PatternSystem patterns;
-    bs1.Start(cfg);
-    bs2.Start(cfg);
+    constexpr int     N          = 20;  // ステップ遷移を複数含む長さ
+    const Vec2        player_pos{320.0f, 400.0f};
+    const float       dt         = 1.0f / 60.0f;
+    constexpr DeterministicRng::Seed SEED = 42;
 
-    const float dt = 1.0f / 60.0f;
+    // ── Run A ────────────────────────────────────────
+    BossSystem       bs;
+    BulletSystem     bullets_a(500);
+    PatternSystem    patterns_a;
+    DeterministicRng rng_a{SEED};
+    bs.Start(cfg);
+    for(int i = 0; i < N; ++i){
+        bs.UpdateTick(dt, player_pos, rng_a, patterns_a, bullets_a);
+    }
+
+    // Run A のスナップショットを記録
+    struct BossSnapshot{
+        Vec2          position;
+        std::size_t   phase_index;
+        std::size_t   attack_step_index;
+        Vec2          move_target;
+        std::uint32_t fire_timer;
+        std::uint32_t move_elapsed_ticks;
+    };
+    struct BulletEntry{
+        Vec2 position;
+        Vec2 velocity;
+    };
+    const BossSnapshot snap_a{
+        .position          = bs.GetBoss().position,
+        .phase_index       = bs.GetBoss().phase_index,
+        .attack_step_index = bs.GetBoss().attack_step_index,
+        .move_target       = bs.GetBoss().move_target,
+        .fire_timer        = bs.GetBoss().fire_timer,
+        .move_elapsed_ticks = bs.GetBoss().move_elapsed_ticks,
+    };
+    std::vector<BulletEntry> bullets_snap_a;
+    for(const auto& b : bullets_a.GetBullets()){
+        if(b.active){ bullets_snap_a.push_back({b.position, b.velocity}); }
+    }
+    const std::uint64_t draw_count_a = rng_a.GetDrawCount();
+
+    // ── Reset → Run B (同一seed) ─────────────────────
+    bs.Reset();
+    bs.Start(cfg);
+    BulletSystem     bullets_b(500);
+    PatternSystem    patterns_b;
+    DeterministicRng rng_b{SEED};
+    for(int i = 0; i < N; ++i){
+        bs.UpdateTick(dt, player_pos, rng_b, patterns_b, bullets_b);
+    }
+
+    // ── 比較 ─────────────────────────────────────────
+    const auto& boss_b = bs.GetBoss();
+
+    EXPECT_FLOAT_EQ(boss_b.position.x,       snap_a.position.x);
+    EXPECT_FLOAT_EQ(boss_b.position.y,       snap_a.position.y);
+    EXPECT_EQ(      boss_b.phase_index,       snap_a.phase_index);
+    EXPECT_EQ(      boss_b.attack_step_index, snap_a.attack_step_index);
+    EXPECT_FLOAT_EQ(boss_b.move_target.x,    snap_a.move_target.x);
+    EXPECT_FLOAT_EQ(boss_b.move_target.y,    snap_a.move_target.y);
+    EXPECT_EQ(      boss_b.fire_timer,        snap_a.fire_timer);
+    EXPECT_EQ(      boss_b.move_elapsed_ticks, snap_a.move_elapsed_ticks);
+
+    // 弾の状態比較
+    std::vector<BulletEntry> bullets_snap_b;
+    for(const auto& b : bullets_b.GetBullets()){
+        if(b.active){ bullets_snap_b.push_back({b.position, b.velocity}); }
+    }
+    ASSERT_EQ(bullets_snap_b.size(), bullets_snap_a.size());
+    for(std::size_t i = 0; i < bullets_snap_a.size(); ++i){
+        EXPECT_FLOAT_EQ(bullets_snap_b[i].position.x, bullets_snap_a[i].position.x)
+            << "bullet[" << i << "].position.x が不一致";
+        EXPECT_FLOAT_EQ(bullets_snap_b[i].position.y, bullets_snap_a[i].position.y)
+            << "bullet[" << i << "].position.y が不一致";
+        EXPECT_FLOAT_EQ(bullets_snap_b[i].velocity.x, bullets_snap_a[i].velocity.x)
+            << "bullet[" << i << "].velocity.x が不一致";
+        EXPECT_FLOAT_EQ(bullets_snap_b[i].velocity.y, bullets_snap_a[i].velocity.y)
+            << "bullet[" << i << "].velocity.y が不一致";
+    }
+
+    // RNG消費回数が同一であることを確認
+    EXPECT_EQ(rng_b.GetDrawCount(), draw_count_a);
+}
+
+/**
+ * @brief MoveTo 完了後，次のステップで movement = nullopt ならば
+ *        move_type == Stay になり，位置と move_elapsed_ticks が変化しないことを確認
+ *
+ * step[0]: AimedPressure, duration=60, MoveTo Fixed target_pos, move_duration=5
+ * step[1]: Recovery,      duration=999, movement=nullopt
+ *
+ * 動作:
+ *   Entering(1) → Fighting step[0](60) → Fighting step[1]
+ *   step[1] 開始時に CalculateMovement が nullopt → move_type=Stay, elapsed=0
+ *   以降のTickで位置・elapsed が変化しない
+ */
+TEST(BossMovementTest, NulloptMovement_SetsStayAndStopsMovement){
+    constexpr std::uint32_t STEP0_DURATION = 60;
+    constexpr std::uint32_t MOVE_DURATION  = 5;
+    const Vec2 start_pos {320.0f, 100.0f};
+    const Vec2 target_pos{200.0f,  90.0f};
+
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.position                = start_pos;
+    cfg.entering_duration_ticks = 1;
+    cfg.phases[0].attack_sequence = {
+        {BossAttackStep::AimedPressure, STEP0_DURATION,
+         BossShotDef{3, 999, 100.0f, 3.0f, 0.0f},
+         BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Fixed, target_pos, {}, MOVE_DURATION}},
+        {BossAttackStep::Recovery, 999,
+         std::nullopt, std::nullopt},
+    };
+
+    BossSystem       bs;
+    DeterministicRng rng{0};
+    BulletSystem     bullets(10);
+    PatternSystem    patterns;
+    bs.Start(cfg);
+
+    const float dt         = 1.0f / 60.0f;
     const Vec2  player_pos{320.0f, 400.0f};
 
-    DeterministicRng rng1{42};
-    DeterministicRng rng2{42};
+    // Entering を抜ける → step[0] 開始
+    bs.UpdateTick(dt, player_pos, rng, patterns, bullets);
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
+    EXPECT_EQ(bs.GetBoss().move_type, BossMoveType::MoveTo);
 
-    bs1.UpdateTick(dt, player_pos, rng1, patterns, bullets);
-    bs2.UpdateTick(dt, player_pos, rng2, patterns, bullets);
+    // step[0] を消化して step[1] へ遷移させる
+    // UpdateFighting は remaining==0 を次tick冒頭で検出するため +1 tick 必要
+    for(std::uint32_t i = 0; i < STEP0_DURATION + 1; ++i){
+        bs.UpdateTick(dt, player_pos, rng, patterns, bullets);
+    }
 
-    ASSERT_EQ(bs1.GetBoss().status, BossStatus::Fighting);
-    ASSERT_EQ(bs2.GetBoss().status, BossStatus::Fighting);
+    // step[1] に遷移済み
+    ASSERT_EQ(bs.GetBoss().attack_step_index, 1u);
 
-    // 同一シードなら同一の移動先
-    EXPECT_FLOAT_EQ(bs1.GetBoss().move_target.x, bs2.GetBoss().move_target.x);
-    EXPECT_FLOAT_EQ(bs1.GetBoss().move_target.y, bs2.GetBoss().move_target.y);
+    // move_type が Stay にリセットされている
+    EXPECT_EQ(bs.GetBoss().move_type, BossMoveType::Stay);
+
+    // 座標は step[0] の MoveTo 完了後のまま (target_pos に到達済み)
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.x, target_pos.x);
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.y, target_pos.y);
+
+    // さらに数ティック進めても座標・elapsed が変化しない
+    const Vec2          pos_before     = bs.GetBoss().position;
+    const std::uint32_t elapsed_before = bs.GetBoss().move_elapsed_ticks;
+    for(int i = 0; i < 3; ++i){
+        bs.UpdateTick(dt, player_pos, rng, patterns, bullets);
+    }
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.x, pos_before.x);
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.y, pos_before.y);
+    EXPECT_EQ(bs.GetBoss().move_elapsed_ticks, elapsed_before);
 }
 
 // ──────────────────────────────────────────────────────
@@ -2057,17 +2214,35 @@ TEST(BossConfigValidationTest, Config_RejectsInvalidShotAndMovement){
     }
 }
 
+/**
+ * @brief BossMovementDef{}(デフォルト==Stay)がValidationで拒否されないこと
+ *
+ * Stayタイプではtarget_position/move_range/duration_ticksは未使用のためValidationがスキップされる
+ * BossMovementDefのデフォルト値(全ゼロ)が誤って拒否されないことを回帰テストで確かめる
+ */
+TEST(BossConfigValidationTest, Config_AcceptsDefaultMovementDef){
+    BossSystem bs;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.phases[0].attack_sequence = {{
+        BossAttackStep::AimedPressure, 10,
+        BossShotDef{3, 5, 100.0f, 3.0f, 0.0f},
+        BossMovementDef{}   // Stay, duration=0, target={0,0} — Stayなので検証スキップ
+    }};
+    EXPECT_NO_THROW(bs.Start(cfg));
+}
+
 // ──────────────────────────────────────────────────────
 // BossTeleportationTest
 // ──────────────────────────────────────────────────────
 /**
- * @brief CalculateMovement() で boss.move_type が Teleportation にセットされることを確認
+ * @brief CalculateMovement()でboss.move_type=Teleportationにセットされるか
  *
- * Entering → Fighting 遷移直後に boss.move_type == Teleportation となる。
+ * Entering → Fighting遷移直後にboss.move_type==Teleportationとなる
  */
 TEST(BossTeleportationTest, Teleportation_SetsMoveType){
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
+    // Teleportationを設定
     cfg.phases[0].attack_sequence = {{
         BossAttackStep::AimedPressure, 999,
         BossShotDef{3, 999, 100.0f, 3.0f, 0.0f},
@@ -2088,9 +2263,9 @@ TEST(BossTeleportationTest, Teleportation_SetsMoveType){
 }
 
 /**
- * @brief duration - 1 ティック経過後も position が変わらないことを確認
+ * @brief duration - 1tick経過後もpositionが変わらないことを確認
  *
- * Teleportation はカウントダウン中に座標を変えない。
+ * Teleportationはカウントダウン中に座標を変えない
  */
 TEST(BossTeleportationTest, Teleportation_DoesNotMoveBeforeDeadline){
     constexpr std::uint32_t DURATION = 10;
@@ -2098,8 +2273,8 @@ TEST(BossTeleportationTest, Teleportation_DoesNotMoveBeforeDeadline){
     const Vec2 target_pos{100.0f,  80.0f};
 
     BossConfig cfg = MakeDefaultConfig();
-    cfg.position                = start_pos;
-    cfg.entering_duration_ticks = 1;
+    cfg.position                  = start_pos;
+    cfg.entering_duration_ticks   = 1;
     cfg.phases[0].attack_sequence = {{
         BossAttackStep::AimedPressure, 999,
         BossShotDef{3, 999, 100.0f, 3.0f, 0.0f},
@@ -2112,14 +2287,14 @@ TEST(BossTeleportationTest, Teleportation_DoesNotMoveBeforeDeadline){
     PatternSystem patterns;
     bs.Start(cfg);
 
-    const float dt         = 1.0f / 60.0f;
+    const float dt = 1.0f / 60.0f;
     const Vec2  player_pos{320.0f, 400.0f};
 
-    // Entering を抜ける
+    // Enteringを抜ける
     bs.UpdateTick(dt, player_pos, rng, patterns, bullets);
     ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
 
-    // duration - 1 ティック進める（スナップの1ティック手前）
+    // duration - 1 tick進める(スナップの1tick手前)
     for(std::uint32_t i = 0; i < DURATION - 1; ++i){
         bs.UpdateTick(dt, player_pos, rng, patterns, bullets);
     }
@@ -2130,10 +2305,10 @@ TEST(BossTeleportationTest, Teleportation_DoesNotMoveBeforeDeadline){
 }
 
 /**
- * @brief duration ティック目に target_position へスナップすることを確認
+ * @brief duration_tick到達後にtarget_positionへスナップする
  *
- * move_elapsed_ticks == move_duration_ticks になった tick で
- * position が一瞬で target_position に移動する。
+ * move_elapsed_ticks == move_duration_ticksになったtickで
+ * positionが一瞬でtarget_positionに移動することを確認
  */
 TEST(BossTeleportationTest, Teleportation_SnapsToPosAtExactTick){
     constexpr std::uint32_t DURATION = 10;
@@ -2162,12 +2337,12 @@ TEST(BossTeleportationTest, Teleportation_SnapsToPosAtExactTick){
     bs.UpdateTick(dt, player_pos, rng, patterns, bullets);
     ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
 
-    // duration ティック進める（スナップが発生するティックを含む）
+    // duration_tickを進める(スナップが発生するtickまで)
     for(std::uint32_t i = 0; i < DURATION; ++i){
         bs.UpdateTick(dt, player_pos, rng, patterns, bullets);
     }
 
-    // target_position へスナップ済み
+    // target_positionへスナップしているか
     EXPECT_FLOAT_EQ(bs.GetBoss().position.x, target_pos.x);
     EXPECT_FLOAT_EQ(bs.GetBoss().position.y, target_pos.y);
 }
