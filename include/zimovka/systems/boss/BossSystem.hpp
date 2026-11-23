@@ -70,14 +70,10 @@ public:
         const Vec2& player_position,
         DeterministicRng& rng,
         PatternSystem& patterns,
-        BulletSystem& enemy_bullets
+        BulletSystem& boss_bullets
     );
     // ダメージを受ける処理
-    BossDamageResult TakeDamage(
-        std::int32_t damage,
-        const Vec2& player_position,
-        DeterministicRng& rng
-    );
+    BossDamageResult TakeDamage(std::int32_t damage);
 
     // getter
     [[nodiscard]]
@@ -87,6 +83,10 @@ public:
     [[nodiscard]]
     bool IsNotInactive() const noexcept{
         return boss_.status != BossStatus::Inactive;
+    }
+    [[nodiscard]]
+    bool IsEntering() const noexcept{
+        return boss_.status == BossStatus::Entering;
     }
     [[nodiscard]]
     bool IsFighting() const noexcept{

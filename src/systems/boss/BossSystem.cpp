@@ -11,6 +11,11 @@
 #include "zimovka/systems/pattern/PatternEmitRequest.hpp"
 
 namespace zimovka{
+// ボスの移動可能エリア(画面端マージン)
+constexpr float MOVE_MARGIN_X = 64.0f;
+constexpr float MOVE_MARGIN_Y = 48.0f;
+constexpr float MOVE_MAX_Y    = ScreenLayout::PLAYFIELD_HEIGHT * 0.4f;  // 上方40%に限定
+
 // ヘルパ関数
 namespace{
 /**
@@ -50,9 +55,7 @@ void ValidateBossConfig(const BossConfig& config){
                            && std::isfinite(config.hurtbox_radius)
                            && std::isfinite(config.contact_radius);
     const bool valid_timers = config.entering_duration_ticks > 0
-                           && config.defeating_duration_ticks > 0
-                           && config.aimed_fire_interval > 0
-                           && config.circle_fire_interval > 0;
+                           && config.defeating_duration_ticks > 0;
     if(!valid_radius || !valid_timers){
         throw std::invalid_argument(
             "Invalid Boss config: invalid integer values."
@@ -90,6 +93,15 @@ void ValidateBossConfig(const BossConfig& config){
             {
                 throw std::invalid_argument(
                     "Boss attack step is not valid. "
+                );
+            }
+            // 発射ステップにはBossShotDefが必須
+            if((def.step == BossAttackStep::AimedPressure
+            ||  def.step == BossAttackStep::CircleBarrage)
+            && !def.shot)
+            {
+                throw std::invalid_argument(
+                    "Firing steps (AimedPressure, CircleBarrage) require BossShotDef. "
                 );
             }
             // BossShotDef
@@ -136,19 +148,28 @@ void ValidateBossConfig(const BossConfig& config){
                         "Invalid BossMoveType. "
                     );
                 }
-                if(def.movement->target_position.x <= 0.0f
-                || def.movement->target_position.y <= 0.0f 
-                || !IsFinite(def.movement->target_position)
-                || def.movement->move_range.x <= 0.0f
-                || def.movement->move_range.y <= 0.0f 
-                || !IsFinite(def.movement->move_range)
-                || MOVE_MARGIN_X <= def.movement->move_range.x
-                || MOVE_MARGIN_Y <= def.movement->move_range.y
-                )
-                {
-                    throw std::invalid_argument(
-                        "Invalid Vec2 elements. "
-                    );
+                // target_modeに応じて使用フィールドのみ検証
+                if(def.movement->target_mode == BossMoveTarget::Fixed){
+                    if(def.movement->target_position.x <= 0.0f
+                    || def.movement->target_position.y <= 0.0f
+                    || !IsFinite(def.movement->target_position)
+                    )
+                    {
+                        throw std::invalid_argument(
+                            "Invalid Vec2 elements. "
+                        );
+                    }
+                }
+                if(def.movement->target_mode == BossMoveTarget::Random){
+                    if(def.movement->move_range.x <= 0.0f
+                    || def.movement->move_range.y <= 0.0f
+                    || !IsFinite(def.movement->move_range)
+                    )
+                    {
+                        throw std::invalid_argument(
+                            "Invalid Vec2 elements. "
+                        );
+                    }
                 }
                 if(def.movement->duration_ticks == 0){
                     throw std::invalid_argument(
@@ -159,22 +180,6 @@ void ValidateBossConfig(const BossConfig& config){
         }
     }
 }
-
-// 自機狙い拡散弾パラメータ(実装確認用の仮の値)
-constexpr std::uint32_t AimedBulletCount  = 5;
-constexpr float         AimedSpreadRad    = std::numbers::pi_v<float> / 2.0f;  // 90°
-constexpr float         AimedBulletSpeed  = 200.0f;
-constexpr float         AimedBulletRadius = 3.0f;
-// 全方向弾パラメータ(プロトタイプ固定値)
-constexpr std::uint32_t CircleBulletCount  = 12;
-constexpr float         CircleBulletSpeed  = 150.0f;
-constexpr float         CircleBulletRadius = 4.0f;
-
-// ボスの移動可能エリア(画面端マージン)
-constexpr float MOVE_MARGIN_X = 64.0f;
-constexpr float MOVE_MARGIN_Y = 48.0f;
-constexpr float MOVE_MAX_Y    = ScreenLayout::PLAYFIELD_HEIGHT * 0.4f;  // 上方40%に限定
-
 }   // namespace
 
 /**
@@ -194,7 +199,7 @@ void BossSystem::Start(const BossConfig& config){
     ValidateBossConfig(config);
     // 実行状態を初期化
     boss_ = Boss{};
-    
+
     // configの適用
     boss_.name        = config.name;
 
@@ -212,10 +217,6 @@ void BossSystem::Start(const BossConfig& config){
     // シーケンスを保持
     boss_.phases = config.phases;
     boss_.hp     = boss_.phases[boss_.phase_index].max_hp;  // phase_index == 0
-
-    // 発射設定
-    boss_.aimed_fire_interval  = config.aimed_fire_interval;
-    boss_.circle_fire_interval = config.circle_fire_interval;
 
     // ライフサイクル初期化
     boss_.status = BossStatus::Entering;
@@ -235,7 +236,7 @@ void BossSystem::Reset() noexcept{
  */
 void BossSystem::ChangePhase(
     std::size_t index, const Vec2& player_position, DeterministicRng& rng
-) noexcept{
+) noexcept {
     boss_.phase_index = index;
     boss_.hp = boss_.phases[index].max_hp;
     // 新フェーズの最初のステップ(0)で開始
@@ -254,7 +255,7 @@ void BossSystem::ChangePhase(
  * @param player_position
  * @param rng
  * @param patterns
- * @param enemy_bullets
+ * @param boss_bullets
  * @return BossTickEvents
  */
 BossTickEvents BossSystem::UpdateTick(
@@ -262,7 +263,7 @@ BossTickEvents BossSystem::UpdateTick(
     const Vec2& player_position,
     DeterministicRng& rng,
     PatternSystem& patterns,
-    BulletSystem& enemy_bullets
+    BulletSystem& boss_bullets
 )
 {
     // 処理しないパターン
@@ -284,19 +285,30 @@ BossTickEvents BossSystem::UpdateTick(
         return {};
     }
     // Movement
-    if(boss_.move_duration_ticks > 0
-    && boss_.move_elapsed_ticks  < boss_.move_duration_ticks
-    )
+    // 瞬間移動(特定の時間が経ったらtarget_positionへ代入)
+    if(boss_.move_type == BossMoveType::Teleportation){
+        ++boss_.move_elapsed_ticks;
+        // elapsed < durationの間は位置を変えない
+        if(boss_.move_elapsed_ticks == boss_.move_duration_ticks){
+            boss_.position = boss_.move_target; // スナップ
+        }
+    }
+    // 通常の移動(線形移動)
+    if(boss_.move_type == BossMoveType::MoveTo)
     {
         ++boss_.move_elapsed_ticks;
-        const float t = static_cast<float>(boss_.move_elapsed_ticks)
-                        / static_cast<float>(boss_.move_duration_ticks);
-        // lerpによる線形補間(2点a, bを時間tで補間する)
-        const float x = std::lerp(boss_.move_start.x, boss_.move_target.x, t);
-        const float y = std::lerp(boss_.move_start.y, boss_.move_target.y, t);
-        boss_.position = {x, y};
+        if(boss_.move_duration_ticks > 0
+        && boss_.move_elapsed_ticks  <= boss_.move_duration_ticks
+        )
+        {
+            const float t = static_cast<float>(boss_.move_elapsed_ticks)
+                            / static_cast<float>(boss_.move_duration_ticks);
+            // lerpによる線形補間(2点a, bを時間tで補間する)
+            const float x = std::lerp(boss_.move_start.x, boss_.move_target.x, t);
+            const float y = std::lerp(boss_.move_start.y, boss_.move_target.y, t);
+            boss_.position = {x, y};
+        }
     }
-
 
     // ─── Entering ─────────────────────────────
     // Entering: fight_tick消費 → Fightingへ遷移
@@ -314,8 +326,13 @@ BossTickEvents BossSystem::UpdateTick(
     }
 
     // ─── Fighting ─────────────────────────────
+    // 攻撃前に行動フェーズ遷移の確認
+    if(boss_.phase_transition_pending){
+        boss_.phase_transition_pending = false;
+        ChangePhase(boss_.phase_index + 1, player_position, rng);
+    }
     // Fighting: パターン発射
-    (void)UpdateFighting(player_position, rng, patterns, enemy_bullets);
+    (void)UpdateFighting(player_position, rng, patterns, boss_bullets);
 
     return {};
 }
@@ -328,35 +345,39 @@ BossTickEvents BossSystem::UpdateTick(
  * @param rng
  * @return BossDamageResult
  */
-BossDamageResult BossSystem::TakeDamage(
-    std::int32_t damage,
-    const Vec2& player_position,
-    DeterministicRng& rng
-)
-{
+BossDamageResult BossSystem::TakeDamage(std::int32_t damage){
     // Fightingでのみダメージを受ける
-    if(damage <= 0 || boss_.status != BossStatus::Fighting){
+    if(damage <= 0 
+    || boss_.status != BossStatus::Fighting
+    || boss_.phase_transition_pending   // フェーズ遷移中のダメージは無効
+    )
+    {
         return BossDamageResult::InvalidTarget;
     }
-    // ダメージ処理
-    boss_.hp -= damage;
-    // clear_at_hp以下でフェーズ遷移
-    if(boss_.hp <= GetPhase().clear_at_hp){
-        boss_.hp = GetPhase().clear_at_hp;
-        // 最後のフェーズではphase_indexを加算すると範囲外アクセスとなるので一度変数で受ける
-        const std::size_t next_index = boss_.phase_index + 1;
-        // 最終フェーズではphase_indexは加算せず終了
-        if(next_index >= boss_.phases.size()){
-            boss_.hp = 0;
-            boss_.status = BossStatus::Defeating;
-            boss_.defeating_ticks_remaining = boss_.defeating_duration_ticks;
-            return BossDamageResult::Destroyed;
-        }
-        // 次のフェーズへ遷移
-        ChangePhase(boss_.phase_index, player_position, rng);
-        return BossDamageResult::PhaseComplete;
+    const auto& phase = GetPhase();
+    const int   damage_needed = boss_.hp - phase.clear_at_hp;
+    
+    // clear_at_hpに到達しないならダメージを与えるのみ
+    if(damage < damage_needed){
+        // ダメージ処理
+        boss_.hp -= damage;
+        return BossDamageResult::Damaged;
     }
-    return BossDamageResult::Damaged;
+    // ここに来たらフェーズ遷移
+    boss_.hp = phase.clear_at_hp;
+    // 最後のフェーズではphase_indexを加算すると範囲外アクセスとなるので一度変数で受ける
+    const std::size_t next_index = boss_.phase_index + 1;
+    // 最終フェーズの場合phase_indexは加算せずDestroyed
+    if(next_index >= boss_.phases.size()){
+        boss_.hp = 0;
+        boss_.status = BossStatus::Defeating;
+        boss_.defeating_ticks_remaining = boss_.defeating_duration_ticks;
+        return BossDamageResult::Destroyed;
+    }
+    // 次のフェーズへ遷移
+    // ChangePhase(boss_.phase_index, player_position, rng);
+    boss_.phase_transition_pending = true;  // フェーズ遷移を予約
+    return BossDamageResult::PhaseComplete;
 }
 
 /**
@@ -392,10 +413,10 @@ void BossSystem::EnterAttackStep(
 
     boss_.attack_step = def.step;
     boss_.attack_step_ticks_remaining = def.duration_ticks;
-    // タイマーの定義があれば設定
+    // 発射ステップはValidationでBossShotDef必須を保証済み
+    // 非発射ステップ(SpecialWarning, Recovery)はfire_timerを使用しないため0で初期化
     boss_.fire_timer = def.shot ? def.shot->fire_interval_tick : 0;
-    //boss_.aimed_fire_timer = boss_.aimed_fire_interval;
-    //boss_.circle_fire_timer = boss_.circle_fire_interval;
+    
     CalculateMovement(def, player_position, rng);
 }
 
@@ -415,8 +436,8 @@ void BossSystem::CalculateMovement(
     DeterministicRng& rng
 )
 {
-    // optionalが有効な値を保持しているか(has_value)
-    // has_valueを用いるとnulloptのときも移動が継続するので用いない
+    // optionalが有効な値を保持しているか
+    // ※has_valueを用いるとnulloptのときも移動が継続するので用いない
     if(!seq.movement){
         boss_.move_duration_ticks = 0;
         boss_.move_elapsed_ticks  = 0;
@@ -424,6 +445,7 @@ void BossSystem::CalculateMovement(
     }
     const auto& move          = *seq.movement;
     boss_.move_start          = boss_.position;
+    boss_.move_type           = move.type;
     boss_.move_duration_ticks = move.duration_ticks;
     boss_.move_elapsed_ticks  = 0;
 
@@ -434,6 +456,7 @@ void BossSystem::CalculateMovement(
         boss_.move_elapsed_ticks  = 0;
         return;
     case BossMoveType::MoveTo:
+    case BossMoveType::Teleportation:
         break;  // 下の処理へ進む
     default:
         throw std::logic_error(
@@ -450,6 +473,7 @@ void BossSystem::CalculateMovement(
         // move_rangeをプレイフィールド中央上部を基点とした±範囲として扱う
         const float cx = ScreenLayout::PLAYFIELD_WIDTH  * 0.5f;
         const float cy = ScreenLayout::PLAYFIELD_HEIGHT * 0.2f;
+        // 移動範囲の最大最小
         const float min_x = std::max(MOVE_MARGIN_X, cx - move.move_range.x);
         const float max_x = std::min(ScreenLayout::PLAYFIELD_WIDTH  - MOVE_MARGIN_X, cx + move.move_range.x);
         const float min_y = std::max(MOVE_MARGIN_Y, cy - move.move_range.y);
@@ -492,13 +516,13 @@ void BossSystem::CalculateMovement(
  *
  * @param player_position
  * @param patterns
- * @param enemy_bullets
+ * @param boss_bullets
  * @return std::size_t 発射した弾数
  */
 std::size_t BossSystem::UpdateAimedAttack(
     const Vec2& player_position,
     PatternSystem& patterns,
-    BulletSystem& enemy_bullets
+    BulletSystem& boss_bullets
 )
 {
     const auto& shot = *CurrentStep().shot;
@@ -509,19 +533,19 @@ std::size_t BossSystem::UpdateAimedAttack(
     req.spread_rad     = shot.spread_radius;
     req.bullet_speed   = shot.bullet_speed;
     req.bullet_radius  = shot.bullet_radius;
-    return patterns.EmitSpread(req, enemy_bullets);
+    return patterns.EmitSpread(req, boss_bullets);
 }
 
 /**
  * @brief 全包囲弾発射
  *
  * @param patterns
- * @param enemy_bullets
+ * @param boss_bullets
  * @return std::size_t
  */
 std::size_t BossSystem::UpdateCircleAttack(
     PatternSystem& patterns,
-    BulletSystem& enemy_bullets
+    BulletSystem& boss_bullets
 )
 {
     const auto& shot = *CurrentStep().shot;
@@ -531,7 +555,7 @@ std::size_t BossSystem::UpdateCircleAttack(
     req.bullet_count   = shot.bullet_count;
     req.bullet_speed   = shot.bullet_speed;
     req.bullet_radius  = shot.bullet_radius;
-    return patterns.EmitCircle(req, enemy_bullets);
+    return patterns.EmitCircle(req, boss_bullets);
 }
 
 /**
@@ -543,13 +567,13 @@ std::size_t BossSystem::UpdateCircleAttack(
  * @param player_position
  * @param rng
  * @param patterns
- * @param enemy_bullets
+ * @param boss_bullets
  */
 void BossSystem::UpdateFighting(
     const Vec2& player_position,
     DeterministicRng& rng,
     PatternSystem& patterns,
-    BulletSystem& enemy_bullets
+    BulletSystem& boss_bullets
 )
 {
     // 攻撃ステップの残時間0で次の攻撃状態へ
@@ -564,9 +588,10 @@ void BossSystem::UpdateFighting(
         if(boss_.fire_timer > 0){
             --boss_.fire_timer;
         }
+        // configのValidateで防御するためhas_valueは不要
         if(boss_.fire_timer == 0){
-            UpdateAimedAttack(player_position, patterns, enemy_bullets);
-            boss_.fire_timer = boss_.aimed_fire_interval;
+            UpdateAimedAttack(player_position, patterns, boss_bullets);
+            boss_.fire_timer = CurrentStep().shot->fire_interval_tick;
         }
         break;
     // 形態移行中
@@ -578,9 +603,10 @@ void BossSystem::UpdateFighting(
         if(boss_.fire_timer > 0){
             --boss_.fire_timer;
         }
+        // configのValidateで防御するためhas_valueは不要
         if(boss_.fire_timer == 0){
-            UpdateCircleAttack(patterns, enemy_bullets);
-            boss_.fire_timer = boss_.circle_fire_interval;
+            UpdateCircleAttack(patterns, boss_bullets);
+            boss_.fire_timer = CurrentStep().shot->fire_interval_tick;
         }
         break;
     // フェーズの初期化

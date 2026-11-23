@@ -29,8 +29,6 @@ struct BossConfig{
 
     std::uint64_t entering_duration_ticks    = 180;  // 開始演出時間
     std::uint64_t defeating_duration_ticks   = 180;  // 撃破演出時間
-    std::uint32_t aimed_fire_interval        = 90;   // 自機狙い発射間隔(tick)
-    std::uint32_t circle_fire_interval       = 60;   // 全方向発射間隔(tick)
 
     // ボスの攻撃パターン切り替え定義
     std::vector<BossPhaseDef> phases{
@@ -46,7 +44,7 @@ struct BossConfig{
                 {   // フェーズ移行警告: 画面中央上へ移動
                     BossAttackStep::SpecialWarning, 90,
                     std::nullopt,
-                    BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Fixed, {320.0f, 100.0f}, {}, 60}
+                    BossMovementDef{BossMoveType::Teleportation, BossMoveTarget::Fixed, {320.0f, 100.0f}, {}, 60}
                 },
                 {   // 全包囲弾: ランダムに逃げながら攻撃
                     BossAttackStep::CircleBarrage, 180,

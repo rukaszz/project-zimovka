@@ -20,6 +20,7 @@
 using zimovka::BossAttackStep;
 using zimovka::BossConfig;
 using zimovka::BossPhaseKind;
+using zimovka::BossShotDef;
 using zimovka::BossPhaseDef;
 using zimovka::BossSystem;
 using zimovka::BossStatus;
@@ -34,11 +35,6 @@ using zimovka::Player;
 using zimovka::Vec2;
 
 namespace{
-// テスト用RNG(テスト設定ではRandomモードを使わないため共有しても問題ない)
-DeterministicRng& GetTestRng(){
-    static DeterministicRng rng{0};
-    return rng;
-}
 }  // namespace
 
 // テスト用の最低限有効なEnemySpawnParams
@@ -778,9 +774,14 @@ TEST(BulletCancelTest, OutsideCancelRadius_DoesNotCancel){
 // ──────────────────────────────────────────────────────
 // 自機弾 vs ボス (ResolvePlayerBulletsVsBoss)
 // ──────────────────────────────────────────────────────
-
-// テスト用にFighting状態のBossSystemを構築するヘルパ
-// position={320,80}, hurtbox_radius=30, contact_radius=20
+/**
+ * @brief テスト用にFighting状態のBossSystemを構築するヘルパ
+ * 
+ * position={320,80}, hurtbox_radius=30, contact_radius=20
+ * 
+ * @param max_hp 
+ * @return BossSystem 
+ */
 static BossSystem MakeFightingBoss(int max_hp = 10){
     BossConfig cfg;
     cfg.name                    = "TestBoss";
@@ -790,15 +791,13 @@ static BossSystem MakeFightingBoss(int max_hp = 10){
     cfg.hurtbox_radius          = 30.0f;
     cfg.contact_radius          = 20.0f;
     cfg.entering_duration_ticks = 1;
-    cfg.aimed_fire_interval     = 999;
-    cfg.circle_fire_interval    = 999;
     cfg.phases = {{
         BossPhaseKind::Normal, max_hp, 0,
-        {{BossAttackStep::AimedPressure, 999}}
+        {{BossAttackStep::AimedPressure, 999, BossShotDef{3, 999, 100.0f, 3.0f, 0.0f}}}
     }};
     BossSystem bs;
     DeterministicRng rng{0};
-    bs.Start(cfg, rng);
+    bs.Start(cfg);
     BulletSystem dummy(10);
     PatternSystem patterns;
     const zimovka::Vec2 player_pos{320.0f, 400.0f};
@@ -822,7 +821,7 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsBoss_MultipleHits_AllApplyDamage
     ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 1
     ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 2
 
-    const auto result = cs.ResolvePlayerBulletsVsBoss(player_bullets, boss, {0,0}, GetTestRng());
+    const auto result = cs.ResolvePlayerBulletsVsBoss(player_bullets, boss);
 
     EXPECT_EQ(result.hit_count,  3u);          // 3発全てヒット
     EXPECT_FALSE(result.defeated_boss);         // 撃破なし(hp 10→7)
@@ -833,7 +832,7 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsBoss_MultipleHits_AllApplyDamage
 /**
  * @brief 1発目でボスを撃破したとき，2発目・3発目は消費されないことを確認
  *
- * CollisionSystem::ResolvePlayerBulletsVsBoss はDestroyedでbreakするため
+ * CollisionSystem::ResolvePlayerBulletsVsBossはDestroyedでbreakするため
  * 残りの弾はinactiveにならない
  */
 TEST(CollisionSystemTest, ResolvePlayerBulletsVsBoss_FirstBulletKills_RemainingBulletsUnconsumed){
@@ -845,7 +844,7 @@ TEST(CollisionSystemTest, ResolvePlayerBulletsVsBoss_FirstBulletKills_RemainingB
     ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 1: 残る
     ASSERT_TRUE(player_bullets.Spawn({320.0f, 80.0f}, {0.0f, 0.0f}, 5.0f)); // slot 2: 残る
 
-    const auto result = cs.ResolvePlayerBulletsVsBoss(player_bullets, boss, {0,0}, GetTestRng());
+    const auto result = cs.ResolvePlayerBulletsVsBoss(player_bullets, boss);
 
     EXPECT_EQ(result.hit_count,  1u);            // 1発のみヒット
     EXPECT_TRUE(result.defeated_boss);           // 撃破

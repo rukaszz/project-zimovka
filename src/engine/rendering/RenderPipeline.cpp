@@ -111,6 +111,17 @@ void RenderPipeline::RenderFrame(
         const auto&  boss = gameplay.GetBossSystem().GetBoss();
         Vec2         draw_size  = boss.render_size;
         std::uint8_t draw_alpha = 255;
+        // 瞬間移動演出
+        if(boss.move_type == BossMoveType::Teleportation
+        && boss.move_duration_ticks > 0
+        && boss.move_elapsed_ticks  < boss.move_duration_ticks
+        )
+        {
+            const float t = static_cast<float>(boss.move_elapsed_ticks)
+                            / static_cast<float>(boss.move_duration_ticks);
+            // 255 → 50まで線形フェード(完全透明にはしない)
+            draw_alpha = static_cast<std::uint8_t>(255.0f * (1.0f - t * 0.8f));
+        }
         // 敗北時の演出
         if(boss.status == BossStatus::Defeating && boss.defeating_duration_ticks > 0){
             // 縮小率: 残tick割合でサイズを1.0→0.0に縮める
@@ -194,8 +205,7 @@ void RenderPipeline::RenderFrame(
         const auto& boss_sys = gameplay.GetBossSystem();
         BossHudViewModel boss_hud;
         // HPバー表示判定
-        const bool visible = 
-            boss_sys.IsFighting() && boss_sys.GetBoss().status == BossStatus::Entering;
+        const bool visible = boss_sys.IsFighting() || boss_sys.IsEntering();
         boss_hud.visible = visible;
         if(visible){
             boss_hud.hp      = boss_sys.GetBoss().hp;
@@ -208,8 +218,8 @@ void RenderPipeline::RenderFrame(
     
     // GameTextOverlay(プレイフィールドへの文字描画)
     {
-        const auto& boss_sys = gameplay.GetBossSystem();
-        const auto& phase    = gameplay.GetStagePhase();
+        const auto& boss_sys   = gameplay.GetBossSystem();
+        const auto& phase      = gameplay.GetStagePhase();
         const bool  in_warning = boss_sys.IsFighting() &&
             (boss_sys.GetAttackStep() == BossAttackStep::SpecialWarning);
         const bool  in_clear   = (phase.stage_state == StageStatement::Cleared);

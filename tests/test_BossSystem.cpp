@@ -27,7 +27,11 @@
 using zimovka::BossAttackSequenceDef;
 using zimovka::BossAttackStep;
 using zimovka::BossConfig;
+using zimovka::BossMovementDef;
+using zimovka::BossMoveTarget;
+using zimovka::BossMoveType;
 using zimovka::BossPhaseKind;
+using zimovka::BossShotDef;
 using zimovka::BossPhaseDef;
 using zimovka::BossDamageResult;
 using zimovka::BossEvents;
@@ -63,12 +67,10 @@ static BossConfig MakeDefaultConfig(){
     cfg.hurtbox_radius           = 30.0f;
     cfg.contact_radius           = 20.0f;
     cfg.entering_duration_ticks  = 3;    // テスト用に短く設定
-    cfg.aimed_fire_interval      = 5;
-    cfg.circle_fire_interval     = 10;
     // 単一フェーズ(max_hp=10, clear_at_hp=0)で単純なテストに適した構成
     cfg.phases = {{
         BossPhaseKind::Normal, 10, 0,
-        {{BossAttackStep::AimedPressure, 999}}
+        {{BossAttackStep::AimedPressure, 999, BossShotDef{3, 5, 100.0f, 3.0f, 0.5f}}}
     }};
     return cfg;
 }
@@ -115,7 +117,7 @@ TEST(BossSystemTest, InitialStateIsInactive){
  */
 TEST(BossSystemTest, StartSucceedsWithValidConfig){
     BossSystem bs;
-    EXPECT_NO_THROW(bs.Start(MakeDefaultConfig(), GetTestRng()));
+    EXPECT_NO_THROW(bs.Start(MakeDefaultConfig()));
 }
 
 /**
@@ -126,7 +128,7 @@ TEST(BossSystemTest, StartRejectsEmptyName){
     BossSystem bs;
     BossConfig cfg = MakeDefaultConfig();
     cfg.name = "";
-    EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+    EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
 }
 
 /**
@@ -139,19 +141,19 @@ TEST(BossSystemTest, StartRejectsInfiniteVec2){
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.position = {inf, 0.0f};
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // velocity
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.velocity = {0.0f, inf};
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // render_size
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.render_size = {inf, 64.0f};
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
 }
 
@@ -164,55 +166,49 @@ TEST(BossSystemTest, StartRejectsInvalidNumericFields){
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.phases[0].max_hp = 0;
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // hurtbox_radius=0
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.hurtbox_radius = 0.0f;
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // contact_radius=0
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.contact_radius = 0.0f;
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // entering_duration_ticks=0
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.entering_duration_ticks = 0;
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
-    {   // aimed_fire_interval=0
+    {   // 発射ステップにBossShotDefがない
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
-        cfg.aimed_fire_interval = 0;
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
-    }
-    {   // circle_fire_interval=0
-        BossSystem bs;
-        BossConfig cfg = MakeDefaultConfig();
-        cfg.circle_fire_interval = 0;
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        cfg.phases[0].attack_sequence = {{BossAttackStep::AimedPressure, 10}};
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // attack_sequence が空
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.phases[0].attack_sequence.clear();
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // attack_sequence の duration_ticks = 0
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.phases[0].attack_sequence = {{BossAttackStep::AimedPressure, 0}};
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // attack_sequence に不正な step (Count 以上)
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.phases[0].attack_sequence = {{BossAttackStep::Count, 60}};
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
 }
 
@@ -225,7 +221,7 @@ TEST(BossSystemTest, Start_RejectsEmptyAttackSequence){
     BossSystem bs;
     BossConfig cfg = MakeDefaultConfig();
     cfg.phases[0].attack_sequence.clear();
-    EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+    EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
 }
 
 /**
@@ -239,7 +235,7 @@ TEST(BossSystemTest, Start_RejectsZeroStepDuration){
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.phases[0].attack_sequence = {{BossAttackStep::AimedPressure, 0}};
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // 2番目のステップが 0 (validation は全ステップを走査する)
         BossSystem bs;
@@ -248,7 +244,7 @@ TEST(BossSystemTest, Start_RejectsZeroStepDuration){
             {BossAttackStep::AimedPressure, 60},
             {BossAttackStep::CircleBarrage,  0},
         };
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
 }
 
@@ -263,19 +259,19 @@ TEST(BossSystemTest, Start_RejectsInvalidAttackStep){
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.phases[0].attack_sequence = {{BossAttackStep::Count, 60}};
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // Countより大きい値
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.phases[0].attack_sequence = {{static_cast<BossAttackStep>(127), 60}};
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
     {   // AimedPressure(0)より小さい値(負数)
         BossSystem bs;
         BossConfig cfg = MakeDefaultConfig();
         cfg.phases[0].attack_sequence = {{static_cast<BossAttackStep>(-1), 60}};
-        EXPECT_THROW(bs.Start(cfg, GetTestRng()), std::invalid_argument);
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
     }
 }
 
@@ -285,9 +281,9 @@ TEST(BossSystemTest, Start_RejectsInvalidAttackStep){
  */
 TEST(BossSystemTest, Start_WhenNotInactive_ThrowsLogicError){
     BossSystem bs;
-    bs.Start(MakeDefaultConfig(), GetTestRng());
+    bs.Start(MakeDefaultConfig());
     // Entering状態でもう一度Start() → logic_error
-    EXPECT_THROW(bs.Start(MakeDefaultConfig(), GetTestRng()), std::logic_error);
+    EXPECT_THROW(bs.Start(MakeDefaultConfig()), std::logic_error);
 }
 
 // ──────────────────────────────────────────────────────
@@ -299,7 +295,7 @@ TEST(BossSystemTest, Start_WhenNotInactive_ThrowsLogicError){
  */
 TEST(BossSystemTest, StartTransitionsToEntering){
     BossSystem bs;
-    bs.Start(MakeDefaultConfig(), GetTestRng());
+    bs.Start(MakeDefaultConfig());
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Entering);
     EXPECT_TRUE(bs.IsNotInactive());
     EXPECT_FALSE(bs.IsFighting());
@@ -312,7 +308,7 @@ TEST(BossSystemTest, StartTransitionsToEntering){
 TEST(BossSystemTest, StartCopiesConfig){
     BossSystem bs;
     BossConfig cfg = MakeDefaultConfig();
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     const auto& boss = bs.GetBoss();
     EXPECT_EQ(boss.name, "TestBoss");
     EXPECT_FLOAT_EQ(boss.position.x, 320.0f);
@@ -320,8 +316,6 @@ TEST(BossSystemTest, StartCopiesConfig){
     EXPECT_EQ(boss.hp, 10);
     EXPECT_FLOAT_EQ(boss.hurtbox_radius, 30.0f);
     EXPECT_FLOAT_EQ(boss.contact_radius, 20.0f);
-    EXPECT_EQ(boss.aimed_fire_interval,  5u);
-    EXPECT_EQ(boss.circle_fire_interval, 10u);
 }
 
 /**
@@ -334,12 +328,17 @@ TEST(BossSystemTest, StartCopiesConfig){
  */
 TEST(BossSystemTest, Start_UsesFirstSequenceDefinition){
     BossSystem bs;
+    BulletSystem enemy_bullets(100);
+    PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
     cfg.phases[0].attack_sequence = {
-        {BossAttackStep::CircleBarrage, 120},  // 先頭が CircleBarrage
-        {BossAttackStep::AimedPressure,  60},
+        {BossAttackStep::CircleBarrage, 120, BossShotDef{12, 60, 150.0f, 3.0f, 0.0f}},  // 先頭が CircleBarrage
+        {BossAttackStep::AimedPressure,  60, BossShotDef{3, 5, 100.0f, 3.0f, 0.5f}},
     };
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
+    // EnterAttackStep(0)はEntering→Fighting遷移時に呼ばれる
+    AdvanceToFighting(bs, enemy_bullets, patterns);
     const auto& boss = bs.GetBoss();
     EXPECT_EQ(boss.attack_step, BossAttackStep::CircleBarrage);
     EXPECT_EQ(boss.attack_step_ticks_remaining, 120u);
@@ -359,11 +358,11 @@ TEST(BossSystemTest, Reset_RestoresInactiveState){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
 
     // ダメージを与えて撃破する
-    bs.TakeDamage(bs.GetBoss().hp, {0,0}, GetTestRng());
+    bs.TakeDamage(bs.GetBoss().hp);
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
 
     // Resetすると初期状態になっている
@@ -372,8 +371,7 @@ TEST(BossSystemTest, Reset_RestoresInactiveState){
     EXPECT_EQ(boss.status, BossStatus::Inactive);
     EXPECT_FALSE(bs.IsNotInactive());
     EXPECT_EQ(boss.hp, 0);               // デフォルト値(0)に戻る
-    EXPECT_EQ(boss.aimed_fire_timer,  0u);
-    EXPECT_EQ(boss.circle_fire_timer, 0u);
+    EXPECT_EQ(boss.fire_timer, 0u);
 }
 
 // ──────────────────────────────────────────────────────
@@ -404,7 +402,7 @@ TEST(BossSystemTest, UpdateTickReturnsFalseDuringEntering){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 60;    // 十分な長さに設定
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Entering);
 
     const Vec2 player_pos{320.0f, 400.0f};
@@ -424,7 +422,7 @@ TEST(BossSystemTest, UpdateTickTransitionsEnteringToFighting){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 3;
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -447,9 +445,7 @@ TEST(BossSystemTest, UpdateTickReturnsFalseWhenFighting){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    cfg.aimed_fire_interval  = 999;  // 発射させない
-    cfg.circle_fire_interval = 999;
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -472,9 +468,9 @@ TEST(BossSystemTest, UpdateTickReturnsFalseWhenDefeating){
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
     cfg.phases[0].max_hp = 1;
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
-    bs.TakeDamage(1, {0,0}, GetTestRng());  // HP→0, Defeating遷移
+    bs.TakeDamage(1);  // HP→0, Defeating遷移
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
     EXPECT_TRUE(bs.IsDefeating());
 
@@ -497,9 +493,9 @@ TEST(BossSystemTest, UpdateTickReturnsTrueWhenTicksConsumed){
     cfg.entering_duration_ticks = 1;
     cfg.defeating_duration_ticks = 2;
     cfg.phases[0].max_hp = 1;
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
-    bs.TakeDamage(1, {0,0}, GetTestRng());  // HP→0, Defeating遷移
+    bs.TakeDamage(1);  // HP→0, Defeating遷移
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
     EXPECT_TRUE(bs.IsDefeating());
     // Defeating中
@@ -530,9 +526,10 @@ TEST(BossSystemTest, FiringEmitsSpreadBullets){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    cfg.aimed_fire_interval  = 2;   // 2tick後に発射
-    cfg.circle_fire_interval = 999; // 全方向弾は発射させない
-    bs.Start(cfg, GetTestRng());
+    cfg.phases[0].attack_sequence = {
+        {BossAttackStep::AimedPressure, 999, BossShotDef{3, 2, 100.0f, 3.0f, 0.5f}},
+    };
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -540,17 +537,17 @@ TEST(BossSystemTest, FiringEmitsSpreadBullets){
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets); // Entering→Fighting
     EXPECT_EQ(enemy_bullets.CountActive(), 0u);
 
-    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets); // aimed_fire_timer: 2→1
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets); // fire_timer: 2→1
     EXPECT_EQ(enemy_bullets.CountActive(), 0u);
 
-    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets); // aimed_fire_timer: 1→0 → 1回目発射
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets); // fire_timer: 1→0 → 1回目発射
     const std::size_t count_after_shot1 = enemy_bullets.CountActive();
     EXPECT_GT(count_after_shot1, 0u);   // 少なくとも1発出ている
 
-    // 2回目の発射(aimed_fire_intervalの分だけ進める)
-    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);         // aimed_fire_timer: 2→1
+    // 2回目の発射(fire_interval_tickの分だけ進める)
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);         // fire_timer: 2→1
     EXPECT_EQ(enemy_bullets.CountActive(), count_after_shot1);      // まだ増えない
-    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);         // aimed_fire_timer: 1→0 → 2回目発射
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);         // fire_timer: 1→0 → 2回目発射
     EXPECT_EQ(enemy_bullets.CountActive(), count_after_shot1 * 2u); // 発射回数2回分
 }
 
@@ -563,7 +560,7 @@ TEST(BossSystemTest, FiringEmitsSpreadBullets){
  */
 TEST(BossSystemTest, TakeDamageRejectsWhenInactive){
     BossSystem bs;
-    EXPECT_EQ(bs.TakeDamage(1, {0,0}, GetTestRng()), BossDamageResult::InvalidTarget);
+    EXPECT_EQ(bs.TakeDamage(1), BossDamageResult::InvalidTarget);
     EXPECT_EQ(bs.GetBoss().hp, 0);
 }
 
@@ -576,11 +573,11 @@ TEST(BossSystemTest, TakeDamageRejectsNonPositiveDamage){
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
     // Entering→fighting
-    bs.Start(MakeDefaultConfig(), GetTestRng());
+    bs.Start(MakeDefaultConfig());
     AdvanceToFighting(bs, enemy_bullets, patterns);
     // 無効なダメージ
-    EXPECT_EQ(bs.TakeDamage(0, {0,0}, GetTestRng()),  BossDamageResult::InvalidTarget);
-    EXPECT_EQ(bs.TakeDamage(-1, {0,0}, GetTestRng()), BossDamageResult::InvalidTarget);
+    EXPECT_EQ(bs.TakeDamage(0),  BossDamageResult::InvalidTarget);
+    EXPECT_EQ(bs.TakeDamage(-1), BossDamageResult::InvalidTarget);
     EXPECT_EQ(bs.GetBoss().hp, 10);  // HPは変化しない
 }
 
@@ -592,9 +589,9 @@ TEST(BossSystemTest, TakeDamageReducesHp){
     BossSystem bs;
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
-    bs.Start(MakeDefaultConfig(), GetTestRng());
+    bs.Start(MakeDefaultConfig());
     AdvanceToFighting(bs, enemy_bullets, patterns);
-    EXPECT_EQ(bs.TakeDamage(3, {0,0}, GetTestRng()), BossDamageResult::Damaged);
+    EXPECT_EQ(bs.TakeDamage(3), BossDamageResult::Damaged);
     EXPECT_EQ(bs.GetBoss().hp, 7);
 }
 
@@ -607,10 +604,10 @@ TEST(BossSystemTest, TakeDamageTransitionsToDefeating){
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
     // fighting
-    bs.Start(MakeDefaultConfig(), GetTestRng());
+    bs.Start(MakeDefaultConfig());
     AdvanceToFighting(bs, enemy_bullets, patterns);
     // max_hp=10に対して10ダメージ与える→Destroyed
-    EXPECT_EQ(bs.TakeDamage(10, {0,0}, GetTestRng()), BossDamageResult::Destroyed);
+    EXPECT_EQ(bs.TakeDamage(10), BossDamageResult::Destroyed);
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
     EXPECT_TRUE(bs.IsDefeating());
 }
@@ -623,10 +620,10 @@ TEST(BossSystemTest, TakeDamageOverkillReturnsDestroyed){
     BossSystem bs;
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
-    bs.Start(MakeDefaultConfig(), GetTestRng());
+    bs.Start(MakeDefaultConfig());
     AdvanceToFighting(bs, enemy_bullets, patterns);
     // max_hp=10に対して999のダメージ
-    EXPECT_EQ(bs.TakeDamage(999, {0,0}, GetTestRng()), BossDamageResult::Destroyed);
+    EXPECT_EQ(bs.TakeDamage(999), BossDamageResult::Destroyed);
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
 }
 
@@ -639,7 +636,7 @@ TEST(BossSystemTest, TakeDamageOverkillReturnsDestroyed){
  */
 TEST(BossSystemTest, GetCirclesReturnCorrectValues){
     BossSystem bs;
-    bs.Start(MakeDefaultConfig(), GetTestRng());
+    bs.Start(MakeDefaultConfig());
     const auto& boss = bs.GetBoss();
     const auto hurtbox = boss.GetHurtboxCircle();
     const auto contact = boss.GetContactCircle();
@@ -663,11 +660,11 @@ TEST(BossSystemTest, Entering_CannotTakeDamage){
     BossSystem bs;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 60;  // 長めに設定してEntering状態を維持
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Entering);
 
     const int hp_before = bs.GetBoss().hp;
-    EXPECT_EQ(bs.TakeDamage(3, {0,0}, GetTestRng()), BossDamageResult::InvalidTarget);
+    EXPECT_EQ(bs.TakeDamage(3), BossDamageResult::InvalidTarget);
     EXPECT_EQ(bs.GetBoss().hp, hp_before);  // HPが減らない
 }
 
@@ -683,13 +680,13 @@ TEST(BossSystemTest, MultiplePlayerBulletsSameTick_AllApplyDamage){
     cfg.entering_duration_ticks = 1;
     cfg.phases[0].max_hp = 10;
     // fighting
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
 
     // 同tick内に3発ヒット
-    EXPECT_EQ(bs.TakeDamage(1, {0,0}, GetTestRng()), BossDamageResult::Damaged);
-    EXPECT_EQ(bs.TakeDamage(1, {0,0}, GetTestRng()), BossDamageResult::Damaged);
-    EXPECT_EQ(bs.TakeDamage(1, {0,0}, GetTestRng()), BossDamageResult::Damaged);
+    EXPECT_EQ(bs.TakeDamage(1), BossDamageResult::Damaged);
+    EXPECT_EQ(bs.TakeDamage(1), BossDamageResult::Damaged);
+    EXPECT_EQ(bs.TakeDamage(1), BossDamageResult::Damaged);
 
     EXPECT_EQ(bs.GetBoss().hp, 7);  // 10 - 1*3 = 7
 }
@@ -705,15 +702,15 @@ TEST(BossSystemTest, DefeatedBoss_CannotTakeFurtherDamage){
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
     cfg.phases[0].max_hp = 1; // HPを1で設定
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
 
     // 一発で撃破
-    EXPECT_EQ(bs.TakeDamage(1, {0,0}, GetTestRng()), BossDamageResult::Destroyed);
+    EXPECT_EQ(bs.TakeDamage(1), BossDamageResult::Destroyed);
     EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
 
     // 追撃 → Destroyedは返らない
-    const auto result = bs.TakeDamage(1, {0,0}, GetTestRng());
+    const auto result = bs.TakeDamage(1);
     EXPECT_NE(result, BossDamageResult::Destroyed);
     EXPECT_EQ(result, BossDamageResult::InvalidTarget);
 }
@@ -730,9 +727,7 @@ TEST(BossSystemTest, EnteringDuration_TransitionsToFightingExactlyOnce){
     BossConfig cfg = MakeDefaultConfig();
     constexpr std::uint64_t ENTER_TICKS = 4;
     cfg.entering_duration_ticks = ENTER_TICKS;
-    cfg.aimed_fire_interval  = 999;  // 発射させない
-    cfg.circle_fire_interval = 999;
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -767,9 +762,9 @@ TEST(BossSystemTest, Defeating_DecrementsTicksEachUpdate){
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
     cfg.phases[0].max_hp = 1;
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
-    bs.TakeDamage(1, {0,0}, GetTestRng());  // HP→0, Defeating遷移
+    bs.TakeDamage(1);  // HP→0, Defeating遷移
     ASSERT_EQ(bs.GetBoss().status, BossStatus::Defeating);
     // defeating_ticks_remainingを記録
     const std::uint64_t initial = bs.GetBoss().defeating_ticks_remaining;
@@ -797,9 +792,9 @@ TEST(BossSystemTest, Defeating_ReturnsDefeatedWhileTicksRemaining){
     cfg.entering_duration_ticks = 1;
     cfg.phases[0].max_hp = 1;
     // 1ダメージで撃破
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
-    bs.TakeDamage(1, {0,0}, GetTestRng());
+    bs.TakeDamage(1);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -821,15 +816,13 @@ TEST(BossSystemTest, Defeating_ReturnsAnimationCompleteAtZero){
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks  = 1;
     cfg.phases[0].max_hp         = 1;
-    cfg.aimed_fire_interval      = 999;
-    cfg.circle_fire_interval     = 999;
     // 演出時間は短く設定
     const std::uint64_t DEFEAT_TICKS = 3;
     cfg.defeating_duration_ticks = DEFEAT_TICKS;
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     // 1ダメージを与え撃破
     AdvanceToFighting(bs, enemy_bullets, patterns);
-    bs.TakeDamage(1, {0,0}, GetTestRng());
+    bs.TakeDamage(1);
     ASSERT_EQ(bs.GetBoss().defeating_ticks_remaining, DEFEAT_TICKS);
 
     const Vec2 player_pos{320.0f, 400.0f};
@@ -903,14 +896,12 @@ TEST(BossSystemTest, Defeating_CompletesAtExactTick){
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks  = 1;
     cfg.phases[0].max_hp         = 1;
-    cfg.aimed_fire_interval      = 999;
-    cfg.circle_fire_interval     = 999;
     const std::uint64_t DEFEAT_TICKS = 5;
     cfg.defeating_duration_ticks = DEFEAT_TICKS;
     // ボス戦→敗北
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
-    bs.TakeDamage(1, {0,0}, GetTestRng());
+    bs.TakeDamage(1);
     ASSERT_EQ(bs.GetBoss().status, BossStatus::Defeating);
     ASSERT_EQ(bs.GetBoss().defeating_ticks_remaining, DEFEAT_TICKS);
 
@@ -943,9 +934,9 @@ TEST(BossSystemTest, DefeatAnimationComplete_EmittedOnce){
     cfg.entering_duration_ticks  = 1;
     cfg.phases[0].max_hp         = 1;
     cfg.defeating_duration_ticks = 1;   // 1tickで即完了
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
     AdvanceToFighting(bs, enemy_bullets, patterns);
-    bs.TakeDamage(1, {0,0}, GetTestRng());
+    bs.TakeDamage(1);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -1130,11 +1121,9 @@ TEST(UpdatePipelineBossTest, StartRun_ResetsStageState){
 static BossConfig MakeSequenceConfig(){
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks      = 1;
-    cfg.aimed_fire_interval          = 999; // 発射を抑制
-    cfg.circle_fire_interval         = 999;
     cfg.phases[0].attack_sequence = {
-        {BossAttackStep::AimedPressure, 3},
-        {BossAttackStep::CircleBarrage, 4},
+        {BossAttackStep::AimedPressure, 3, BossShotDef{3, 999, 100.0f, 3.0f, 0.0f}},
+        {BossAttackStep::CircleBarrage, 4, BossShotDef{3, 999, 100.0f, 3.0f, 0.0f}},
     };
     return cfg;
 }
@@ -1161,7 +1150,7 @@ TEST(BossAttackSequenceTest, AttackSequence_TransitionsAtExactTicks){
     BulletSystem enemy_bullets(100);
     PatternSystem patterns;
     BossConfig cfg = MakeSequenceConfig();
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -1200,12 +1189,10 @@ TEST(BossAttackSequenceTest, AttackSequence_TransitionsAtExactTicks){
  *
  * 契約:
  *   - AimedPressureステップではUpdateAimedAttack()のみ呼ばれる
- *   - circle_fire_timerはAimedPressure中にデクリメントされない
  *   - 1発目と2発目で増加する弾数が等しい(毎回同じ弾数を発射)
  *
- * aimed_fire_interval=2, circle_fire_interval=2に設定し,
+ * fire_interval_tick=2のBossShotDefを設定し,
  * AimedPressureのみのシーケンスで動作させる.
- * circle_fire_timerが0になっても弾が出ないことを間接的に確認する.
  */
 TEST(BossAttackSequenceTest, AimedPressure_EmitsSpreadOnly){
     BossSystem bs;
@@ -1213,12 +1200,10 @@ TEST(BossAttackSequenceTest, AimedPressure_EmitsSpreadOnly){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks    = 1;
-    cfg.aimed_fire_interval        = 2;   // 2tickに1度発射
-    cfg.circle_fire_interval       = 2;   // Circleが発射されないように非ゼロの値を設定
     cfg.phases[0].attack_sequence = {
-        {BossAttackStep::AimedPressure, 999},
+        {BossAttackStep::AimedPressure, 999, BossShotDef{3, 2, 100.0f, 3.0f, 0.5f}},
     };
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -1228,20 +1213,20 @@ TEST(BossAttackSequenceTest, AimedPressure_EmitsSpreadOnly){
     ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
     EXPECT_EQ(enemy_bullets.CountActive(), 0u);
 
-    // aimed_fire_timer: 2→1(まだ発射されない)
+    // fire_timer: 2→1(まだ発射されない)
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);
     EXPECT_EQ(enemy_bullets.CountActive(), 0u);
 
-    // aimed_fire_timer: 1→0 → 1回目発射
+    // fire_timer: 1→0 → 1回目発射
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);
     const std::size_t shot1 = enemy_bullets.CountActive();
     EXPECT_GT(shot1, 0u);
 
-    // aimed_fire_timer: 2→1(弾は増えない)
+    // fire_timer: 2→1(弾は増えない)
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);
     EXPECT_EQ(enemy_bullets.CountActive(), shot1);
 
-    // aimed_fire_timer: 1→0 → 2回目発射
+    // fire_timer: 1→0 → 2回目発射
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);
     // 1回あたりの発射数が一定であること(circle弾は数が異なるため混入しているとテストNG)
     EXPECT_EQ(enemy_bullets.CountActive(), shot1 * 2u);
@@ -1252,7 +1237,6 @@ TEST(BossAttackSequenceTest, AimedPressure_EmitsSpreadOnly){
  *
  * 契約:
  *   - SpecialWarningステップのswitchケースはbreakのみ(攻撃なし)
- *   - aimed/circle両タイマーともデクリメントされない
  *
  * シーケンス: [{AimedPressure,1}, {SpecialWarning,10}]
  * AimedPressureを1tickで終わらせてSpecialWarningへ遷移し,
@@ -1264,13 +1248,11 @@ TEST(BossAttackSequenceTest, SpecialWarning_EmitsNoNewBullets){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks    = 1;
-    cfg.aimed_fire_interval        = 1;  // 発射される
-    cfg.circle_fire_interval       = 1;
     cfg.phases[0].attack_sequence = {
-        {BossAttackStep::AimedPressure,  1},
+        {BossAttackStep::AimedPressure,  1, BossShotDef{3, 1, 100.0f, 3.0f, 0.0f}},
         {BossAttackStep::SpecialWarning, 10},
     };
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -1302,7 +1284,6 @@ TEST(BossAttackSequenceTest, SpecialWarning_EmitsNoNewBullets){
  *
  * 契約:
  *   - CircleBarrageステップではUpdateCircleAttack()のみ呼ばれる
- *   - aimed_fire_timerはCircleBarrage中にデクリメントされない
  *   - 1発目と2発目で増加する弾数が等しい
  *
  * シーケンス: [{AimedPressure,1}, {CircleBarrage,999}]
@@ -1314,13 +1295,11 @@ TEST(BossAttackSequenceTest, CircleBarrage_EmitsCircleOnly){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks    = 1;
-    cfg.aimed_fire_interval        = 999; // 自機狙い弾を抑制
-    cfg.circle_fire_interval       = 2;   // 2tickに1度発射
     cfg.phases[0].attack_sequence = {
-        {BossAttackStep::AimedPressure,  1},
-        {BossAttackStep::CircleBarrage, 999},
+        {BossAttackStep::AimedPressure,  1,   BossShotDef{3, 999, 100.0f, 3.0f, 0.5f}},
+        {BossAttackStep::CircleBarrage, 999,  BossShotDef{12, 2, 150.0f, 3.0f, 0.0f}},
     };
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -1329,24 +1308,24 @@ TEST(BossAttackSequenceTest, CircleBarrage_EmitsCircleOnly){
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);
     ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
 
-    // AimedPressure: 1tickで消費(aimed_fire_interval=999なので発射なし)
+    // AimedPressure: 1tickで消費(fire_interval_tick=999なので発射なし)
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets); // remaining 1→0
 
-    // CircleBarrageへ遷移するtick: circle_fire_timer2→1(発射なし)
+    // CircleBarrageへ遷移するtick: fire_timer2→1(発射なし)
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);
     ASSERT_EQ(bs.GetBoss().attack_step, BossAttackStep::CircleBarrage);
     EXPECT_EQ(enemy_bullets.CountActive(), 0u); // timer=1, ここではまだ発射されていない
 
-    // circle_fire_timer: 1→0 → 1回目発射
+    // fire_timer: 1→0 → 1回目発射
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);
     const std::size_t shot1 = enemy_bullets.CountActive();  // 全包囲弾で発射された弾を比較ように記録
     EXPECT_GT(shot1, 0u);
 
-    // circle_fire_timer: 2→1 (増えない)
+    // fire_timer: 2→1 (増えない)
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);
     EXPECT_EQ(enemy_bullets.CountActive(), shot1);
 
-    // circle_fire_timer: 1→0 → 2回目発射
+    // fire_timer: 1→0 → 2回目発射
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, enemy_bullets);
     // 1回あたりの発射数が一定であること(aimed弾は数が異なるため混入すれば崩れる)
     EXPECT_EQ(enemy_bullets.CountActive(), shot1 * 2u);
@@ -1357,7 +1336,6 @@ TEST(BossAttackSequenceTest, CircleBarrage_EmitsCircleOnly){
  *
  * 契約:
  *   - Recoveryステップのswitchケースはbreakのみ(攻撃なし)
- *   - aimed/circle両タイマーともデクリメントされない
  *
  * シーケンス: [{AimedPressure,1}, {Recovery,10}]
  */
@@ -1367,13 +1345,11 @@ TEST(BossAttackSequenceTest, Recovery_EmitsNoNewBullets){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks    = 1;
-    cfg.aimed_fire_interval        = 1;
-    cfg.circle_fire_interval       = 1;
     cfg.phases[0].attack_sequence = {
-        {BossAttackStep::AimedPressure, 1},
+        {BossAttackStep::AimedPressure, 1, BossShotDef{3, 1, 100.0f, 3.0f, 0.0f}},
         {BossAttackStep::Recovery,      10},
     };
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -1417,11 +1393,9 @@ TEST(BossAttackSequenceTest, AttackSequence_ReplayDeterministic){
     // Boss設定
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks    = 1;
-    cfg.aimed_fire_interval        = 2;
-    cfg.circle_fire_interval       = 2;
     cfg.phases[0].attack_sequence = {
-        {BossAttackStep::AimedPressure, 3},
-        {BossAttackStep::CircleBarrage, 4},
+        {BossAttackStep::AimedPressure, 3, BossShotDef{3, 2, 100.0f, 3.0f, 0.5f}},
+        {BossAttackStep::CircleBarrage, 4, BossShotDef{12, 2, 150.0f, 3.0f, 0.0f}},
     };
 
     const Vec2 player_pos{320.0f, 400.0f};
@@ -1436,7 +1410,7 @@ TEST(BossAttackSequenceTest, AttackSequence_ReplayDeterministic){
     BossSystem bs_a;
     BulletSystem bullets_a(500);
     PatternSystem patterns_a;
-    bs_a.Start(cfg, GetTestRng());
+    bs_a.Start(cfg);
     // Run Aを走らせる
     std::vector<TickSnapshot> run_a;
     run_a.reserve(K);
@@ -1448,17 +1422,15 @@ TEST(BossAttackSequenceTest, AttackSequence_ReplayDeterministic){
     // Run B: Run Aと同一configを再構築してReset → Start
     BossConfig cfg2 = MakeDefaultConfig();
     cfg2.entering_duration_ticks    = 1;
-    cfg2.aimed_fire_interval        = 2;
-    cfg2.circle_fire_interval       = 2;
     cfg2.phases[0].attack_sequence = {
-        {BossAttackStep::AimedPressure, 3},
-        {BossAttackStep::CircleBarrage, 4},
+        {BossAttackStep::AimedPressure, 3, BossShotDef{3, 2, 100.0f, 3.0f, 0.5f}},
+        {BossAttackStep::CircleBarrage, 4, BossShotDef{12, 2, 150.0f, 3.0f, 0.0f}},
     };
 
     BossSystem bs_b;
     BulletSystem bullets_b(500);
     PatternSystem patterns_b;
-    bs_b.Start(cfg2, GetTestRng());
+    bs_b.Start(cfg2);
     // Run Bを走らせる
     std::vector<TickSnapshot> run_b;
     run_b.reserve(K);
@@ -1493,14 +1465,12 @@ TEST(BossAttackSequenceTest, AttackSequence_LoopsAroundAfterLastStep){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks    = 1;
-    cfg.aimed_fire_interval        = 999;
-    cfg.circle_fire_interval       = 999;
     cfg.phases[0].attack_sequence = {
-        {BossAttackStep::AimedPressure,  2},
+        {BossAttackStep::AimedPressure,  2, BossShotDef{3, 999, 100.0f, 3.0f, 0.0f}},
         {BossAttackStep::SpecialWarning, 2},
-        {BossAttackStep::CircleBarrage,  2},
+        {BossAttackStep::CircleBarrage,  2, BossShotDef{3, 999, 100.0f, 3.0f, 0.0f}},
     };
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -1545,10 +1515,10 @@ TEST(BossAttackSequenceTest, AttackSequence_LoopsAroundAfterLastStep){
  *       各ステップの先頭では必ずinterval tick後に初回発射が起きる
  *
  * 検証方法:
- *   AimedPressure(duration=2, aimed_interval=3)でタイマーを途中まで消費し,
+ *   AimedPressure(duration=2, fire_interval_tick=3)でタイマーを途中まで消費し,
  *   SpecialWarning(duration=1)を挟んで再度AimedPressureに入る
  *   リセットなし: タイマー残1 → 遷移tick内で即発射
- *   リセットあり: タイマーが3に戻る → 遷移から3tick後に初回発射
+ *   リセットあり: タイマーがfire_interval_tick(3)に戻る → 遷移から3tick後に初回発射
  */
 TEST(BossAttackSequenceTest, AttackStep_ResetsFireTimerOnEntry){
     BossSystem bs;
@@ -1556,14 +1526,12 @@ TEST(BossAttackSequenceTest, AttackStep_ResetsFireTimerOnEntry){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    cfg.aimed_fire_interval     = 3;
-    cfg.circle_fire_interval    = 999;
     cfg.phases[0].attack_sequence = {
-        {BossAttackStep::AimedPressure,  2},    // step 0: 2tickでSpecialWarning
+        {BossAttackStep::AimedPressure,  2,   BossShotDef{3, 3, 100.0f, 3.0f, 0.5f}},  // step 0
         {BossAttackStep::SpecialWarning, 1},    // step 1: 1tickでAimedPressure
-        {BossAttackStep::AimedPressure,  999},  // step 2: タイマーリセットを確認
+        {BossAttackStep::AimedPressure,  999, BossShotDef{3, 3, 100.0f, 3.0f, 0.5f}},  // step 2
     };
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -1577,11 +1545,11 @@ TEST(BossAttackSequenceTest, AttackStep_ResetsFireTimerOnEntry){
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets); // timer 2→1
     EXPECT_EQ(bullets.CountActive(), 0u);
 
-    // SpecialWarning へ遷移: EnterAttackStep → タイマー3でリセット
+    // SpecialWarning へ遷移: EnterAttackStep → fire_timer=0(shot定義なし)
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
     ASSERT_EQ(bs.GetBoss().attack_step, BossAttackStep::SpecialWarning);
 
-    // AimedPressure step2 へ遷移: EnterAttackStep → タイマー3でリセット
+    // AimedPressure step2 へ遷移: EnterAttackStep → fire_timer=fire_interval_tick(3)にリセット
     // 遷移tick内で switch: AimedPressure → timer 3→2(発射なし)
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
     ASSERT_EQ(bs.GetBoss().attack_step, BossAttackStep::AimedPressure);
@@ -1617,13 +1585,11 @@ TEST(BossAttackSequenceTest, AttackSequence_LoopsAtExactTick){
     PatternSystem patterns;
     BossConfig cfg = MakeDefaultConfig();
     cfg.entering_duration_ticks = 1;
-    cfg.aimed_fire_interval     = 999;
-    cfg.circle_fire_interval    = 999;
     cfg.phases[0].attack_sequence = {
-        {BossAttackStep::AimedPressure, 3},
-        {BossAttackStep::CircleBarrage, 2},
+        {BossAttackStep::AimedPressure, 3, BossShotDef{3, 999, 100.0f, 3.0f, 0.0f}},
+        {BossAttackStep::CircleBarrage, 2, BossShotDef{3, 999, 100.0f, 3.0f, 0.0f}},
     };
-    bs.Start(cfg, GetTestRng());
+    bs.Start(cfg);
 
     const Vec2 player_pos{320.0f, 400.0f};
     const float dt = 1.0f / 60.0f;
@@ -1645,4 +1611,563 @@ TEST(BossAttackSequenceTest, AttackSequence_LoopsAtExactTick){
     bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
     EXPECT_EQ(bs.GetBoss().attack_step,       BossAttackStep::AimedPressure);
     EXPECT_EQ(bs.GetBoss().attack_step_index, 0u); // index が 0 に戻る
+}
+
+// ──────────────────────────────────────────────────────
+// BossPhaseTest
+// ──────────────────────────────────────────────────────
+/**
+ * @brief 全フェーズ撃破後にphase_indexがphases配列の有効な添字のままであることを確認
+ *
+ * 契約: TakeDamage()のDestroyed分岐ではphase_indexを加算しない
+ *       最終フェーズ(index=1)を撃破してもphase_indexは1(有効な添字)を保つ
+ */
+TEST(BossPhaseTest, FinalPhase_DestroyedKeepsValidIndex){
+    BossSystem bs;
+    BulletSystem bullets(100);
+    PatternSystem patterns;
+
+    BossConfig cfg = MakeDefaultConfig();
+    // BossStatusのEnteringは即終了
+    cfg.entering_duration_ticks = 1;
+    cfg.phases = {
+        { BossPhaseKind::Normal, 5,  0, {{BossAttackStep::AimedPressure, 999, BossShotDef{3, 5, 100.0f, 3.0f, 0.0f}}} },
+        { BossPhaseKind::Spell,  10, 0, {{BossAttackStep::AimedPressure, 999, BossShotDef{3, 5, 100.0f, 3.0f, 0.0f}}} },
+    };
+    bs.Start(cfg);
+
+    const Vec2  player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+
+    // Entering → Fighting
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
+    ASSERT_EQ(bs.GetBoss().phase_index, 0u);
+
+    // Phase0: HP5に対して5ダメージ → PhaseComplete
+    EXPECT_EQ(bs.TakeDamage(5), BossDamageResult::PhaseComplete);
+
+    // UpdateTickでphase_transition_pendingを消費 → Phase1へ遷移
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    ASSERT_EQ(bs.GetBoss().phase_index, 1u);
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
+
+    // Phase1: 10ダメージ → Destroyed
+    EXPECT_EQ(bs.TakeDamage(10), BossDamageResult::Destroyed);
+
+    // phase_indexは最終フェーズの添字(1)のままであり，配列範囲内である
+    EXPECT_EQ(bs.GetBoss().phase_index, 1u);
+    EXPECT_LT(bs.GetBoss().phase_index, cfg.phases.size());
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Defeating);
+}
+
+/**
+ * @brief 全フェーズ撃破・Reset後にStart()するとphase_index=0，HP=初期値に戻ること
+ *
+ * 契約: Reset()でboss_状態を初期化し，Start()はphase_index=0，HP=phases[0].max_hpで開始する
+ */
+TEST(BossPhaseTest, Start_AfterDefeatStartsAtPhaseZero){
+    BossSystem bs;
+    BulletSystem bullets(100);
+    PatternSystem patterns;
+
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
+    cfg.phases = {
+        { BossPhaseKind::Normal, 5,  0, {{BossAttackStep::AimedPressure, 999, BossShotDef{3, 5, 100.0f, 3.0f, 0.0f}}} },
+        { BossPhaseKind::Spell,  10, 0, {{BossAttackStep::AimedPressure, 999, BossShotDef{3, 5, 100.0f, 3.0f, 0.0f}}} },
+    };
+    bs.Start(cfg);
+
+    const Vec2  player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+
+    // Entering → Fighting → Phase0撃破 → Phase1へ → Phase1撃破
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    bs.TakeDamage(5);   // PhaseComplete
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);  // Phase1へ
+    bs.TakeDamage(10);  // Destroyed → ここでボスは敗北
+
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Defeating);
+    ASSERT_EQ(bs.GetBoss().phase_index, 1u);
+
+    // Reset後にStart→同じconfigを読み込み，phase_index=0, HP=Phase0のmax_hpで始まる
+    bs.Reset();
+    bs.Start(cfg);
+
+    EXPECT_EQ(bs.GetBoss().phase_index, 0u);
+    EXPECT_EQ(bs.GetBoss().hp, cfg.phases[0].max_hp);
+    EXPECT_EQ(bs.GetBoss().status, BossStatus::Entering);
+}
+
+/**
+ * @brief フェーズ遷移中(phase_transition_pending=true)の追加ダメージはInvalidTargetを返すことを確認
+ *
+ * 契約: TakeDamage()でPhaseCompleteが返ったtick内では
+ *       phase_transition_pending=trueとなり，追加ダメージはInvalidTargetになる
+ */
+TEST(BossPhaseTest, PhaseComplete_StopsAdditionalHitsSameTick){
+    BossSystem bs;
+    BulletSystem bullets(100);
+    PatternSystem patterns;
+
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
+    cfg.phases = {
+        { BossPhaseKind::Normal, 5,  0, {{BossAttackStep::AimedPressure, 999, BossShotDef{3, 5, 100.0f, 3.0f, 0.0f}}} },
+        { BossPhaseKind::Spell,  10, 0, {{BossAttackStep::AimedPressure, 999, BossShotDef{3, 5, 100.0f, 3.0f, 0.0f}}} },
+    };
+    bs.Start(cfg);
+
+    const Vec2  player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+    // 戦闘開始
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
+
+    // Phase0: 5ダメージ → PhaseComplete, phase_transition_pending=true
+    EXPECT_EQ(bs.TakeDamage(5), BossDamageResult::PhaseComplete);
+    EXPECT_TRUE(bs.GetBoss().phase_transition_pending);
+
+    // 同tick内での追加ダメージはInvalidTarget
+    EXPECT_EQ(bs.TakeDamage(1), BossDamageResult::InvalidTarget);
+    EXPECT_EQ(bs.TakeDamage(1), BossDamageResult::InvalidTarget);
+}
+
+// ──────────────────────────────────────────────────────
+// BossShotDefTest
+// ──────────────────────────────────────────────────────
+/**
+ * @brief BossShotDefのbullet_countとbullet_speedが実際の発射弾数・速度に反映されることを確認
+ *
+ * bullet_count=5, bullet_speed=200.0fで発射すると
+ * 5発の弾が生成され各弾の速度ベクトルの大きさが200.0fになる
+ */
+TEST(BossShotDefTest, ShotDef_ControlsBulletCountAndSpeed){
+    BossSystem bs;
+    BulletSystem bullets(100);
+    PatternSystem patterns;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
+    // bullet_count=5, fire_interval_tick=2, bullet_speed=200
+    cfg.phases[0].attack_sequence = {{
+        BossAttackStep::AimedPressure, 999,
+        BossShotDef{5, 2, 200.0f, 3.0f, 0.0f}
+    }};
+    bs.Start(cfg);
+
+    const Vec2  player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+
+    // Entering → Fighting(fire_timer = 2)
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
+    EXPECT_EQ(bullets.CountActive(), 0u);
+
+    // Fight tick 1: timer 2→1(未発射)
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    EXPECT_EQ(bullets.CountActive(), 0u);
+
+    // Fight tick 2: timer 1→0 → 5発発射
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    ASSERT_EQ(bullets.CountActive(), 5u);
+
+    // 各弾の速度ベクトルの大きさがbullet_speed(200.0f)であることを確認
+    for(const auto& b : bullets.GetBullets()){
+        if(!b.active){
+            continue;
+        }
+        // 進行方向zに対して，x, y軸の速度で平方根を求める(VelocityFromAngle()の逆)
+        const float speed = std::hypot(b.velocity.x, b.velocity.y);
+        EXPECT_NEAR(speed, 200.0f, 0.01f);
+    }
+}
+
+/**
+ * @brief BossShotDefのfire_interval_tickが発射タイミングに反映されることを確認
+ *
+ * fire_interval_tick=4の場合，Fighting遷移直後の発射タイマーが4になり，
+ * 3tick目までは発射なし・4tick目に初めて発射される
+ */
+TEST(BossShotDefTest, ShotDef_ControlsFireInterval){
+    BossSystem bs;
+    BulletSystem bullets(100);
+    PatternSystem patterns;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks   = 1;
+    cfg.phases[0].attack_sequence = {{
+        BossAttackStep::AimedPressure, 999,
+        BossShotDef{3, 4, 100.0f, 3.0f, 0.0f}  // fire_interval_tick=4
+    }};
+    bs.Start(cfg);
+
+    const Vec2  player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+
+    // Entering → Fighting(fire_timer = 4)
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
+
+    // Fight tick 1-3: 発射なし(timer 4→...→1)
+    for(int i = 0; i < 3; ++i){
+        bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    }
+    EXPECT_EQ(bullets.CountActive(), 0u);
+
+    // Fight tick 4: timer 1→0 → 発射
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    EXPECT_GT(bullets.CountActive(), 0u);
+}
+
+// ──────────────────────────────────────────────────────
+// BossMovementTest
+// ──────────────────────────────────────────────────────
+/**
+ * @brief MoveTo/Fixed移動でduration_ticks後に正確に目的座標に到達することを確認
+ *
+ * move_duration_ticks=5, target={400.0f, 150.0f} の場合，
+ * - fight tick 4まで: 未到達 (lerp t < 1.0)
+ * - fight tick 5(=duration_ticks): lerp t=1.0 → 正確に目的座標と一致する
+ */
+TEST(BossMovementTest, MoveTo_ReachesTargetAtExactTick){
+    // ボス構成
+    BossSystem bs;
+    BulletSystem bullets(100);
+    PatternSystem patterns;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
+    cfg.phases[0].attack_sequence = {{
+        BossAttackStep::AimedPressure, 999,
+        BossShotDef{3, 999, 100.0f, 3.0f, 0.0f},    // 弾は撃たない(fire_interval_tick=999)
+        BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Fixed, {400.0f, 150.0f}, {}, 5}
+    }};
+    bs.Start(cfg);
+
+    const Vec2  player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+
+    // Entering → Fighting(EnterAttackStep: move_start={320,80}, move_target={400,150}, duration=5)
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
+
+    // fight tick 1-4: 未到達
+    for(int i = 0; i < 4; ++i){
+        bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    }
+    EXPECT_NE(bs.GetBoss().position.x, 400.0f);
+
+    // fight tick 5: lerp t=1.0 → 目的座標に到達
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.x, 400.0f);
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.y, 150.0f);
+}
+
+/**
+ * @brief BossMoveType::Stayで位置が変化しないことを確認
+ *
+ * Stay移動はCalculateMovement内でmove_duration_ticks=0に設定するため，
+ * UpdateTick内の移動lerp処理が一切実行されない
+ */
+TEST(BossMovementTest, Stay_StopsMovement){
+    BossSystem bs;
+    BulletSystem bullets(100);
+    PatternSystem patterns;
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
+    cfg.phases[0].attack_sequence = {{
+        BossAttackStep::AimedPressure, 999,
+        BossShotDef{3, 999, 100.0f, 3.0f, 0.0f},
+        BossMovementDef{BossMoveType::Stay, BossMoveTarget::Fixed, {320.0f, 100.0f}, {}, 1}
+    }};
+    bs.Start(cfg);
+
+    const Vec2  player_pos{320.0f, 400.0f};
+    const float dt = 1.0f / 60.0f;
+
+    // Entering → Fighting (CalculateMovement: Stay → move_duration_ticks=0)
+    bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
+    const Vec2 initial_pos = bs.GetBoss().position;
+
+    // 10fight tick: 位置変化なし
+    for(int i = 0; i < 10; ++i){
+        bs.UpdateTick(dt, player_pos, GetTestRng(), patterns, bullets);
+    }
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.x, initial_pos.x);
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.y, initial_pos.y);
+}
+
+/**
+ * @brief OppositePlayerモードでEnterAttackStep時のplayer_positionが移動先計算に使われることを確認
+ *
+ * ボス2体，プレイヤー2体で検証
+ * player1={100,400}: target.x = clamp(640-100, 64, 576) = 540
+ * player2={500,400}: target.x = clamp(640-500, 64, 576) = 140
+ * どちらも target.y = PLAYFIELD_HEIGHT * 0.25 = 180
+ */
+TEST(BossMovementTest, FirstMove_UsesActualPlayerPosition){
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
+    cfg.phases[0].attack_sequence = {{
+        BossAttackStep::AimedPressure, 999,
+        BossShotDef{3, 999, 100.0f, 3.0f, 0.0f},
+        BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::OppositePlayer, {}, {}, 60}
+    }};
+
+    BossSystem bs1, bs2;
+    BulletSystem bullets(100);
+    PatternSystem patterns;
+    bs1.Start(cfg);
+    bs2.Start(cfg);
+
+    const float dt  = 1.0f / 60.0f;
+    const Vec2 player1{100.0f, 400.0f};
+    const Vec2 player2{500.0f, 400.0f};
+
+    // 異なるplayer_posでEntering → Fighting → EnterAttackStep(OppositePlayer)
+    bs1.UpdateTick(dt, player1, GetTestRng(), patterns, bullets);
+    bs2.UpdateTick(dt, player2, GetTestRng(), patterns, bullets);
+
+    ASSERT_EQ(bs1.GetBoss().status, BossStatus::Fighting);
+    ASSERT_EQ(bs2.GetBoss().status, BossStatus::Fighting);
+
+    // player1.x=100 → 640-100=540, player2.x=500 → 640-500=140
+    EXPECT_FLOAT_EQ(bs1.GetBoss().move_target.x, 540.0f);
+    EXPECT_FLOAT_EQ(bs2.GetBoss().move_target.x, 140.0f);
+    // Y軸は共通 (PLAYFIELD_HEIGHT * 0.25 = 720 * 0.25 = 180)
+    EXPECT_FLOAT_EQ(bs1.GetBoss().move_target.y, 180.0f);
+    EXPECT_FLOAT_EQ(bs2.GetBoss().move_target.y, 180.0f);
+}
+
+/**
+ * @brief 同一シードのDeterministicRngを用いると同一のRandom移動先が得られることを確認
+ *
+ * 再現性の保証: seed=42のRNG2個で独立したBossSystemを動かすと
+ * move_targetが完全に一致する
+ */
+TEST(BossMovementTest, RandomMove_SameSeedSameDestination){
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
+    cfg.phases[0].attack_sequence = {{
+        BossAttackStep::AimedPressure, 999,
+        BossShotDef{3, 999, 100.0f, 3.0f, 0.0f},
+        BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Random, {}, {80.0f, 50.0f}, 60}
+    }};
+
+    BossSystem bs1, bs2;
+    BulletSystem bullets(100);
+    PatternSystem patterns;
+    bs1.Start(cfg);
+    bs2.Start(cfg);
+
+    const float dt = 1.0f / 60.0f;
+    const Vec2  player_pos{320.0f, 400.0f};
+
+    DeterministicRng rng1{42};
+    DeterministicRng rng2{42};
+
+    bs1.UpdateTick(dt, player_pos, rng1, patterns, bullets);
+    bs2.UpdateTick(dt, player_pos, rng2, patterns, bullets);
+
+    ASSERT_EQ(bs1.GetBoss().status, BossStatus::Fighting);
+    ASSERT_EQ(bs2.GetBoss().status, BossStatus::Fighting);
+
+    // 同一シードなら同一の移動先
+    EXPECT_FLOAT_EQ(bs1.GetBoss().move_target.x, bs2.GetBoss().move_target.x);
+    EXPECT_FLOAT_EQ(bs1.GetBoss().move_target.y, bs2.GetBoss().move_target.y);
+}
+
+// ──────────────────────────────────────────────────────
+// BossConfigValidationTest
+// ──────────────────────────────────────────────────────
+/**
+ * @brief BossShotDef/BossMovementDefの不正値でStart()がinvalid_argumentをthrowすることを確認
+ *
+ * 検証する無効ケース:
+ *   - BossShotDef: fire_interval_tick = 0
+ *   - BossShotDef: bullet_count = 0
+ *   - BossShotDef: bullet_speed = 0
+ *   - BossMovementDef Fixed: target_position.x = 0
+ *   - BossMovementDef Random: move_range.x = 0
+ *   - BossMovementDef: duration_ticks = 0
+ */
+TEST(BossConfigValidationTest, Config_RejectsInvalidShotAndMovement){
+    // fire_interval_tick = 0
+    {
+        BossSystem bs;
+        BossConfig cfg = MakeDefaultConfig();
+        cfg.phases[0].attack_sequence = {{
+            BossAttackStep::AimedPressure, 10,
+            BossShotDef{3, 0, 100.0f, 3.0f, 0.0f}
+        }};
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
+    }
+    // bullet_count = 0
+    {
+        BossSystem bs;
+        BossConfig cfg = MakeDefaultConfig();
+        cfg.phases[0].attack_sequence = {{
+            BossAttackStep::AimedPressure, 10,
+            BossShotDef{0, 5, 100.0f, 3.0f, 0.0f}
+        }};
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
+    }
+    // bullet_speed = 0
+    {
+        BossSystem bs;
+        BossConfig cfg = MakeDefaultConfig();
+        cfg.phases[0].attack_sequence = {{
+            BossAttackStep::AimedPressure, 10,
+            BossShotDef{3, 5, 0.0f, 3.0f, 0.0f}
+        }};
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
+    }
+    // Fixed: target_position.x = 0
+    {
+        BossSystem bs;
+        BossConfig cfg = MakeDefaultConfig();
+        cfg.phases[0].attack_sequence = {{
+            BossAttackStep::AimedPressure, 10,
+            BossShotDef{3, 5, 100.0f, 3.0f, 0.0f},
+            BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Fixed, {0.0f, 100.0f}, {}, 10}
+        }};
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
+    }
+    // Random: move_range.x = 0
+    {
+        BossSystem bs;
+        BossConfig cfg = MakeDefaultConfig();
+        cfg.phases[0].attack_sequence = {{
+            BossAttackStep::AimedPressure, 10,
+            BossShotDef{3, 5, 100.0f, 3.0f, 0.0f},
+            BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Random, {}, {0.0f, 50.0f}, 10}
+        }};
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
+    }
+    // duration_ticks = 0
+    {
+        BossSystem bs;
+        BossConfig cfg = MakeDefaultConfig();
+        cfg.phases[0].attack_sequence = {{
+            BossAttackStep::AimedPressure, 10,
+            BossShotDef{3, 5, 100.0f, 3.0f, 0.0f},
+            BossMovementDef{BossMoveType::MoveTo, BossMoveTarget::Fixed, {320.0f, 100.0f}, {}, 0}
+        }};
+        EXPECT_THROW(bs.Start(cfg), std::invalid_argument);
+    }
+}
+
+// ──────────────────────────────────────────────────────
+// BossTeleportationTest
+// ──────────────────────────────────────────────────────
+/**
+ * @brief CalculateMovement() で boss.move_type が Teleportation にセットされることを確認
+ *
+ * Entering → Fighting 遷移直後に boss.move_type == Teleportation となる。
+ */
+TEST(BossTeleportationTest, Teleportation_SetsMoveType){
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.entering_duration_ticks = 1;
+    cfg.phases[0].attack_sequence = {{
+        BossAttackStep::AimedPressure, 999,
+        BossShotDef{3, 999, 100.0f, 3.0f, 0.0f},
+        BossMovementDef{BossMoveType::Teleportation, BossMoveTarget::Fixed, {320.0f, 100.0f}, {}, 30}
+    }};
+
+    BossSystem bs;
+    DeterministicRng rng{0};
+    BulletSystem bullets(10);
+    PatternSystem patterns;
+    bs.Start(cfg);
+
+    const Vec2 player_pos{320.0f, 400.0f};
+    bs.UpdateTick(1.0f / 60.0f, player_pos, rng, patterns, bullets);
+
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
+    EXPECT_EQ(bs.GetBoss().move_type, BossMoveType::Teleportation);
+}
+
+/**
+ * @brief duration - 1 ティック経過後も position が変わらないことを確認
+ *
+ * Teleportation はカウントダウン中に座標を変えない。
+ */
+TEST(BossTeleportationTest, Teleportation_DoesNotMoveBeforeDeadline){
+    constexpr std::uint32_t DURATION = 10;
+    const Vec2 start_pos {320.0f, 100.0f};
+    const Vec2 target_pos{100.0f,  80.0f};
+
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.position                = start_pos;
+    cfg.entering_duration_ticks = 1;
+    cfg.phases[0].attack_sequence = {{
+        BossAttackStep::AimedPressure, 999,
+        BossShotDef{3, 999, 100.0f, 3.0f, 0.0f},
+        BossMovementDef{BossMoveType::Teleportation, BossMoveTarget::Fixed, target_pos, {}, DURATION}
+    }};
+
+    BossSystem bs;
+    DeterministicRng rng{0};
+    BulletSystem bullets(10);
+    PatternSystem patterns;
+    bs.Start(cfg);
+
+    const float dt         = 1.0f / 60.0f;
+    const Vec2  player_pos{320.0f, 400.0f};
+
+    // Entering を抜ける
+    bs.UpdateTick(dt, player_pos, rng, patterns, bullets);
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
+
+    // duration - 1 ティック進める（スナップの1ティック手前）
+    for(std::uint32_t i = 0; i < DURATION - 1; ++i){
+        bs.UpdateTick(dt, player_pos, rng, patterns, bullets);
+    }
+
+    // まだ元の位置のまま
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.x, start_pos.x);
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.y, start_pos.y);
+}
+
+/**
+ * @brief duration ティック目に target_position へスナップすることを確認
+ *
+ * move_elapsed_ticks == move_duration_ticks になった tick で
+ * position が一瞬で target_position に移動する。
+ */
+TEST(BossTeleportationTest, Teleportation_SnapsToPosAtExactTick){
+    constexpr std::uint32_t DURATION = 10;
+    const Vec2 start_pos {320.0f, 100.0f};
+    const Vec2 target_pos{100.0f,  80.0f};
+
+    BossConfig cfg = MakeDefaultConfig();
+    cfg.position                = start_pos;
+    cfg.entering_duration_ticks = 1;
+    cfg.phases[0].attack_sequence = {{
+        BossAttackStep::AimedPressure, 999,
+        BossShotDef{3, 999, 100.0f, 3.0f, 0.0f},
+        BossMovementDef{BossMoveType::Teleportation, BossMoveTarget::Fixed, target_pos, {}, DURATION}
+    }};
+
+    BossSystem bs;
+    DeterministicRng rng{0};
+    BulletSystem bullets(10);
+    PatternSystem patterns;
+    bs.Start(cfg);
+
+    const float dt         = 1.0f / 60.0f;
+    const Vec2  player_pos{320.0f, 400.0f};
+
+    // Entering を抜ける
+    bs.UpdateTick(dt, player_pos, rng, patterns, bullets);
+    ASSERT_EQ(bs.GetBoss().status, BossStatus::Fighting);
+
+    // duration ティック進める（スナップが発生するティックを含む）
+    for(std::uint32_t i = 0; i < DURATION; ++i){
+        bs.UpdateTick(dt, player_pos, rng, patterns, bullets);
+    }
+
+    // target_position へスナップ済み
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.x, target_pos.x);
+    EXPECT_FLOAT_EQ(bs.GetBoss().position.y, target_pos.y);
 }

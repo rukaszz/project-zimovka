@@ -4,8 +4,6 @@
 #include <cstddef>
 
 #include "zimovka/core/Circle.hpp"
-#include "zimovka/core/DeterministicRng.hpp"
-#include "zimovka/core/Vec2.hpp"
 #include "zimovka/events/BossHitEvents.hpp"
 #include "zimovka/events/EnemyHitEvents.hpp"
 #include "zimovka/events/BulletCancelEvents.hpp"
@@ -39,12 +37,7 @@ public:
     // プレイヤー vs ボスのヒットチェック・解決
     bool CheckPlayerHitByBoss(const Player& player, const Boss& boss);
     // 自機弾 vs ボスのヒットチェック・解決
-    BossHitEvents ResolvePlayerBulletsVsBoss(
-        BulletSystem& player_bullets,
-        BossSystem& boss_system,
-        const Vec2& player_position,
-        DeterministicRng& rng
-    );
+    BossHitEvents ResolvePlayerBulletsVsBoss(BulletSystem& player_bullets, BossSystem& boss_system);
     // getter
     // UpdatePipeline::ResolveCollisions()で冒頭に呼ばれる
     void InitializeStatsAtBeginTick() noexcept{

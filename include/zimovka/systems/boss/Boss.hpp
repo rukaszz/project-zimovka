@@ -7,9 +7,10 @@
 
 #include "zimovka/core/Circle.hpp"
 #include "zimovka/core/Vec2.hpp"
-#include "zimovka/systems/boss/BossStatus.hpp"
 #include "zimovka/systems/boss/BossAttackStep.hpp"
 #include "zimovka/systems/boss/BossAttackSequenceDef.hpp"
+#include "zimovka/systems/boss/BossMovementDef.hpp"
+#include "zimovka/systems/boss/BossStatus.hpp"
 #include "zimovka/systems/boss/BossPhaseDef.hpp"
 
 namespace zimovka{
@@ -33,6 +34,7 @@ struct Boss{
     Vec2          move_target{};
     std::uint32_t move_duration_ticks = 0;
     std::uint32_t move_elapsed_ticks  = 0;
+    BossMoveType  move_type = BossMoveType::Stay;   // Bossの移動ロジック区別用
 
     float hurtbox_radius = 0.0f;    // 当たり判定半径
     float contact_radius = 0.0f;    // 自機との衝突判定半径
@@ -49,13 +51,12 @@ struct Boss{
 
     // ボスのフェーズを管理するためのインデックス
     std::size_t phase_index = 0;
+    // ボスのフェーズ遷移判定用
+    bool phase_transition_pending = false;
     // ボスの行動パターン設定用フェーズ管理vector
     std::vector<BossPhaseDef> phases{};
 
     std::uint32_t fire_timer     = 0;        // 発射間隔制御用タイマ
-
-    std::uint32_t aimed_fire_interval  = 0;        // 自機狙い発射リセット間隔
-    std::uint32_t circle_fire_interval = 0;        // 全方向発射リセット間隔
 
     // CollisionSystemから参照するための当たり判定円
     Circle GetHurtboxCircle() const noexcept{
