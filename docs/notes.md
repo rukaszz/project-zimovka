@@ -3725,3 +3725,70 @@ Fighting
 ```
 
 なお，現状の仕様はボスフェーズ遷移時はプレイヤーは被弾する，ボスの撃破時は被弾を避ける(Bombの処理を呼ばない)としている．
+
+### 2026/11/24
+
+#### ゲーム全体の状態管理
+
+GameScreenを導入し，ゲームの状態範囲を管理するfeatureを始めた．GameScreenはステージの状態を管理するのではなく，ゲームの実行状態を表す．すなわち画面の状態であると言える．
+
+最初は次のようなゲームの流れを完成させることを目的に，実装を進める：
+
+```text
+アプリケーション起動
+    ↓
+Title
+    │
+    │ Start入力
+    ↓
+Playing
+    │
+    ├── Stage1 Normal
+    │
+    ├── Stage1 Boss
+    │
+    └── Stage1 Cleared
+           │
+           │ stage_clear_finished
+           ↓
+# 実装はここまで
+    ├── Stage2 Normal
+    │
+    ├── Stage2 Boss
+    │
+    └── Stage2 Cleared
+    ...
+    └── Stage6 Cleared
+Result
+    │
+    ├── Retry → Stage 1から再実行
+    │
+    └── Quit  → アプリケーション終了
+```
+
+Playing以外ではtickを進めない．Retry時はUpdatePipeline::StartRun()を呼び直すイメージで進める．
+
+#### Replayはいつ終わるのか
+
+zimovkaはリプレイ機能を持つので，どこまで再現するかを決めておかないといけない．リプレイの記録の開始はやはりUpdatePipeline::StartRun()がわかりやすい．
+ただいつ記録を終えるのかが現在は曖昧である．
+
+ここでは次の契約で進めることにする：
+
+```text
+TitleでStart
+    ↓
+StartRun(seed)←入力記録開始
+    ↓
+Stage 1をプレイ
+    ↓
+Boss撃破
+    ↓
+StageClear
+    ↓
+stage_clear_finished←入力記録終了
+    ↓
+Result(ここは記録しない)
+```
+
+要するにゲームプレイ部分のみ記録し，メニューの操作などゲームプレイではないところは記録しない，ということである．
