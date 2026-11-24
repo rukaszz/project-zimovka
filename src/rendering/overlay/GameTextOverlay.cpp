@@ -25,6 +25,7 @@ void GameTextOverlay::Reset() noexcept{
     // TextTextureメンバ変数をリセット※Rendererが生存していないといけない
     stage_clear_text_.Reset();
     warning_text_.Reset();
+    press_start_text_.Reset();
     
     // SDL関係のリソース解放
     if(font_){
@@ -84,7 +85,7 @@ void GameTextOverlay::Load(
  */
 bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
     // 表示対象がなければSDLリソースを使わずに正常return
-    if(!model.show_warning && !model.show_stage_clear){
+    if(!model.show_warning && !model.show_stage_clear && !model.show_press_start){
         return true;
     }
     if(!renderer_ || !font_){
@@ -94,10 +95,22 @@ bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
         255, 255, 255, 255
     };
 
-    if(model.show_warning){
+    if(model.show_press_start){
+        if(!press_start_text_.Update(renderer_, font_, "Press X to Start", WHITE)){
+            return false;
+        }
+        // 画面全体に対して中央揃え(プレイフィールドではなくウィンドウ全体)
+        const int x = static_cast<int>(
+            (ScreenLayout::LOGICAL_WIDTH  - press_start_text_.Width())  / 2.0f
+        );
+        const int y = static_cast<int>(
+            (ScreenLayout::LOGICAL_HEIGHT - press_start_text_.Height()) / 2.0f
+        );
+        return press_start_text_.Render(x, y);
+
+    } else if(model.show_warning){
         // TextTexture::Update()の実施：テクスチャ生成などが失敗したらfalseを伝搬
-        if(!warning_text_.Update(renderer_, font_, "WARNING", WHITE))
-        {
+        if(!warning_text_.Update(renderer_, font_, "WARNING", WHITE)){
             return false;
         }
         // 描画位置(中心)
@@ -109,10 +122,9 @@ bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
         );
         return warning_text_.Render(x, y);
 
-    } else if(model.show_stage_clear){
+    }else if(model.show_stage_clear){
         // TextTexture::Update()の実施：テクスチャ生成などが失敗したらfalseを伝搬
-        if(!stage_clear_text_.Update(renderer_, font_, "STAGE CLEAR", WHITE))
-        {
+        if(!stage_clear_text_.Update(renderer_, font_, "STAGE CLEAR", WHITE)){
             return false;
         }
         // 描画位置(中心)

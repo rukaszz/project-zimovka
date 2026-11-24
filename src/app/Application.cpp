@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <stdexcept>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -66,18 +67,16 @@ int Application::Run(int argc, char* argv[]){
         renderer.Get(),
         "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
     );
+    // タイトル画面テキスト初期化
+    title_overlay_.Load(
+        renderer.Get(),
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
+    );
 
     // デバッグ用にナノ秒をミリ秒へ変換するラムダ式to_msの定義
     auto to_ms = [](std::chrono::nanoseconds d) -> float {
         return static_cast<float>(d.count()) / 1'000'000.0f;
     };
-
-    // パイプライン初期化(内部の全サブシステムを初期化する)
-    update_pipeline.StartRun(
-        ScreenLayout::PLAYFIELD_WIDTH, 
-        ScreenLayout::PLAYFIELD_HEIGHT, 
-        seed
-    );
 
     // 固定タイムステップ用クロック(steady_clockはis_steadyが保証される)
     using Clock = std::chrono::steady_clock;
@@ -233,8 +232,83 @@ void Application::Update(
     UpdatePipeline& update_pipeline 
 )
 {
+    switch(game_screen_){
+    case GameScreen::Title:
+        UpdateTitle(input, update_pipeline);
+        break;
+    case GameScreen::Playing:
+        UpdatePlaying(dt, input, update_pipeline);
+        break;
+    case GameScreen::Result:
+        UpdateResult(input, update_pipeline);
+        break;
+    case GameScreen::GameOver:
+        UpdateGameOver(input, update_pipeline);
+        break;
+    default:
+        throw std::runtime_error(
+            "Unexpected Game Statement. "
+        );
+    }
+}
+
+/**
+ * @brief GameScreen::TitleのときのUpdate処理
+ * 
+ * @param input 
+ * @param update_pipeline 
+ */
+void Application::UpdateTitle(const InputState& input, UpdatePipeline& update_pipeline){
+    // ショットキーでゲームスタート
+    if(input.IsPressed(Action::Shoot)){
+        const auto seed = INITIAL_SEED;
+        run_recorder_.Start(seed);
+        update_pipeline.StartRun(
+            ScreenLayout::PLAYFIELD_WIDTH, 
+            ScreenLayout::PLAYFIELD_HEIGHT, 
+            seed
+        );
+        game_screen_ = GameScreen::Playing;
+    }
+}
+
+/**
+ * @brief GameScreen::PlayingのときのUpdate処理
+ * 
+ * ゲームプレイの更新をする主要な処理でここでのみdtを用い，リプレイを記録する
+ * 
+ * @param dt 
+ * @param input 
+ * @param update_pipeline 
+ */
+void Application::UpdatePlaying(
+    float dt, 
+    const InputState& input, 
+    UpdatePipeline& update_pipeline
+)
+{
     const GameplayTickEvents events = update_pipeline.UpdateTick(dt, input);
     (void)events;   // NOTE: のちのちSE再生などで使用する
+}
+
+/**
+ * @brief GameScreen::ResultのときのUpdate処理
+ * 
+ * @param input 
+ * @param update_pipeline 
+ */
+void Application::UpdateResult(const InputState& input, UpdatePipeline& update_pipeline){
+    // TODO: 後に実装
+}
+
+/**
+ * @brief GameScreen::GameOverのときのUpdate処理
+ * 
+ * @param input 
+ * @param update_pipeline 
+ */
+void Application::UpdateGameOver(const InputState& input, UpdatePipeline& update_pipeline){
+    // TODO: 後に実装
 }
 
 /**
@@ -258,6 +332,60 @@ void Application::Render(
     RenderPipeline&     render_pipeline
 )
 {
+    switch(game_screen_){
+    case GameScreen::Title:
+        RenderTitle(renderer, primitives);
+        break;
+    case GameScreen::Playing:
+        RenderPlaying(renderer, sprites, primitives, textures, update_pipeline, render_pipeline);
+        break;
+    case GameScreen::Result:
+        RenderResult(renderer, primitives);
+        break;
+    case GameScreen::GameOver:
+        RenderGameOver(renderer, primitives);
+        break;
+    default:
+        throw std::runtime_error(
+            "Unexpected Game Statement. "
+        );
+    }
+}
+
+/**
+ * @brief GameScreen::Titleのときの描画処理
+ * 
+ * @param renderer 
+ * @param primitives 
+ */
+void Application::RenderTitle(Renderer& renderer, PrimitiveRenderer& primitives){
+    (void)renderer;
+    (void)primitives;
+    const GameTextOverlayViewModel model{
+        .show_press_start = true,
+    };
+    (void)title_overlay_.Render(model);
+}
+
+/**
+ * @brief GameScreen::Playingのときの描画処理
+ * 
+ * @param renderer 
+ * @param sprites 
+ * @param primitives 
+ * @param textures 
+ * @param update_pipeline 
+ * @param render_pipeline 
+ */
+void Application::RenderPlaying(
+    Renderer&           renderer,
+    SpriteRenderer&     sprites,
+    PrimitiveRenderer&  primitives,
+    const TextureStore& textures, 
+    UpdatePipeline&     update_pipeline, 
+    RenderPipeline&     render_pipeline
+)
+{
     render_pipeline.RenderFrame(
         update_pipeline,
         renderer,
@@ -266,6 +394,26 @@ void Application::Render(
         textures,
         true
     );
+}
+
+/**
+ * @brief GameScreen::Resultのときの描画処理
+ * 
+ * @param renderer 
+ * @param primitives 
+ */
+void Application::RenderResult(Renderer& renderer, PrimitiveRenderer& primitives){
+    // TODO: 後に実装
+}
+
+/**
+ * @brief GameScreen::GameOverのときの描画処理
+ * 
+ * @param renderer 
+ * @param primitives 
+ */
+void Application::RenderGameOver(Renderer& renderer, PrimitiveRenderer& primitives){
+    // TODO: 後に実装
 }
 
 /**
@@ -297,7 +445,7 @@ void Application::CapFrameRate(std::chrono::steady_clock::time_point frame_start
         if(sleep_ms > 1){
             SDL_Delay(static_cast<Uint32>(sleep_ms - 1));
         }
-        // 残り~1msをbusy waitで精密調整(高負荷なので1ms未満の調整のみで使う)
+        // 残り<1msをbusy waitで精密調整(高負荷なので1ms未満の調整のみで使う)
         while(Clock::now() - frame_start < TARGET_NS){ /* spin */ }
     }
 }

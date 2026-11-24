@@ -4,23 +4,23 @@
 #include <chrono>
 #include <cstddef>
 
+#include "zimovka/app/GameScreen.hpp"
 #include "zimovka/config/ScreenLayout.hpp"
 #include "zimovka/engine/rendering/RenderPipeline.hpp"
 #include "zimovka/platform/SdlContext.hpp"
 #include "zimovka/engine/update/UpdatePipeline.hpp"
 #include "zimovka/input/InputSystem.hpp"
 #include "zimovka/replay/RunRecorder.hpp"
+#include "zimovka/rendering/overlay/GameTextOverlay.hpp"
 #include "zimovka/rendering/PrimitiveRenderer.hpp"
 #include "zimovka/rendering/sprite/SpriteDrawParams.hpp"
 #include "zimovka/rendering/sprite/SpriteRenderer.hpp"
-#include "zimovka/rendering/texture/TextTexture.hpp"
 #include "zimovka/rendering/texture/TextureStore.hpp"
 
 #include "zimovka/debug/DebugStats.hpp"
 #include "zimovka/debug/DebugAccumulator.hpp"
 
 namespace zimovka{
-
 /**
  * @brief ゲームのメインループを管理するクラス
  * 
@@ -46,6 +46,8 @@ private:
     SdlContext sdl_context_;
     // メインゲームループ制御
     bool running_ = true;
+    // ゲームの状態
+    GameScreen game_screen_ = GameScreen::Title;
     // 入力
     InputSystem input_system_;
     // 入力記録
@@ -54,15 +56,22 @@ private:
     DebugStats debug_stats_;
     // デバッグ統計の累積(0.25s毎にflushして平均・最大値を計算)
     DebugAccumulator debug_acc_;
+    // タイトル画面テキスト用オーバーレイ
+    GameTextOverlay title_overlay_;
 
     // イベントの処理
     void ProcessEvents();
-    // ゲームの更新
+    // ゲームの更新: GameScreenごとに分ける
     void Update(
         float dt, 
         const InputState& input, 
-        UpdatePipeline& update_pipeline 
+        UpdatePipeline& update_pipeline
     );
+    void UpdateTitle(const InputState& input, UpdatePipeline& update_pipeline);
+    void UpdatePlaying(float dt, const InputState& input, UpdatePipeline& update_pipeline);
+    void UpdateResult(const InputState& input, UpdatePipeline& update_pipeline);
+    void UpdateGameOver(const InputState& input, UpdatePipeline& update_pipeline);
+    
     // 描画処理
     void Render(
         Renderer&           renderer,
@@ -72,6 +81,17 @@ private:
         UpdatePipeline&     update_pipeline, 
         RenderPipeline&     render_pipeline
     );
+    void RenderTitle(Renderer& renderer, PrimitiveRenderer& primitives);
+    void RenderPlaying(
+        Renderer&           renderer,
+        SpriteRenderer&     sprites,
+        PrimitiveRenderer&  primitives,
+        const TextureStore& textures, 
+        UpdatePipeline&     update_pipeline, 
+        RenderPipeline&     render_pipeline
+    );
+    void RenderResult(Renderer& renderer, PrimitiveRenderer& primitives);
+    void RenderGameOver(Renderer& renderer, PrimitiveRenderer& primitives);
     // fpsキャップ
     void CapFrameRate(std::chrono::steady_clock::time_point frame_start_ms);
     // デバッグ情報をdebug_acc_からdebug_stats_へ書き出す
