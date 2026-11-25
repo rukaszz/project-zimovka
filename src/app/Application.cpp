@@ -53,8 +53,6 @@ int Application::Run(int argc, char* argv[]){
     // 描画順序管理
     RenderPipeline render_pipeline;
 
-    const auto seed = INITIAL_SEED;
-    run_recorder_.Start(seed);
     // デバッグ情報
     // フォントのパスはとりあえずシステムフォントを使う(※環境依存なので最終的には修正する)
     DebugOverlay debug_overlay(
@@ -148,11 +146,6 @@ int Application::Run(int argc, char* argv[]){
         while(update_time_acc >= fixed_ns){
             // 入力状態のスナップショットを取得して渡す
             const InputState tick_input = input_system_.ConsumeStateForTick();
-            // 入力ビットを記録(戻り値は現時点で使用しない)
-            (void)run_recorder_.Record(tick_input);
-            debug_stats_.recording = run_recorder_.IsRecording();
-            debug_stats_.recorded_frames = run_recorder_.GetRecord().frames.size();
-
             Update(fixed_delta, tick_input, update_pipeline);
             update_time_acc -= fixed_ns;
             ++update_steps;
@@ -260,16 +253,18 @@ void Application::Update(
  */
 void Application::UpdateTitle(const InputState& input, UpdatePipeline& update_pipeline){
     // ショットキーでゲームスタート
-    if(input.IsPressed(Action::Shoot)){
-        const auto seed = INITIAL_SEED;
-        run_recorder_.Start(seed);
-        update_pipeline.StartRun(
-            ScreenLayout::PLAYFIELD_WIDTH, 
-            ScreenLayout::PLAYFIELD_HEIGHT, 
-            seed
-        );
-        game_screen_ = GameScreen::Playing;
+    if(!input.IsPressed(Action::Shoot)){
+        return;
     }
+    constexpr auto seed = INITIAL_SEED;
+    update_pipeline.StartRun(
+        ScreenLayout::PLAYFIELD_WIDTH, 
+        ScreenLayout::PLAYFIELD_HEIGHT, 
+        seed
+    );
+    run_recorder_.Start(seed);
+    game_screen_ = GameScreen::Playing;
+    
 }
 
 /**
@@ -287,8 +282,16 @@ void Application::UpdatePlaying(
     UpdatePipeline& update_pipeline
 )
 {
+    // ゲーム部分(simulation)へ渡す入力だけ記録する
+    (void)run_recorder_.Record(input);  // Update前に記録
+    debug_stats_.recording = run_recorder_.IsRecording();
+    debug_stats_.recorded_frames = run_recorder_.GetRecord().frames.size();
+
     const GameplayTickEvents events = update_pipeline.UpdateTick(dt, input);
-    (void)events;   // NOTE: のちのちSE再生などで使用する
+    if(events.stage_clear_finished){
+        run_recorder_.Stop();
+        game_screen_ = GameScreen::Result;
+    }
 }
 
 /**
@@ -334,13 +337,13 @@ void Application::Render(
 {
     switch(game_screen_){
     case GameScreen::Title:
-        RenderTitle(renderer, primitives);
+        RenderTitle(render_pipeline);
         break;
     case GameScreen::Playing:
         RenderPlaying(renderer, sprites, primitives, textures, update_pipeline, render_pipeline);
         break;
     case GameScreen::Result:
-        RenderResult(renderer, primitives);
+        RenderResult(render_pipeline);
         break;
     case GameScreen::GameOver:
         RenderGameOver(renderer, primitives);
@@ -355,16 +358,10 @@ void Application::Render(
 /**
  * @brief GameScreen::Titleのときの描画処理
  * 
- * @param renderer 
- * @param primitives 
+ * @param render_pipeline 
  */
-void Application::RenderTitle(Renderer& renderer, PrimitiveRenderer& primitives){
-    (void)renderer;
-    (void)primitives;
-    const GameTextOverlayViewModel model{
-        .show_press_start = true,
-    };
-    (void)title_overlay_.Render(model);
+void Application::RenderTitle(RenderPipeline& render_pipeline){
+    (void)render_pipeline.RenderTitle();
 }
 
 /**
@@ -399,11 +396,10 @@ void Application::RenderPlaying(
 /**
  * @brief GameScreen::Resultのときの描画処理
  * 
- * @param renderer 
- * @param primitives 
+ * @param render_pipeline 
  */
-void Application::RenderResult(Renderer& renderer, PrimitiveRenderer& primitives){
-    // TODO: 後に実装
+void Application::RenderResult(RenderPipeline& render_pipeline){
+    (void)render_pipeline.RenderResult();
 }
 
 /**

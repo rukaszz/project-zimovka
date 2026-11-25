@@ -18,8 +18,8 @@ struct GameTextOverlayViewModel{
     std::uint64_t warning_duration_ticks  = 0;     // Warning演出時間
     std::uint64_t warning_ticks_remaining = 0;     // Warning演出のカウントダウン
 
-    bool show_press_start = false;                 // タイトル「Press X to Start」
-
+    bool show_press_start = false;                 // タイトル「Press Z to Start」
+    bool show_press_end   = false;                 // ゲーム終了時に「Press Esc to End」       
 };
 } // namespace zimovka
 

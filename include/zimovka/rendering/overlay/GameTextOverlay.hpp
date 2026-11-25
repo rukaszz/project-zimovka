@@ -22,6 +22,7 @@ private:
     TextTexture stage_clear_text_;
     TextTexture warning_text_;
     TextTexture press_start_text_;
+    TextTexture press_end_text_;
 public:
     // RenderPipelineで所有するのでデフォルトコンストラクタ
     GameTextOverlay() = default;    

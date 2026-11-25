@@ -81,7 +81,7 @@ private:
         UpdatePipeline&     update_pipeline, 
         RenderPipeline&     render_pipeline
     );
-    void RenderTitle(Renderer& renderer, PrimitiveRenderer& primitives);
+    void RenderTitle(RenderPipeline& render_pipeline);
     void RenderPlaying(
         Renderer&           renderer,
         SpriteRenderer&     sprites,
@@ -90,7 +90,7 @@ private:
         UpdatePipeline&     update_pipeline, 
         RenderPipeline&     render_pipeline
     );
-    void RenderResult(Renderer& renderer, PrimitiveRenderer& primitives);
+    void RenderResult(RenderPipeline& render_pipeline);
     void RenderGameOver(Renderer& renderer, PrimitiveRenderer& primitives);
     // fpsキャップ
     void CapFrameRate(std::chrono::steady_clock::time_point frame_start_ms);
