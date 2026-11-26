@@ -66,7 +66,7 @@ bool RenderPipeline::RenderTitle(){
 bool RenderPipeline::RenderResult(){
     // デフォルトがfalseなのでこの関数が呼ばれなくなる=show_press_startはfalseとなる
     GameTextOverlayViewModel model{};
-    model.show_press_end = true;
+    model.show_result = true;
 
     return text_overlay_.Render(model);
 }

@@ -65,11 +65,6 @@ int Application::Run(int argc, char* argv[]){
         renderer.Get(),
         "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
     );
-    // タイトル画面テキスト初期化
-    title_overlay_.Load(
-        renderer.Get(),
-        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
-    );
 
     // デバッグ用にナノ秒をミリ秒へ変換するラムダ式to_msの定義
     auto to_ms = [](std::chrono::nanoseconds d) -> float {
@@ -189,7 +184,7 @@ int Application::Run(int argc, char* argv[]){
     }
     // 終了処理
     run_recorder_.Stop();
-    
+
     return 0;
 }
 
@@ -212,6 +207,22 @@ void Application::ProcessEvents(){
     if(input_system_.IsPressed(zimovka::Action::Quit)){
         running_ = false;
     }
+}
+
+/**
+ * @brief ゲームの開始処理をまとめた関数
+ * 
+ * @param update_pipeline 
+ */
+void Application::StartNewRun(UpdatePipeline& update_pipeline){
+    constexpr auto seed = INITIAL_SEED;
+    update_pipeline.StartRun(
+        ScreenLayout::PLAYFIELD_WIDTH, 
+        ScreenLayout::PLAYFIELD_HEIGHT, 
+        seed
+    );
+    run_recorder_.Start(seed);
+    game_screen_ = GameScreen::Playing;
 }
 
 /**
@@ -253,18 +264,9 @@ void Application::Update(
  */
 void Application::UpdateTitle(const InputState& input, UpdatePipeline& update_pipeline){
     // ショットキーでゲームスタート
-    if(!input.IsPressed(Action::Shoot)){
-        return;
+    if(input.IsPressed(Action::Shoot)){
+        StartNewRun(update_pipeline);
     }
-    constexpr auto seed = INITIAL_SEED;
-    update_pipeline.StartRun(
-        ScreenLayout::PLAYFIELD_WIDTH, 
-        ScreenLayout::PLAYFIELD_HEIGHT, 
-        seed
-    );
-    run_recorder_.Start(seed);
-    game_screen_ = GameScreen::Playing;
-    
 }
 
 /**
@@ -301,7 +303,10 @@ void Application::UpdatePlaying(
  * @param update_pipeline 
  */
 void Application::UpdateResult(const InputState& input, UpdatePipeline& update_pipeline){
-    // TODO: 後に実装
+    // ショットキーでリスタート
+    if(input.IsPressed(Action::Shoot)){
+        StartNewRun(update_pipeline);
+    }
 }
 
 /**

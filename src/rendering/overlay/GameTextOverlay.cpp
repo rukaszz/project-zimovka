@@ -27,6 +27,8 @@ void GameTextOverlay::Reset() noexcept{
     warning_text_.Reset();
     press_start_text_.Reset();
     press_end_text_.Reset();
+    result_title_text_.Reset();
+    result_instruction_text_.Reset();
 
     // SDL関係のリソース解放
     if(font_){
@@ -86,7 +88,12 @@ void GameTextOverlay::Load(
  */
 bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
     // 表示対象がなければSDLリソースを使わずに正常return
-    if(!model.show_warning && !model.show_stage_clear && !model.show_press_start){
+    if(!model.show_warning 
+    && !model.show_stage_clear 
+    && !model.show_press_start
+    && !model.show_result
+    )
+    {
         return true;
     }
     if(!renderer_ || !font_){
@@ -107,18 +114,6 @@ bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
         );
         return press_start_text_.Render(x, y);
 
-    } else if(model.show_press_end){
-        if(!press_end_text_.Update(renderer_, font_, "Press Esc to End", WHITE)){
-            return false;
-        }
-        // 画面全体に対して中央揃え(プレイフィールドではなくウィンドウ全体)
-        const int x = static_cast<int>(
-            (ScreenLayout::LOGICAL_WIDTH  - press_start_text_.Width())  / 2.0f
-        );
-        const int y = static_cast<int>(
-            (ScreenLayout::LOGICAL_HEIGHT - press_start_text_.Height()) / 2.0f
-        );
-        return press_end_text_.Render(x, y);
     } else if(model.show_warning){
         // TextTexture::Update()の実施：テクスチャ生成などが失敗したらfalseを伝搬
         if(!warning_text_.Update(renderer_, font_, "WARNING", WHITE)){
@@ -146,6 +141,31 @@ bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
             ScreenLayout::PLAYFIELD_Y + (ScreenLayout::PLAYFIELD_HEIGHT - stage_clear_text_.Height()) / 2.0f
         );
         return stage_clear_text_.Render(x, y);
+    } else if(model.show_result){
+        // text update
+        if(!result_title_text_.Update(renderer_, font_, "Stage Clear!", WHITE)){
+            return false;
+        }
+        if(!result_instruction_text_.Update(renderer_, font_, "Press Z to Retry", WHITE)){
+            return false;
+        }
+        if(!press_end_text_.Update(renderer_, font_, "Press Esc to End", WHITE)){
+            return false;
+        }
+        // result_title_text_: 画面上部
+        const int x1 = static_cast<int>((ScreenLayout::LOGICAL_WIDTH  - result_title_text_.Width())  / 2.0f);
+        const int y1 = static_cast<int>((ScreenLayout::LOGICAL_HEIGHT - result_title_text_.Height()) / 1.25f);
+        (void)result_title_text_.Render(x1, y1);
+        // result_instruction_text_: 画面中央少し上
+        const int x2 = static_cast<int>((ScreenLayout::LOGICAL_WIDTH  - result_instruction_text_.Width())  / 2.0f);
+        const int y2 = static_cast<int>((ScreenLayout::LOGICAL_HEIGHT - result_instruction_text_.Height()) / 1.5f);
+        (void)result_instruction_text_.Render(x2, y2);
+        // press_end_text: 画面全体に対して中央揃え(プレイフィールドではなくウィンドウ全体)
+        const int x3 = static_cast<int>((ScreenLayout::LOGICAL_WIDTH  - press_end_text_.Width())  / 2.0f);
+        const int y3 = static_cast<int>((ScreenLayout::LOGICAL_HEIGHT - press_end_text_.Height()) / 2.0f);
+        (void)press_end_text_.Render(x3, y3);
+
+        return true;
     } else {
         return false;
     }

@@ -61,6 +61,8 @@ private:
 
     // イベントの処理
     void ProcessEvents();
+    // ゲームの開始処理
+    void StartNewRun(UpdatePipeline& update_pipeline);
     // ゲームの更新: GameScreenごとに分ける
     void Update(
         float dt, 
