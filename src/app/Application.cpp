@@ -286,14 +286,16 @@ void Application::UpdatePlaying(
 {
     // ゲーム部分(simulation)へ渡す入力だけ記録する
     (void)run_recorder_.Record(input);  // Update前に記録
-    debug_stats_.recording = run_recorder_.IsRecording();
-    debug_stats_.recorded_frames = run_recorder_.GetRecord().frames.size();
 
     const GameplayTickEvents events = update_pipeline.UpdateTick(dt, input);
     if(events.stage_clear_finished){
         run_recorder_.Stop();
         game_screen_ = GameScreen::Result;
     }
+    // 最終的な記録状態を反映する
+    debug_stats_.recording = run_recorder_.IsRecording();
+    debug_stats_.recorded_frames = run_recorder_.GetRecord().frames.size();
+
 }
 
 /**

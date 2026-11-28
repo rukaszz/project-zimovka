@@ -154,17 +154,22 @@ bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
         }
         // result_title_text_: 画面上部
         const int x1 = static_cast<int>((ScreenLayout::LOGICAL_WIDTH  - result_title_text_.Width())  / 2.0f);
-        const int y1 = static_cast<int>((ScreenLayout::LOGICAL_HEIGHT - result_title_text_.Height()) / 1.25f);
-        (void)result_title_text_.Render(x1, y1);
+        const int y1 = static_cast<int>((ScreenLayout::LOGICAL_HEIGHT - result_title_text_.Height()) / 2.5f);
+        if(result_title_text_.Render(x1, y1)){
+            return false;
+        }
         // result_instruction_text_: 画面中央少し上
         const int x2 = static_cast<int>((ScreenLayout::LOGICAL_WIDTH  - result_instruction_text_.Width())  / 2.0f);
         const int y2 = static_cast<int>((ScreenLayout::LOGICAL_HEIGHT - result_instruction_text_.Height()) / 1.5f);
-        (void)result_instruction_text_.Render(x2, y2);
+        if(result_instruction_text_.Render(x2, y2)){
+            return false;
+        }
         // press_end_text: 画面全体に対して中央揃え(プレイフィールドではなくウィンドウ全体)
         const int x3 = static_cast<int>((ScreenLayout::LOGICAL_WIDTH  - press_end_text_.Width())  / 2.0f);
         const int y3 = static_cast<int>((ScreenLayout::LOGICAL_HEIGHT - press_end_text_.Height()) / 2.0f);
-        (void)press_end_text_.Render(x3, y3);
-
+        if(press_end_text_.Render(x3, y3)){
+            return false;
+        }
         return true;
     } else {
         return false;

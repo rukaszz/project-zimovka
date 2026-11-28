@@ -56,8 +56,6 @@ private:
     DebugStats debug_stats_;
     // デバッグ統計の累積(0.25s毎にflushして平均・最大値を計算)
     DebugAccumulator debug_acc_;
-    // タイトル画面テキスト用オーバーレイ
-    GameTextOverlay title_overlay_;
 
     // イベントの処理
     void ProcessEvents();
