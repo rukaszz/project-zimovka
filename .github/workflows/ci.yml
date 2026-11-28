@@ -74,6 +74,10 @@ jobs:
 #### EOF
 #### )"
 ## 4. GithubのページでPull requestを確認(CI)とマージを実施
+#### マージはデフォルトの"Create a merge commit"でOK
+#### これはfeatureブランチの全てのコミット履歴を保持してマージする(2つのブランチが合流する)
+#### Squash merge(featureの複数のコミットを1つにまとめてコミットする)や
+#### Rebase merge(featureの各コミットをmainへ順番に適用する)は必要であれば使う
 ### マージしたらfeatureは削除して整理してOK
 ## 5. 次の作業へ
 ### $ git switch main # mainブランチに変える

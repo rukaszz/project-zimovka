@@ -128,7 +128,7 @@ GameplayTickEvents UpdatePipeline::UpdateTick(float dt, const InputState& input)
     events.weapon = UpdateWeapons(input);
 
     UpdateEnemy(dt);
-    const BossTickEvents boss_event = UpdateBoss(dt);
+    (void)UpdateBoss(dt);
 
     UpdateProjectiles(dt);
 

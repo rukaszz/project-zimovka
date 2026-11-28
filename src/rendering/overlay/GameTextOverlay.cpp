@@ -25,7 +25,11 @@ void GameTextOverlay::Reset() noexcept{
     // TextTextureメンバ変数をリセット※Rendererが生存していないといけない
     stage_clear_text_.Reset();
     warning_text_.Reset();
-    
+    press_start_text_.Reset();
+    press_end_text_.Reset();
+    result_title_text_.Reset();
+    result_instruction_text_.Reset();
+
     // SDL関係のリソース解放
     if(font_){
         TTF_CloseFont(font_);
@@ -84,20 +88,35 @@ void GameTextOverlay::Load(
  */
 bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
     // 表示対象がなければSDLリソースを使わずに正常return
-    if(!model.show_warning && !model.show_stage_clear){
+    if(!model.show_warning 
+    && !model.show_stage_clear 
+    && !model.show_press_start
+    && !model.show_result
+    )
+    {
         return true;
     }
     if(!renderer_ || !font_){
         return false;
     }
-    constexpr zimovka::Color WHITE{
-        255, 255, 255, 255
-    };
+    constexpr zimovka::Color WHITE{255, 255, 255, 255};
 
-    if(model.show_warning){
+    if(model.show_press_start){
+        if(!press_start_text_.Update(renderer_, font_, "Press Z to Start", WHITE)){
+            return false;
+        }
+        // 画面全体に対して中央揃え(プレイフィールドではなくウィンドウ全体)
+        const int x = static_cast<int>(
+            (ScreenLayout::LOGICAL_WIDTH  - press_start_text_.Width())  / 2.0f
+        );
+        const int y = static_cast<int>(
+            (ScreenLayout::LOGICAL_HEIGHT - press_start_text_.Height()) / 2.0f
+        );
+        return press_start_text_.Render(x, y);
+
+    } else if(model.show_warning){
         // TextTexture::Update()の実施：テクスチャ生成などが失敗したらfalseを伝搬
-        if(!warning_text_.Update(renderer_, font_, "WARNING", WHITE))
-        {
+        if(!warning_text_.Update(renderer_, font_, "WARNING", WHITE)){
             return false;
         }
         // 描画位置(中心)
@@ -111,8 +130,7 @@ bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
 
     } else if(model.show_stage_clear){
         // TextTexture::Update()の実施：テクスチャ生成などが失敗したらfalseを伝搬
-        if(!stage_clear_text_.Update(renderer_, font_, "STAGE CLEAR", WHITE))
-        {
+        if(!stage_clear_text_.Update(renderer_, font_, "STAGE CLEAR", WHITE)){
             return false;
         }
         // 描画位置(中心)
@@ -123,6 +141,36 @@ bool GameTextOverlay::Render(const GameTextOverlayViewModel& model){
             ScreenLayout::PLAYFIELD_Y + (ScreenLayout::PLAYFIELD_HEIGHT - stage_clear_text_.Height()) / 2.0f
         );
         return stage_clear_text_.Render(x, y);
+    } else if(model.show_result){
+        // text update
+        if(!result_title_text_.Update(renderer_, font_, "Stage Clear!", WHITE)){
+            return false;
+        }
+        if(!result_instruction_text_.Update(renderer_, font_, "Press Z to Retry", WHITE)){
+            return false;
+        }
+        if(!press_end_text_.Update(renderer_, font_, "Press Esc to End", WHITE)){
+            return false;
+        }
+        // result_title_text_: 画面上部
+        const int x1 = static_cast<int>((ScreenLayout::LOGICAL_WIDTH  - result_title_text_.Width())  / 2.0f);
+        const int y1 = static_cast<int>((ScreenLayout::LOGICAL_HEIGHT - result_title_text_.Height()) / 2.5f);
+        if(result_title_text_.Render(x1, y1)){
+            return false;
+        }
+        // result_instruction_text_: 画面中央少し上
+        const int x2 = static_cast<int>((ScreenLayout::LOGICAL_WIDTH  - result_instruction_text_.Width())  / 2.0f);
+        const int y2 = static_cast<int>((ScreenLayout::LOGICAL_HEIGHT - result_instruction_text_.Height()) / 1.5f);
+        if(result_instruction_text_.Render(x2, y2)){
+            return false;
+        }
+        // press_end_text: 画面全体に対して中央揃え(プレイフィールドではなくウィンドウ全体)
+        const int x3 = static_cast<int>((ScreenLayout::LOGICAL_WIDTH  - press_end_text_.Width())  / 2.0f);
+        const int y3 = static_cast<int>((ScreenLayout::LOGICAL_HEIGHT - press_end_text_.Height()) / 2.0f);
+        if(press_end_text_.Render(x3, y3)){
+            return false;
+        }
+        return true;
     } else {
         return false;
     }

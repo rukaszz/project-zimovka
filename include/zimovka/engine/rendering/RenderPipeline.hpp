@@ -22,7 +22,11 @@ private:
 public:
     // フォントの読み込み等を含めた初期化
     void Initialize(SDL_Renderer* renderer, const std::string& font_path);
-
+    // タイトルの描画
+    bool RenderTitle();
+    // リザルトの描画
+    bool RenderResult();
+    // ゲーム全体の描画処理
     void RenderFrame(
         const UpdatePipeline& gameplay,
         Renderer&             renderer,
@@ -31,6 +35,7 @@ public:
         const TextureStore&   textures,
         bool draw_debug_collision
     );
+
 };
 } // namespace zimovka
 

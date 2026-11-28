@@ -44,6 +44,34 @@ void RenderPipeline::Initialize(
 }
 
 /**
+ * @brief タイトルの描画処理
+ * 
+ * @return true 
+ * @return false 
+ */
+bool RenderPipeline::RenderTitle(){
+    // デフォルトがfalseなのでこの関数が呼ばれなくなる=show_press_startはfalseとなる
+    GameTextOverlayViewModel model{};
+    model.show_press_start = true;
+
+    return text_overlay_.Render(model);
+}
+
+/**
+ * @brief リザルトの描画処理
+ * 
+ * @return true 
+ * @return false 
+ */
+bool RenderPipeline::RenderResult(){
+    // デフォルトがfalseなのでこの関数が呼ばれなくなる=show_press_startはfalseとなる
+    GameTextOverlayViewModel model{};
+    model.show_result = true;
+
+    return text_overlay_.Render(model);
+}
+
+/**
  * @brief 規定の順序で各種の描画処理を行う
  *
  * 処理順序は
